@@ -20,7 +20,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("diagnosis", self.openai_yaml_text)
 
     def test_launcher_contract_is_explicit(self) -> None:
-        self.assertIn("smedc-mcp-launcher@0.5.0", self.skill_text)
+        self.assertIn("smedc-mcp-launcher@0.6.0", self.skill_text)
         self.assertIn("MCP entry is `smedc`", self.skill_text)
         self.assertNotIn("latest launcher version currently approved", self.skill_text)
 

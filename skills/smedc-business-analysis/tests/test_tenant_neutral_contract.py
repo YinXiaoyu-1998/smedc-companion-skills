@@ -158,7 +158,7 @@ class TenantNeutralContractTests(unittest.TestCase):
         self.assertIn("name: smedc-business-analysis", skill_text)
         self.assertIn("$smedc-business-analysis", openai_yaml)
         self.assertIn("smedc-mcp", skill_text)
-        self.assertIn("smedc-mcp-launcher@0.5.0", skill_text)
+        self.assertIn("smedc-mcp-launcher@0.6.0", skill_text)
         self.assertIn("MCP entry is `smedc`", skill_text)
         self.assertIn("smedc_get_current_user", skill_text)
         self.assertIn("explicitly authorizes", skill_text)

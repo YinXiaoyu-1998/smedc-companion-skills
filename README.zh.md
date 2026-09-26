@@ -35,7 +35,7 @@ git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smed
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
 ```
 
-business-analysis skill 需要已认证的 `smedc-mcp` session，使用 `smedc-mcp-launcher@0.5.0` 和 MCP entry `smedc`。如果缺少前置项，必须先停止报表数据访问，并在安装前请求员工明确授权。它不会自动安装其他 companion skill。
+business-analysis skill 需要已认证的 `smedc-mcp` session，使用 `smedc-mcp-launcher@0.6.0` 和 MCP entry `smedc`。如果缺少前置项，必须先停止报表数据访问，并在安装前请求员工明确授权。它不会自动安装其他 companion skill。
 
 delivery-ledger skill 使用同一个已认证的 `smedc-mcp` 前置项来查询台帐、准备带收货单号的 CSV 导出和按门店/月维护源数据、以及操作检疫证明照片。它不会自动安装其他 companion skill。
 
