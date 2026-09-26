@@ -35,7 +35,7 @@ git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smed
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
 ```
 
-The business-analysis skill requires an authenticated `smedc-mcp` session using `smedc-mcp-launcher@0.5.0` and MCP entry `smedc`. If that prerequisite is missing, the skill must stop before report data access and ask for explicit authorization before installing it. It never installs another companion skill automatically.
+The business-analysis skill requires an authenticated `smedc-mcp` session using `smedc-mcp-launcher@0.6.0` and MCP entry `smedc`. If that prerequisite is missing, the skill must stop before report data access and ask for explicit authorization before installing it. It never installs another companion skill automatically.
 
 The delivery-ledger skill uses the same authenticated `smedc-mcp` prerequisite for ledger queries, receipt-aware CSV export and per-store monthly maintenance source data, and quarantine-certificate photo operations. It never installs another companion skill automatically.
 

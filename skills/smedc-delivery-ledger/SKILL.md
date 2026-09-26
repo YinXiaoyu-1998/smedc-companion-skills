@@ -7,7 +7,7 @@ description: Use when querying SMEDC delivery ledger rows, exporting the statuto
 
 Query and present the SMEDC `delivery_ledger` structured dataset, optionally export its statutory CSV table, and manage quarantine-certificate photos linked to receipt IDs. The employee-owned agent performs all SMEDC MCP calls through the user's authenticated launcher session.
 
-**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.5.0`, and the MCP entry is `smedc`.
+**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.6.0`, and the MCP entry is `smedc`.
 
 If `smedc-mcp` is not installed, do not begin ledger or photo access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-business-analysis` automatically.
 
