@@ -19,11 +19,13 @@ class BuildQueryPlanTests(unittest.TestCase):
         *,
         empty_dish_catalog: bool = False,
         current_user: Path | None = FIXTURES / "current_user_response.json",
+        store_name_contains: list[str] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], dict]:
         completed, output = self.run_plan_command(
             report_type=report_type,
             empty_dish_catalog=empty_dish_catalog,
             current_user=current_user,
+            store_name_contains=store_name_contains,
         )
         return completed, json.loads(output.read_text(encoding="utf-8")) if output.exists() else {}
 
@@ -33,6 +35,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         *,
         empty_dish_catalog: bool = False,
         current_user: Path | None = FIXTURES / "current_user_response.json",
+        store_name_contains: list[str] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], Path]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -77,6 +80,8 @@ class BuildQueryPlanTests(unittest.TestCase):
         ]
         if current_user is not None:
             command[6:6] = ["--current-user", str(current_user)]
+        if store_name_contains is not None:
+            command.extend(["--store-name-contains", *store_name_contains])
         completed = subprocess.run(
             command,
             cwd=ROOT,
@@ -113,6 +118,20 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertEqual(len(manifest["extracts"]), 1)
         self.assertEqual(manifest["extracts"][0]["input"]["dataset"], "business")
         self.assertTrue(all(job["tool"] == "local_partition_aggregate" for job in manifest["jobs"]))
+
+    def test_store_name_filter_is_preserved_for_every_report_type(self) -> None:
+        for report_type in ("diagnosis", "weekly", "monthly"):
+            with self.subTest(report_type=report_type):
+                completed, manifest = self.run_plan(report_type, store_name_contains=[" 示例一 ", "示例三", "示例一"])
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                self.assertEqual(manifest["report"]["storeNameContains"], ["示例一", "示例三"])
+                self.assertTrue(all("storeIds" not in item["input"] for item in manifest["extracts"]))
+
+    def test_blank_store_name_fragment_fails_before_writing_manifest(self) -> None:
+        completed, output = self.run_plan_command(store_name_contains=["   "])
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("store-name-contains values must be non-blank", completed.stderr)
+        self.assertFalse(output.exists())
 
     def test_weekly_plan_omits_catalog_job_when_no_snapshot_is_readable(self) -> None:
         completed, manifest = self.run_plan(empty_dish_catalog=True)

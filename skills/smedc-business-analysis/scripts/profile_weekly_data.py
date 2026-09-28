@@ -153,6 +153,7 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
             "report_grain": "week",
             "bundle": str(bundle_path),
             "target_windows": bundle["report"]["windows"],
+            "store_name_contains": bundle["report"].get("storeNameContains", []),
             "coverage": bundle.get("coverage", {}),
             "jobs": job_metadata(bundle),
             "outputContract": bundle.get("outputContract"),
@@ -186,6 +187,7 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
             has_dayparts=any(row.get("period") == PERIOD_LABELS["current"] for row in dayparts),
             has_dishes=bool(rows_for(bundle, "dishes_current_product_totals")),
             has_catalog=bool(rows_for(bundle, "dish_catalog_current_snapshot")),
+            store_name_contains=bundle["report"].get("storeNameContains", []),
         ),
     }
     write_json(output_dir / "weekly_meeting_summary.json", summary)

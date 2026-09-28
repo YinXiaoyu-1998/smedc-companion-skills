@@ -180,6 +180,7 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
             "bundle": str(bundle_path),
             "report_type": "diagnosis",
             "windows": bundle["report"]["windows"],
+            "store_name_contains": bundle["report"].get("storeNameContains", []),
             "coverage": bundle.get("coverage", {}),
             "jobs": job_metadata(bundle),
             "outputContract": bundle.get("outputContract"),
