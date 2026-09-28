@@ -141,11 +141,19 @@ def build_payload(input_dir: Path) -> dict[str, Any]:
         if not available:
             messages.append(message)
     if not has_current:
-        messages = ["本期暂无可用经营数据，经营指标与分析板块未展示。"]
+        messages = [
+            "所选店名在本期没有匹配的营业数据，经营指标与分析板块未展示。"
+            if summary["source"].get("store_name_contains") else "本期暂无可用经营数据，经营指标与分析板块未展示。"
+        ]
     window = summary["source"]["windows"]["current"]
     company = organization_name_from_metadata(summary)
-    return {"meta": {"title": f"{company}经营诊断报告", "company": company, "period": f"{window['start']}—{window['end']}",
-                     "generated": date.today().isoformat(), "store_count": len(stores)},
+    scope = summary["source"].get("store_name_contains", [])
+    period = f"{window['start']}—{window['end']}"
+    if scope:
+        period += f"｜门店名称包含：{'、'.join(scope)}（全体门店为筛选后合计）"
+    return {"meta": {"title": f"{company}经营诊断报告", "company": company, "period": period,
+                     "generated": date.today().isoformat(), "store_count": len(stores),
+                     "store_name_contains": summary["source"].get("store_name_contains", [])},
             "overall": overall, "insights": insights, "stores": stores, "channels": channels,
             "monthly": monthly, "dayparts": dayparts, "members": members,
             "store_segments": dict(Counter(row["segment"] for row in stores)), "opportunities": pool,

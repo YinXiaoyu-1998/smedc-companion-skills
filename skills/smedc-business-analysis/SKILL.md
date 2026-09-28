@@ -65,12 +65,13 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
      --yoy-start YYYY-MM-DD \
      --yoy-end YYYY-MM-DD \
      --enterprise-name "示例企业" \
+     --store-name-contains "示例品牌" \
      --registry-response runs/RUN_ID/registry_response.json \
      --coverage-dir runs/RUN_ID \
      --output runs/RUN_ID/query_manifest.json
    ```
 
-   Use `--report-type diagnosis`, `weekly`, or `monthly`. Data coverage decides which modules can be shown; it must never change the requested reporting period.
+   Use `--report-type diagnosis`, `weekly`, or `monthly`. Add `--store-name-contains` only when the employee requests a store-name scope; omit it for the complete enterprise. The option accepts one or more nonblank fragments and keeps a store when its name contains any fragment (case-sensitive). The same filter applies to business and dishes before local aggregation, across current, previous, YoY, and trend windows. `全体门店` in a filtered report means the selected stores' combined total. The partition download remains enterprise-wide because the MCP download tool has no store-name condition; do not narrow it using `storeIds` inferred from coverage, which can omit stores without merchant IDs. Do not apply a one-off filter only to the rendered report or only to the current week. Data coverage decides which modules can be shown; it must never change the requested reporting period.
 
 7. For every `extracts[]` entry, call `download_structured_partitions` with its `input` exactly as emitted. Save the full tool response at `extracts[].outputFile`.
 

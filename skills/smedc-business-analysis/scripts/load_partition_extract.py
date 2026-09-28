@@ -202,6 +202,7 @@ def process_file(
     file_spec: dict[str, Any],
     fields: dict[str, dict[str, Any]],
     accumulators: list[JobAccumulator],
+    store_name_contains: list[str],
 ) -> None:
     file_name = file_spec.get("fileName")
     if not isinstance(file_name, str) or Path(file_name).name != file_name:
@@ -216,6 +217,8 @@ def process_file(
     if path.stat().st_size != file_spec.get("byteSize") or digest.hexdigest() != file_spec.get("checksumSha256"):
         raise ExtractError(f"launcher partition integrity mismatch: {file_name}")
     needed = set().union(*(required_fields(item.job) for item in accumulators))
+    if store_name_contains:
+        needed.add("store_name")
     source_by_canonical = {name: fields[name]["sourceColumn"] for name in needed if name in fields}
     if set(source_by_canonical) != needed:
         missing = ", ".join(sorted(needed - set(source_by_canonical)))
@@ -235,6 +238,8 @@ def process_file(
             }
             if row.get("business_date") != file_spec.get("businessDate"):
                 raise ExtractError(f"partition {file_name} row {index} date does not match its manifest")
+            if store_name_contains and not any(fragment in str(row.get("store_name") or "") for fragment in store_name_contains):
+                continue
             for accumulator in accumulators:
                 accumulator.add(row)
     if row_count != file_spec.get("rowCount"):
@@ -246,6 +251,13 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
     extracts = manifest.get("extracts")
     if not isinstance(jobs, list) or not isinstance(extracts, list):
         raise ExtractError("manifest jobs and extracts must be arrays")
+    report = require_object(manifest.get("report", {}), "manifest report")
+    store_name_contains = report.get("storeNameContains", [])
+    if not isinstance(store_name_contains, list) or any(
+        not isinstance(fragment, str) or not fragment or fragment != fragment.strip()
+        for fragment in store_name_contains
+    ):
+        raise ExtractError("manifest report storeNameContains must contain non-blank text")
     local_jobs = [job for job in jobs if isinstance(job, dict) and job.get("tool") == "local_partition_aggregate"]
     fields_by_dataset = registry_maps(registry_response)
     accumulators = {job["id"]: JobAccumulator(job) for job in local_jobs}
@@ -267,7 +279,7 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         for file_spec in files:
             if not isinstance(file_spec, dict):
                 raise ExtractError(f"extract {extract_spec['id']} has malformed file metadata")
-            process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators)
+            process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators, store_name_contains)
 
     for accumulator in accumulators.values():
         job = accumulator.job

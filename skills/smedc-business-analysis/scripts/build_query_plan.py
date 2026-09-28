@@ -820,6 +820,7 @@ def build_plan(
     windows: dict[str, DateWindow],
     enterprise_name: str,
     organization_name: str | None = None,
+    store_name_contains: list[str] | None = None,
 ) -> dict[str, Any]:
     business_date = require_field(config, registry, "business.date", "filter").canonical
     business_store = require_field(config, registry, "business.store", "group").canonical
@@ -1051,6 +1052,7 @@ def build_plan(
             "type": report_type,
             "windows": {name: window.as_json() for name, window in windows.items()},
             "trendWindows": trend_windows,
+            "storeNameContains": store_name_contains or [],
         },
         "coverage": coverage_manifest,
         "notices": ordered_notices,
@@ -1082,6 +1084,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--yoy-end", required=True, help="Year-over-year comparison window end date, YYYY-MM-DD.")
     parser.add_argument("--enterprise-name", required=True, help="Enterprise/source name to select and download.")
     parser.add_argument(
+        "--store-name-contains",
+        nargs="+",
+        help="Keep business and dishes rows whose store name contains any supplied text (case-sensitive).",
+    )
+    parser.add_argument(
         "--current-user",
         type=Path,
         help="Saved smedc_get_current_user response used as the only report organization source.",
@@ -1109,6 +1116,13 @@ def main(argv: list[str]) -> int:
         registry, limits = registry_by_dataset(registry_response)
         validate_config_fields(config, registry)
         coverage, coverage_notices = load_coverage(config, registry, args.coverage_dir, args.enterprise_name)
+        store_name_contains = []
+        for value in args.store_name_contains or []:
+            fragment = value.strip()
+            if not fragment:
+                raise PlanError("store-name-contains values must be non-blank")
+            if fragment not in store_name_contains:
+                store_name_contains.append(fragment)
         manifest = build_plan(
             config,
             registry,
@@ -1118,6 +1132,7 @@ def main(argv: list[str]) -> int:
             windows,
             args.enterprise_name,
             organization_name,
+            store_name_contains,
         )
         manifest["notices"] = sort_notices([*manifest["notices"], *coverage_notices])
         manifest["outputContract"] = {

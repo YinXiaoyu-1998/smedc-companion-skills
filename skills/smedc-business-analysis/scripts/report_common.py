@@ -279,12 +279,16 @@ def report_gap_messages(
     has_dayparts: bool,
     has_dishes: bool,
     has_catalog: bool,
+    store_name_contains: list[str] | None = None,
 ) -> list[str]:
     """Describe omitted report modules without exposing transport details."""
     messages = human_gap_messages(notices)
     inferred: list[str] = []
     if not has_current:
-        inferred.append("缺少本期营业数据，本期经营分析未展示。")
+        inferred.append(
+            "所选店名在本期没有匹配的营业数据，本期经营分析未展示。"
+            if store_name_contains else "缺少本期营业数据，本期经营分析未展示。"
+        )
     elif not has_previous or not has_yoy:
         inferred.append("缺少上期或同期营业数据，部分对比和归因未展示。")
     if not has_trend:

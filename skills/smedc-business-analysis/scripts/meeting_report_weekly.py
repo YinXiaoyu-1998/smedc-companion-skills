@@ -1169,6 +1169,12 @@ HTML_TEMPLATE = r'''<!doctype html>
         `同比：${meta.target_windows.yoy.start}-${meta.target_windows.yoy.end}`,
         `门店：${meta.store_count}家`
       ].map(x => `<span class="chip">${x}</span>`).join('');
+      if (meta.store_name_contains?.length) {
+        const scope = document.createElement('span');
+        scope.className = 'chip';
+        scope.textContent = `门店名称包含：${meta.store_name_contains.join('、')}（全体门店为筛选后合计）`;
+        document.getElementById('metaChips').appendChild(scope);
+      }
     }
     function renderKpis() {
       const k = data.kpis;
