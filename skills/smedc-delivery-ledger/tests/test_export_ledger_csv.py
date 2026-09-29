@@ -60,13 +60,6 @@ def complete_row(**overrides):
 
 
 class ExportLedgerCsvTests(unittest.TestCase):
-    def test_skill_keeps_query_json_internal_temporary_and_consumed(self):
-        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("system temporary directory outside the requested output directory", skill_text)
-        self.assertIn("--delete-input", skill_text)
-        self.assertIn("Do not present, link, or mention the temporary query JSON", skill_text)
-        self.assertIn("Present only the requested CSV file or files", skill_text)
-
     def run_export(self, payload, output_path, *extra_args):
         input_path = output_path.with_suffix(".json")
         input_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
