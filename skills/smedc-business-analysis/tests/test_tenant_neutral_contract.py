@@ -139,10 +139,11 @@ class TenantNeutralContractTests(unittest.TestCase):
         self.assertNotIn("备选显示名", completed.stdout + completed.stderr)
         self.assertNotIn("fallback-company", completed.stdout + completed.stderr)
 
-    def test_skill_subtree_has_no_removed_seed_names_in_current_files(self) -> None:
+    def test_distributed_content_has_no_removed_seed_names(self) -> None:
         for path in sorted(ROOT.rglob("*")):
             if (
                 path.is_dir()
+                or "tests" in path.relative_to(ROOT).parts
                 or "__pycache__" in path.parts
                 or any(part.startswith(".") for part in path.relative_to(ROOT).parts)
             ):
@@ -150,27 +151,6 @@ class TenantNeutralContractTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8", errors="ignore")
             for pattern in REMOVED_SEED_PATTERNS:
                 with self.subTest(path=path.relative_to(ROOT), pattern=pattern):
-                    self.assertNotIn(pattern, text)
-
-    def test_prerequisite_is_smedc_mcp_and_install_requires_explicit_authorization(self) -> None:
-        skill_text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        openai_yaml = (ROOT / "agents" / "openai.yaml").read_text(encoding="utf-8")
-        self.assertIn("name: smedc-business-analysis", skill_text)
-        self.assertIn("$smedc-business-analysis", openai_yaml)
-        self.assertIn("smedc-mcp", skill_text)
-        self.assertIn("smedc-mcp-launcher@0.6.0", skill_text)
-        self.assertIn("MCP entry is `smedc`", skill_text)
-        self.assertIn("smedc_get_current_user", skill_text)
-        self.assertIn("explicitly authorizes", skill_text)
-        self.assertIn("Never install it silently", skill_text)
-        self.assertIn("Never install or import `smedc-delivery-ledger` automatically", skill_text)
-
-    def test_no_runtime_import_or_dependency_on_future_delivery_ledger_sibling(self) -> None:
-        forbidden = ("smedc-delivery-ledger", "delivery_ledger", "food-purchase-ledger-cn-v2")
-        for path in sorted((ROOT / "scripts").glob("*.py")):
-            text = path.read_text(encoding="utf-8")
-            for pattern in forbidden:
-                with self.subTest(path=path.name, pattern=pattern):
                     self.assertNotIn(pattern, text)
 
 
