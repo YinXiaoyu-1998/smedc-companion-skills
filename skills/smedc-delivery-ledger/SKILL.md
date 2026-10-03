@@ -1,11 +1,11 @@
 ---
 name: smedc-delivery-ledger
-description: Use when querying SMEDC delivery ledger rows, exporting the statutory food-purchase ledger CSV, or managing receipt-linked quarantine-certificate photos.
+description: Use when querying SMEDC delivery ledger rows, exporting or maintaining food-purchase ledger spreadsheets with text-safe phone numbers, or managing receipt-linked quarantine-certificate photos.
 ---
 
 # SMEDC Delivery Ledger
 
-Query and present the SMEDC `delivery_ledger` structured dataset, optionally export its statutory CSV table, and manage quarantine-certificate photos linked to receipt IDs. The employee-owned agent performs all SMEDC MCP calls through the user's authenticated launcher session.
+Query and present the SMEDC `delivery_ledger` structured dataset, export its statutory table as XLSX by default or CSV when explicitly requested, and manage quarantine-certificate photos linked to receipt IDs. The employee-owned agent performs all SMEDC MCP calls through the user's authenticated launcher session.
 
 **Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.6.0`, and the MCP entry is `smedc`.
 
@@ -13,10 +13,10 @@ If `smedc-mcp` is not installed, do not begin ledger or photo access. Explain th
 
 ## Boundaries
 
-- Do not perform business analysis, dashboarding, OCR, photo classification, authenticity judgment, PDF/XLSX output, or sibling skill runtime imports.
+- Do not perform business analysis, dashboarding, OCR, photo classification, authenticity judgment, PDF output, or sibling skill runtime imports.
 - Use only the user's authenticated SMEDC MCP session. Do not use direct HTTP, service databases, service configuration, internal storage, passwords, or tokens.
-- Present `收货单号` / `receipt_id` in normal ledger tables and CSV output. Present `entry_id`, `store_name`, and `source_document_id` only if the user separately asks for operational provenance, except that `store_name` is required as internal routing input for per-store monthly CSV maintenance.
-- Never add quarantine-certificate photo metadata or URLs to CSV output.
+- Present `收货单号` / `receipt_id` in normal ledger tables and exported files. Present `entry_id`, `store_name`, and `source_document_id` only if the user separately asks for operational provenance, except that `store_name` is required as internal routing input for per-store monthly maintenance.
+- Never add quarantine-certificate photo metadata or URLs to exported files.
 - Never OCR, classify, modify, or authenticate certificate images.
 
 ## Ledger Workflow
@@ -57,33 +57,39 @@ If `smedc-mcp` is not installed, do not begin ledger or photo access. Explain th
    进货日期
    ```
 
-## CSV Export
+## Spreadsheet Export
 
-Use `scripts/export_ledger_csv.py` only when the user requests CSV output. Treat the raw query result as an internal transient input, not a user deliverable. Create an agent-owned file in a system temporary directory outside the requested output directory, install a finally/trap cleanup before writing it, and save one exact `query_structured_dataset` result object containing the service `presentation` key, or an array of paginated result objects in request order, as UTF-8 JSON. Run the exporter with `--delete-input`; it removes that input after both successful export and handled validation failure:
+When the user asks to export/download a ledger or generate an Excel/spreadsheet file without choosing a format, use **XLSX**. Preserve an explicit CSV request. For a table to display in chat, follow Ledger Workflow without creating a file. Use `scripts/export_ledger.py` for file exports; do not recreate the exporter, coerce phone numbers to numbers, or round identifiers yourself.
 
-```bash
-python3 scripts/export_ledger_csv.py TEMP_INPUT_JSON OUTPUT_CSV --delete-input
-```
+XLSX needs `openpyxl` from this skill's `requirements.txt`. Check the selected Python interpreter with `python3 -c 'import openpyxl'`. If missing, create an agent-owned virtual environment outside the output directory, install with `VENV/bin/python -m pip install -r requirements.txt`, and run the exporter with that interpreter. Do not modify unrelated Python environments or silently fall back to CSV. If dependency setup fails, report the narrow blocker.
 
-Use `--overwrite` only when the user explicitly asks to replace an existing CSV:
+Treat the raw query result as an internal transient input, not a user deliverable. Create an agent-owned file in a system temporary directory outside the requested output directory, install a finally/trap cleanup before writing it, and save one exact `query_structured_dataset` result object containing the service `presentation` key, or an array of paginated result objects in request order, as UTF-8 JSON. Run the exporter with `--delete-input`; it removes that input after both successful export and handled validation failure:
 
 ```bash
-python3 scripts/export_ledger_csv.py TEMP_INPUT_JSON OUTPUT_CSV --overwrite --delete-input
+python3 scripts/export_ledger.py TEMP_INPUT_JSON OUTPUT.xlsx --delete-input
 ```
 
-The surrounding finally/trap must remove the exact temporary input and its empty temporary directory if execution is interrupted or the exporter never starts. Do not place the input JSON in the CSV output directory or leave it anywhere after the run. Do not present, link, or mention the temporary query JSON. Present only the requested CSV file or files and a concise export/maintenance result. If the user explicitly requests the raw query response as a separate deliverable, write that requested artifact separately; it is not the exporter's temporary input.
-
-In any CSV mode, if the validated result contains zero rows, the exporter exits successfully, prints a compact JSON no-op summary, creates no CSV, and leaves any existing target byte-identical even when `--overwrite` was supplied.
-
-For common requests such as “生成通州店 2026 年 9 月的台账 CSV”, use the per-store monthly create-or-maintain mode. Query the bounded requested scope in `detail` mode and include internal `store_name` in each returned row in addition to the eleven profile fields. Save the exact result JSON only at the temporary input path described above, then run:
+For an explicit CSV request, use an `.csv` output filename (or `--format csv` in monthly mode):
 
 ```bash
-python3 scripts/export_ledger_csv.py TEMP_INPUT_JSON --store-month-dir OUTPUT_DIR --month 2026-09 --delete-input
+python3 scripts/export_ledger.py TEMP_INPUT_JSON OUTPUT.csv --delete-input
 ```
 
-This mode writes conventional files named `食品经营单位进货台帐_<门店名>_<YYYY-MM>.csv`. If a conventional valid CSV already exists, the exporter automatically maintains it: an incoming `收货单号` already present in that file skips the entire receipt, while a new `收货单号` appends all rows for that receipt without row-level deduplication. Do not ask for extra overwrite/update wording for this normal generate request. The internal `store_name` may not contain control characters or Windows-invalid filename characters `<>:"/\|?*`. If two distinct store names would resolve to the same filename after Unicode normalization and case-folding on a typical macOS filesystem, fail closed and ask the user to disambiguate the store scope before writing.
+XLSX saves phone numbers, receipt IDs, batches, dates, and other non-measure columns as literal string cells with text format `@`, preserving leading zeros and `+` prefixes without formulas or extra apostrophes. Quantities and amounts remain numeric. The exporter sets readable column widths, a frozen header, and filters. It rejects numeric or scientific-notation phone inputs rather than guessing lost digits; ask for the original phone string when that validation fails. CSV retains exact characters and formula-prefix protection, but cannot encode cell types; spreadsheet viewers may still infer numeric phones. Do not promise text-type preservation for CSV. The legacy `export_ledger_csv.py` entry point remains compatible and defaults to CSV.
 
-The exporter writes UTF-8 with BOM, uses the eleven Chinese headers in statutory order, renders absent values, JSON `null`, and the service's literal `"null"` sentinel as empty cells for nullable columns, validates dataset/mode/presentation/rows before writing, quotes with Python standard-library `csv.writer`, prefixes spreadsheet formula-leading cells with a single quote, validates requested month/store filenames/affected existing CSV files for per-store maintenance, and atomically replaces output through a temporary file. The per-store monthly mode emits a compact JSON run summary on stdout.
+Use `--overwrite` only when the user explicitly asks to replace an existing single output file. The surrounding finally/trap must remove the exact temporary input and its empty temporary directory if execution is interrupted or the exporter never starts. Do not place the input JSON in the output directory or leave it anywhere after the run. Do not present, link, or mention the temporary query JSON. Present only the requested exported files and a concise result. If the user explicitly requests the raw query response as a separate deliverable, write that artifact separately.
+
+In either format, zero validated rows produce a successful no-op summary, create no output, and leave an existing target byte-identical even with `--overwrite`.
+
+For requests such as “生成通州店 2026 年 9 月的台账”, use per-store monthly create-or-maintain mode. Query the bounded requested scope in `detail` mode and include internal `store_name` in each returned row in addition to the eleven profile fields. Save the exact result JSON at the temporary input path described above, then run:
+
+```bash
+python3 scripts/export_ledger.py TEMP_INPUT_JSON --store-month-dir OUTPUT_DIR --month 2026-09 --delete-input
+```
+
+This mode defaults to `食品经营单位进货台帐_<门店名>_<YYYY-MM>.xlsx`; add `--format csv` only for an explicit CSV request. It maintains valid conventional files of the selected format: a receipt already present skips the entire receipt, while a new receipt appends all its rows without row-level deduplication. Do not ask for extra overwrite/update wording for this normal generate request. Existing CSV files are not automatically migrated, removed, or overwritten when choosing XLSX. Existing XLSX must contain one ledger worksheet with the exact headers, literal text identifiers/phones, and dates in the requested month; invalid files fail before any store is written. Maintenance regenerates the standard ledger layout, so custom worksheet formatting is not preserved. The internal `store_name` may not contain control characters or Windows-invalid filename characters `<>:"/\|?*`. Filename collisions after Unicode normalization and case-folding fail closed; ask the user to disambiguate the store scope.
+
+Both formats use the eleven Chinese headers in statutory order, render nullable absent values/JSON `null`/literal `"null"` as empty cells, validate inputs and affected existing files before writing, and atomically replace each output through a temporary file. CSV uses UTF-8 with BOM and Python `csv.writer`. Monthly mode emits a compact JSON run summary on stdout.
 
 ## Quarantine-Certificate Photos
 
