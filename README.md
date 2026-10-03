@@ -1,6 +1,6 @@
 # smedc-companion-skills
 
-Companion Codex skills for SMEDC, the Small and Medium Enterprises Data Center.
+Companion agent skills for SMEDC, the Small and Medium Enterprises Data Center.
 
 This repository is organized as independently installable sibling skills under `skills/`. Each skill owns its own `SKILL.md`, metadata, scripts, config, tests, and development requirements. The repository root owns packaging documentation and cross-skill validation.
 
@@ -52,7 +52,7 @@ cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.age
 
 These are first-install examples. If a destination already exists, compare versions and preserve local changes before updating; do not blindly copy into an existing skill directory.
 
-The download skills default to the current user's `~/Downloads` (fallback `~/Desktop`) and generic `meituan_...` filenames. They preserve original exports and share the Chrome download-event/native Save handling for `ERR_BLOCKED_BY_CLIENT`. This handling has been verified for dish-sales and business reports; automated receipt-download replay remains unverified. SMEDC uploads require a user request, the core `smedc-mcp` skill, and an authenticated admin. Meituan credentials are entered by the user in the browser. No browser automation runtime is bundled here.
+The download skills default to the current user's `~/Downloads` (fallback `~/Desktop`) and generic `meituan_...` filenames. They preserve original exports and share the Chrome download-event/native Save handling for `ERR_BLOCKED_BY_CLIENT`. This handling has been verified for dish-sales and business reports; automated receipt-download replay remains unverified. SMEDC uploads require a user request, the core `smedc-mcp` skill, and an authenticated admin. Meituan credentials are entered by the user in the browser. The workflows are agent-neutral; the browser API examples target environments exposing `cua_repl` / `tab.playwright` / `cua.getApp`. Other agents need equivalent browser, download, and local-file capabilities, with download behavior verified in their own environment. No browser automation runtime is bundled here.
 
 ## Development
 

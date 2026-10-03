@@ -1,6 +1,6 @@
 # smedc-companion-skills
 
-这是 SMEDC（Small and Medium Enterprises Data Center）的 companion Codex skills 仓库。
+这是 SMEDC（Small and Medium Enterprises Data Center）的配套智能体 skills 仓库。
 
 本仓库采用 sibling skills 布局：每个 skill 都在 `skills/` 下独立拥有 `SKILL.md`、metadata、脚本、配置、测试和开发依赖。仓库根目录只负责安装说明和跨 skill 校验。
 
@@ -52,7 +52,7 @@ cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.age
 
 以上为首次安装示例。若目标目录已经存在，先比较版本并保留本地修改；不要直接复制进已有 skill 目录。
 
-下载 skills 默认保存到当前用户的 `~/Downloads`（不可用时使用 `~/Desktop`），使用通用 `meituan_...` 文件名并保留原始导出内容。三个技能统一使用 Chrome 下载事件与原生保存框处理 `ERR_BLOCKED_BY_CLIENT`；该方式已在菜品、营业报表验证，收货单自动回放尚未验证。上传 SMEDC 需要用户提出上传要求、核心 `smedc-mcp` skill 和已登录的 admin 账号。美团凭据由用户在浏览器中自行输入。本仓库不捆绑浏览器自动化运行环境。
+下载 skills 默认保存到当前用户的 `~/Downloads`（不可用时使用 `~/Desktop`），使用通用 `meituan_...` 文件名并保留原始导出内容。三个技能统一使用 Chrome 下载事件与原生保存框处理 `ERR_BLOCKED_BY_CLIENT`；该方式已在菜品、营业报表验证，收货单自动回放尚未验证。上传 SMEDC 需要用户提出上传要求、核心 `smedc-mcp` skill 和已登录的 admin 账号。美团凭据由用户在浏览器中自行输入。业务流程适用于具备相应能力的智能体；浏览器 API 示例针对提供 `cua_repl` / `tab.playwright` / `cua.getApp` 的环境。其他智能体需要等价的浏览器、下载及本地文件操作能力，并在自身环境验证下载行为。本仓库不捆绑浏览器自动化运行环境。
 
 ## 开发
 
