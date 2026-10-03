@@ -1,6 +1,6 @@
 # smedc-companion-skills
 
-这是 SMEDC（Small and Medium Enterprises Data Center）的 companion Codex skills 仓库。
+这是 SMEDC（Small and Medium Enterprises Data Center）的配套智能体 skills 仓库。
 
 本仓库采用 sibling skills 布局：每个 skill 都在 `skills/` 下独立拥有 `SKILL.md`、metadata、脚本、配置、测试和开发依赖。仓库根目录只负责安装说明和跨 skill 校验。
 
@@ -8,10 +8,13 @@
 
 - `skills/smedc-business-analysis/`：基于 SMEDC 结构化经营数据，生成租户中立的经营诊断、周会报表和月会报表。
 - `skills/smedc-delivery-ledger/`：带收货单号的进货台帐查询、电话号码固定为文本的 XLSX 导出、可选 CSV、按门店/月维护台帐，以及按收货单号关联检疫证明照片的使用指引。
+- `skills/download-meituan-dish-sales/`：按营业日期范围下载美团菜品销售原始 XLSX，用户要求时上传至 SMEDC `dishes`。
+- `skills/download-meituan-business-data/`：按营业日期范围下载美团营业数据原始 XLSX，用户要求时上传至 SMEDC `business`。
+- `skills/download-meituan-delivery-ledger/`：按收货日期筛选已收货单据，逐页下载 ZIP 并验证每单一份的原始 XLSX，供后续按需上传至 SMEDC `delivery_ledger`。
 
 ## 安装
 
-先安装核心前置 skill：
+需要访问 SMEDC 时，先安装核心前置 skill。仅从美团下载需要 Computer Use 和美团浏览器登录会话，无需 SMEDC 账号：
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -38,6 +41,20 @@ cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/
 business-analysis skill 需要已认证的 `smedc-mcp` session，使用 `smedc-mcp-launcher@0.6.0` 和 MCP entry `smedc`。如果缺少前置项，必须先停止报表数据访问，并在安装前请求员工明确授权。它不会自动安装其他 companion skill。
 
 delivery-ledger skill 使用同一个已认证的 `smedc-mcp` 前置项来查询台帐、准备表格导出和按门店/月维护源数据、以及操作检疫证明照片。导出默认使用 XLSX，仅在用户明确要求时使用 CSV。XLSX 需要在运行导出脚本的 Python 环境中安装 `skills/smedc-delivery-ledger/requirements.txt` 中的 `openpyxl`；技能提供缺少依赖时的隔离环境安装指导。它不会自动安装其他 companion skill。
+
+安装三个美团下载 skills 时，复用上面的 companion 仓库 checkout（若尚未克隆，先克隆），再复制各自的 subtree：
+
+```bash
+cp -R /tmp/smedc-companion-skills/skills/download-meituan-dish-sales ~/.agents/skills/download-meituan-dish-sales
+cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
+cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.agents/skills/download-meituan-delivery-ledger
+```
+
+以上为首次安装示例。若目标目录已经存在，先比较版本并保留本地修改；不要直接复制进已有 skill 目录。
+
+在 Codex 中，这三个技能优先使用内置 Chromium 浏览器（`iab`）完成登录、导出和下载。只有用户指定本机浏览器，或内置浏览器缺少必需能力/会话时才回退，并在切换前说明原因；不会仅因本机 Chrome 已登录就切换。
+
+下载 skills 默认保存到当前用户的 `~/Downloads`（不可用时使用 `~/Desktop`），使用通用 `meituan_...` 文件名并保留原始导出内容。三个技能统一使用 Chrome 下载事件与原生保存框处理 `ERR_BLOCKED_BY_CLIENT`；该方式已在菜品、营业报表验证，收货单自动回放尚未验证。上传 SMEDC 需要用户提出上传要求、核心 `smedc-mcp` skill 和已登录的 admin 账号。美团凭据由用户在浏览器中自行输入。业务流程适用于具备相应能力的智能体；浏览器 API 示例针对提供 `cua_repl` / `tab.playwright` / `cua.getApp` 的环境。其他智能体需要等价的浏览器、下载及本地文件操作能力，并在自身环境验证下载行为。本仓库不捆绑浏览器自动化运行环境。
 
 ## 开发
 

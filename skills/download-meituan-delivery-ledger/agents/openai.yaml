@@ -1,0 +1,3 @@
+interface:
+  display_name: "美团收货单下载"
+  short_description: "按收货日期逐页下载美团收货单原文件，并按需上传 SMEDC"

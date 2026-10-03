@@ -1,0 +1,3 @@
+interface:
+  display_name: "美团菜品销售下载"
+  short_description: "按营业日期下载美团菜品销售原始报表，并按需上传 SMEDC"
