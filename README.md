@@ -7,7 +7,7 @@ This repository is organized as independently installable sibling skills under `
 ## Skills
 
 - `skills/smedc-business-analysis/`: tenant-neutral operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured business datasets.
-- `skills/smedc-delivery-ledger/`: statutory receipt-aware delivery-ledger lookup, CSV export, per-store monthly CSV maintenance, plus receipt-linked quarantine-certificate photo guidance.
+- `skills/smedc-delivery-ledger/`: statutory receipt-aware delivery-ledger lookup, XLSX export with explicit text phone cells, optional CSV, per-store monthly maintenance, plus receipt-linked quarantine-certificate photo guidance.
 - `skills/download-meituan-dish-sales/`: download original Meituan dish-sales XLSX reports for a business-date range; optionally upload to SMEDC `dishes` when requested.
 - `skills/download-meituan-business-data/`: download original Meituan business XLSX reports for a business-date range; optionally upload to SMEDC `business` when requested.
 - `skills/download-meituan-delivery-ledger/`: export received store receipts by receipt date, download ZIP batches page by page, and validate one original XLSX per receipt for optional SMEDC `delivery_ledger` upload.
@@ -40,7 +40,7 @@ cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/
 
 The business-analysis skill requires an authenticated `smedc-mcp` session using `smedc-mcp-launcher@0.6.0` and MCP entry `smedc`. If that prerequisite is missing, the skill must stop before report data access and ask for explicit authorization before installing it. It never installs another companion skill automatically.
 
-The delivery-ledger skill uses the same authenticated `smedc-mcp` prerequisite for ledger queries, receipt-aware CSV export and per-store monthly maintenance source data, and quarantine-certificate photo operations. It never installs another companion skill automatically.
+The delivery-ledger skill uses the same authenticated `smedc-mcp` prerequisite for ledger queries, spreadsheet export and per-store monthly maintenance source data, and quarantine-certificate photo operations. It defaults to XLSX; CSV is available when explicitly requested. XLSX requires `openpyxl` from `skills/smedc-delivery-ledger/requirements.txt` in the Python environment running the exporter; the skill explains isolated setup when needed. It never installs another companion skill automatically.
 
 To install the three Meituan download skills, reuse the companion repository checkout above (or clone it first), then copy their subtrees:
 
@@ -73,8 +73,8 @@ python3 -m unittest discover -s skills/smedc-delivery-ledger/tests -v
 python3 /Users/xiaoyuyin/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/smedc-delivery-ledger
 ```
 
-The runtime scripts use Python standard library. The business-analysis tests use PyYAML only to validate `agents/openai.yaml`; install development dependencies from the business-analysis subtree when needed:
+Business-analysis and CSV runtime scripts use Python standard library; delivery-ledger XLSX export/tests also use `openpyxl` from that skill's `requirements.txt`. The business-analysis tests use PyYAML only to validate `agents/openai.yaml`; install development dependencies from the business-analysis subtree when needed:
 
 ```bash
-python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
+python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt -r skills/smedc-delivery-ledger/requirements.txt
 ```
