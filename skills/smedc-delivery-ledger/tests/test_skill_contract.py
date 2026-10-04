@@ -21,18 +21,19 @@ class LedgerSkillContractTests(unittest.TestCase):
                      "ledger-pages.json"):
             self.assertEqual(list(SKILL_ROOT.rglob(name)), [])
 
-    def test_pending_workflow_has_no_unpublished_install_pin(self):
+    def test_published_workflow_uses_verified_launcher_pin(self):
         documents = [SKILL_ROOT / "SKILL.md", SKILL_ROOT / "agents/openai.yaml",
                      REPOSITORY_ROOT / "README.md", REPOSITORY_ROOT / "README.zh.md"]
         for path in documents:
             with self.subTest(path=path):
                 text = path.read_text(encoding="utf-8")
                 pins = re.findall(r"smedc-mcp-launcher@([^\s`]+)", text)
-                self.assertTrue(set(pins) <= {"0.6.0"})
+                self.assertTrue(set(pins) <= {"0.7.0"})
                 self.assertNotIn("python3 scripts/export_ledger", text)
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("0.7.0 once published", text)
-        self.assertIn("unpublished", text)
+        self.assertIn("smedc-mcp-launcher@0.7.0", text)
+        self.assertIn("independently verified", text)
+        self.assertNotIn("once published", text)
 
     def test_interface_invokes_archive_skill_without_retired_exports(self):
         text = (SKILL_ROOT / "agents/openai.yaml").read_text(encoding="utf-8")

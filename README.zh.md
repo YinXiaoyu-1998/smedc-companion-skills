@@ -38,9 +38,9 @@ git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smed
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
 ```
 
-business-analysis skill 需要已认证的 `smedc-mcp` session，使用 `smedc-mcp-launcher@0.6.0` 和 MCP entry `smedc`。如果缺少前置项，必须先停止报表数据访问，并在安装前请求员工明确授权。它不会自动安装其他 companion skill。
+business-analysis skill 需要已认证的 `smedc-mcp` session，使用 `smedc-mcp-launcher@0.7.0` 和 MCP entry `smedc`。如果缺少前置项，必须先停止报表数据访问，并在安装前请求员工明确授权。它不会自动安装其他 companion skill。
 
-delivery-ledger skill 使用同一个核心前置项上传原始收货单和操作检疫照片。PDF 流程需要正式发布后的 launcher **0.7.0** 与已启用归档交付的服务；本分支未发布 0.7.0，也未更改当前 **0.6.0** 安装 pin。流程等待导入实际 applied，说明变化日期的 PDF 将在服务端每日北京时间 03:00 任务中生成，下载前检查覆盖状态，再准备已有 PDF 并获取新 ZIP 短链。员工 Agent（包括管理员）不能通过 MCP 或 HTTP 触发 PDF 生成。旧 `export_ledger.py`、`export_ledger_csv.py` 和按月维护已移除；不生成本地 PDF/XLSX/CSV，也不再需要 `openpyxl`。协调发布前不要更新已安装副本。不会自动安装其他 companion skill。
+delivery-ledger skill 使用同一个核心前置项上传原始收货单和操作检疫照片。PDF 流程使用已公开发布并独立验证的核心 pin `smedc-mcp-launcher@0.7.0`，还需要服务端启用归档交付。流程等待导入实际 applied，说明变化日期的 PDF 将在服务端每日北京时间 03:00 任务中生成，下载前检查覆盖状态，再准备已有 PDF 并获取新 ZIP 短链。员工 Agent（包括管理员）不能通过 MCP 或 HTTP 触发 PDF 生成。旧 `export_ledger.py`、`export_ledger_csv.py` 和按月维护已移除；不生成本地 PDF/XLSX/CSV，也不再需要 `openpyxl`。归档交付尚未启用时说明不可用，等待服务端切换。不会自动安装其他 companion skill。
 
 安装三个美团下载 skills 时，复用上面的 companion 仓库 checkout（若尚未克隆，先克隆），再复制各自的 subtree：
 
