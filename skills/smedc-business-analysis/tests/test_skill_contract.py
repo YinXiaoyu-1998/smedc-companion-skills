@@ -24,7 +24,7 @@ class SkillContractTests(unittest.TestCase):
     def test_launcher_pin_and_prerequisite_repository(self) -> None:
         pins = re.findall(r"smedc-mcp-launcher@([^\s`\"']+)", self.skill_text)
         self.assertTrue(pins)
-        self.assertEqual(set(pins), {"0.7.0"})
+        self.assertEqual(set(pins), {"0.7.1"})
         self.assertIn("https://github.com/YinXiaoyu-1998/smedc-mcp-skill", self.skill_text)
 
     def test_skill_documents_required_smedc_mcp_tools(self) -> None:
