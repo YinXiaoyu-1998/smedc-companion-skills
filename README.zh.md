@@ -7,7 +7,7 @@
 ## Skills
 
 - `skills/smedc-business-analysis/`：基于 SMEDC 结构化经营数据，生成租户中立的经营诊断、周会报表和月会报表。
-- `skills/smedc-delivery-ledger/`：带收货单号的进货台帐查询、电话号码固定为文本的 XLSX 导出、可选 CSV、按门店/月维护台帐，以及按收货单号关联检疫证明照片的使用指引。
+- `skills/smedc-delivery-ledger/`：原始收货单上传、收货单关联检疫照片，以及归档发布后的服务端每日 PDF 刷新和 ZIP 下载协调。已移除本地 XLSX/CSV 导出和按月维护。
 - `skills/download-meituan-dish-sales/`：按营业日期范围下载美团菜品销售原始 XLSX，用户要求时上传至 SMEDC `dishes`。
 - `skills/download-meituan-business-data/`：按营业日期范围下载美团营业数据原始 XLSX，用户要求时上传至 SMEDC `business`。
 - `skills/download-meituan-delivery-ledger/`：按收货日期筛选已收货单据，逐页下载 ZIP 并验证每单一份的原始 XLSX，供后续按需上传至 SMEDC `delivery_ledger`。
@@ -40,7 +40,7 @@ cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/
 
 business-analysis skill 需要已认证的 `smedc-mcp` session，使用 `smedc-mcp-launcher@0.6.0` 和 MCP entry `smedc`。如果缺少前置项，必须先停止报表数据访问，并在安装前请求员工明确授权。它不会自动安装其他 companion skill。
 
-delivery-ledger skill 使用同一个已认证的 `smedc-mcp` 前置项来查询台帐、准备表格导出和按门店/月维护源数据、以及操作检疫证明照片。导出默认使用 XLSX，仅在用户明确要求时使用 CSV。XLSX 需要在运行导出脚本的 Python 环境中安装 `skills/smedc-delivery-ledger/requirements.txt` 中的 `openpyxl`；技能提供缺少依赖时的隔离环境安装指导。它不会自动安装其他 companion skill。
+delivery-ledger skill 使用同一个核心前置项上传原始收货单和操作检疫照片。PDF 流程需要正式发布后的 launcher **0.7.0** 与已启用归档交付的服务；本分支未发布 0.7.0，也未更改当前 **0.6.0** 安装 pin。流程等待导入实际 applied，按每店真实受影响日期刷新，再准备已有 PDF 并获取新 ZIP 短链。旧 `export_ledger.py`、`export_ledger_csv.py` 和按月维护已移除；不生成本地 PDF/XLSX/CSV，也不再需要 `openpyxl`。协调发布前不要更新已安装副本。不会自动安装其他 companion skill。
 
 安装三个美团下载 skills 时，复用上面的 companion 仓库 checkout（若尚未克隆，先克隆），再复制各自的 subtree：
 
@@ -73,8 +73,8 @@ python3 -m unittest discover -s skills/smedc-delivery-ledger/tests -v
 python3 /Users/xiaoyuyin/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/smedc-delivery-ledger
 ```
 
-business-analysis 和 CSV 运行时脚本只使用 Python standard library；delivery-ledger 的 XLSX 导出及测试还使用该技能 `requirements.txt` 中的 `openpyxl`。business-analysis 测试套件仅为了校验 `agents/openai.yaml` 使用 PyYAML；需要时从 business-analysis subtree 安装开发依赖：
+delivery-ledger 契约测试仅使用 Python standard library。business-analysis 测试套件仅为了校验 `agents/openai.yaml` 使用 PyYAML；需要时安装其开发依赖：
 
 ```bash
-python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt -r skills/smedc-delivery-ledger/requirements.txt
+python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
 ```

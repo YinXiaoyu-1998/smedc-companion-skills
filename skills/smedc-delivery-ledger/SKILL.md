@@ -1,103 +1,124 @@
 ---
 name: smedc-delivery-ledger
-description: Use when querying SMEDC delivery ledger rows, exporting or maintaining food-purchase ledger spreadsheets with text-safe phone numbers, or managing receipt-linked quarantine-certificate photos.
+description: Use when uploading original SMEDC delivery receipts, coordinating server daily ledger PDF refresh and ZIP download, or managing receipt-linked quarantine-certificate photos.
 ---
 
 # SMEDC Delivery Ledger
 
-Query and present the SMEDC `delivery_ledger` structured dataset, export its statutory table as XLSX by default or CSV when explicitly requested, and manage quarantine-certificate photos linked to receipt IDs. The employee-owned agent performs all SMEDC MCP calls through the user's authenticated launcher session.
+Coordinate original receipt uploads, receipt-linked photos, and service-generated daily PDF archives
+through the employee's authenticated `smedc` MCP session. Each PDF covers one exact store and
+purchase date, including **all existing receipts and linked photos for that full day**. Its fixed
+body is the service's eleven-column `food-purchase-ledger-cn-v2` statutory table; photos follow the
+body by receipt ID. A requested month means the daily PDFs in that month, not a local monthly file.
+No ledger rows means no empty PDF.
 
-**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.6.0`, and the MCP entry is `smedc`.
+## Prerequisite And Pending Rollout
 
-If `smedc-mcp` is not installed, do not begin ledger or photo access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-business-analysis` automatically.
+Use `smedc-mcp` for official installation, updates, repair, and browser login. The current approved
+launcher is `smedc-mcp-launcher@0.6.0`, MCP entry `smedc`. This archive workflow requires launcher
+**0.7.0 once published** and service archive delivery enabled; 0.7.0 remains unpublished by this
+change. Keep installation instructions at 0.6.0 until the separately verified release updates the
+core Skill pin. Do not install an unpublished launcher or alter the pin from service metadata.
+
+If the core Skill is missing, stop before ledger/photo access, identify
+<https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and install only with employee authorization.
+Never install another companion automatically. Discover all five archive tools from the connected
+host; an absent tool or `LEDGER_PDF_NOT_ENABLED` means the PDF workflow is unavailable/pending.
+Report the blocker; do not promise PDFs or recreate them locally. Existing original uploads and
+photo operations may proceed through the current approved tools when independently requested.
+Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and error semantics.
 
 ## Boundaries
 
-- Do not perform business analysis, dashboarding, OCR, photo classification, authenticity judgment, PDF output, or sibling skill runtime imports.
-- Use only the user's authenticated SMEDC MCP session. Do not use direct HTTP, service databases, service configuration, internal storage, passwords, or tokens.
-- Present `收货单号` / `receipt_id` in normal ledger tables and exported files. Present `entry_id`, `store_name`, and `source_document_id` only if the user separately asks for operational provenance, except that `store_name` is required as internal routing input for per-store monthly maintenance.
-- Never add quarantine-certificate photo metadata or URLs to exported files.
-- Never OCR, classify, modify, or authenticate certificate images.
+- Use MCP only; no direct HTTP, database, storage, service configuration, passwords, or tokens.
+- Admin role is required for original/photo uploads and `refresh_ledger_pdfs`. Preparing a download
+  requires service-authorized access to the existing PDFs. Do not bypass either boundary.
+- Do not create local PDF, XLSX, or CSV ledgers, dynamically query rows to export them, append to
+  monthly files, or run retired exporter scripts. No OCR, photo conversion/classification,
+  authenticity judgment, business analysis, or sibling runtime imports.
+- Do not overwrite or edit existing receipts. `RECEIPT_ID_CONFLICT` stays a conflict; explain it
+  without changing receipt IDs, reshaping input, deleting old data, or treating it as an update.
+- After archive cutover, ledger detail and original ledger CSV/XLSX signing are disabled for all
+  roles. Only `count` (no field), `countDistinct(receipt_id)`, and `sum(purchase_amount)` are
+  supported, with filters/groups on `store_name` and `purchase_date`. Other datasets are unaffected.
+- Ordinary supplier-catalog updates do not trigger historical PDF refresh. An explicitly requested
+  regeneration uses the then-current catalog; do not automatically refresh all historical dates.
 
-## Ledger Workflow
+## Upload, Refresh And Download
 
-1. Confirm the `smedc-mcp` prerequisite and authenticated `smedc` MCP session.
-2. Call `list_structured_datasets` and confirm dataset `delivery_ledger` exposes profile `food-purchase-ledger-cn-v2`.
-3. Compare the service profile with local `config/food-purchase-ledger-cn-v2.json`. The `id`, `title`, column count, canonical names, display names, and order must match exactly. If they differ, fail closed and ask the user to update the Skill or launcher before continuing.
-4. Query `query_structured_dataset` in `detail` mode with these canonical fields in this exact order:
+1. Confirm the authenticated session and discover `delivery_ledger` through
+   `list_structured_datasets`. For a requested upload, send each original complete receipt CSV/XLSX
+   using `upload_structured_dataset` with `dataset: "delivery_ledger"`, `enterpriseName`, file,
+   stable `idempotencyKey`, and only an explicit user-specified `confidentialityLevel` (otherwise
+   omit it). Prefer path upload. Do not send date bounds or snapshotDate, normalize receipt data,
+   or convert photos into a table.
+2. HTTP **202** is accepted, not applied. Keep `importBatchId` and poll `get_import_status` until
+   `importBatch.status=applied`. Never treat queued/pending/rejected/failed as success. An applied
+   import returns `affectedLedgerPartitions` (also in its applied `importBatch`); collect those
+   server facts only after actual application. Replays may return the same facts; deduplicate them.
+3. For user-requested photo changes, upload each JPG/JPEG/PNG with
+   `upload_quarantine_certificate`, one `receiptId`, stable `idempotencyKey`, and only explicit
+   classification. Photos do not require an existing receipt. Query with
+   `query_quarantine_certificates` using 1–100 explicit `receiptIds`. Archive one visible photo
+   with `archive_quarantine_certificates` and `sourceDocumentId`; archive by `receiptId` only for
+   an admin's explicit bulk request. After successful synchronous photo upload/archive, collect
+   top-level `affectedLedgerPartitions`; archive also returns `archivedCount`. Do not invent dates
+   for a photo with no affected ledger. Eligible photo originals use
+   `get_source_document_download_url`; return its link without fetching the bytes.
+4. Deduplicate affected facts by exact `(storeName, purchaseDate)`. Build **one refresh scope per
+   store and that store's actual date set**, using `storeNames: [storeName]` and `dates`. Never
+   combine different stores' differing date sets into a Cartesian product. Example: facts A/10-01,
+   A/10-03, B/10-02 require A dates [10-01,10-03] and B dates [10-02], not both stores over all three
+   dates. Preserve full YYYY-MM-DD values and exact store names; no trimming or inferred dates.
+   If hints are absent/empty, do not invent a refresh scope or assume no hidden data exists.
+5. For each bounded scope call `refresh_ledger_pdfs` with a stable operation-specific
+   `idempotencyKey`. Poll `get_ledger_pdf_request_status` while `queued`/`running` and read all
+   partition pages through `nextCursor`. Wait for terminal `succeeded`, `partial_failed`, or
+   `failed`; resolve failures as below before claiming the requested archive is ready.
+6. For the user's requested download scope, use `describe_ledger_pdf_coverage` and paginate all
+   visible facts (200 per page). Use `prepare_ledger_pdf_download` with `storeNames`, the exact
+   date selection, and a separate `idempotencyKey`. It packages existing ready PDFs only and never
+   renders/repairs missing or stale PDFs. Poll the returned request to terminal and inspect pages.
+7. After successful preparation call `get_ledger_pdf_download_url` with `requestId` for a fresh
+   `downloadUrl`/`expiresAt`. Return the short link and scope to the user. The signature lasts
+   **15 minutes**; the ZIP is retained **24 hours**. Status contains no URL. Do not proxy/cache PDF
+   or ZIP bytes, emit base64, or create local ledger artifacts. If only the link expired, ask the
+   service for a fresh URL; if the ZIP expired, prepare again with a new key.
 
-   ```text
-   receipt_id
-   item_name
-   specification
-   purchase_quantity
-   purchase_amount
-   production_date_or_batch
-   shelf_life
-   supplier_name
-   supplier_unit_address
-   supplier_contact_phone
-   purchase_date
-   ```
+The daily **03:00 Asia/Shanghai** reconciliation is a fallback. It does not replace proactive
+refresh after an applied original upload or successful photo mutation. Missing readiness requires
+an authorized refresh, not waiting until tomorrow while claiming upload produced the final PDF.
 
-5. Paginate only through the bounded scope the user requested. Do not broaden the query window, store scope, or row count to make the table look fuller.
-6. Present the table title `食品经营单位进货台帐` and Chinese display names verbatim from the service profile:
+## Scope And Failure Handling
 
-   ```text
-   收货单号
-   食品名称
-   规格
-   进货数量
-   进货金额
-   生产日期或生产批号
-   保质期
-   供货单位名称
-   供货单位地址
-   供货单位联系方式
-   进货日期
-   ```
+Dates must be real `YYYY-MM-DD` calendar dates (years 1000–9999). Choose exactly one of explicit
+`dates` or inclusive `startDate`/`endDate`; ranges must be ordered. Each call accepts at most
+**50 stores**, **366 dates**, and **5,000 actual partitions** enforced by the server. Use bounded
+chunks when necessary, preserving each store's actual date set; do not broaden scope to fill a
+limit. Only coverage may omit stores. Cursors are opaque continuations used with the same scope or
+request. Inputs are flat strict objects; do not send organization IDs, force/renderer flags,
+local paths, binary data, or base64 to PDF tools. Reuse a key only for the same operation/scope;
+changed scope, a new retry after terminal failure, or new preparation needs a new key.
 
-## Spreadsheet Export
+- `partial_failed`: inspect every returned partition page and report exact visible successful and
+  failed scopes. Do not label the whole request complete; retry only failed visible store/date
+  scopes when appropriate with a new key. Any partial deliverable must be explicitly described.
+- `failed`: report the safe error and affected visible scope; never substitute an old/local PDF.
+- `superseded` partition: the requested generation did not complete. Follow its visible
+  `latestRequest` reference and wait for that request; absent a visible reference, report the safe
+  blocker. Never count it as success or guess another request ID.
+- `empty` partition: no ledger PDF exists for that day; do not generate an empty document.
+- `unavailable`, forbidden, or missing: report the safe result. Current permission to every ledger,
+  supplier, and certificate source is required on coverage, status, prepare, and each fresh URL.
+  Earlier access grants no permission now. Do not infer hidden counts/source IDs or drop photos to
+  get a less restricted PDF.
+- `LEDGER_PDF_NOT_READY`: wait for the authorized refresh or explain that an admin must refresh.
+  Preparation/download never causes rendering; retry only after readiness is established.
+- `LEDGER_PDF_BUNDLE_STALE`: the old prepared bundle cannot be reused. Complete the needed refresh,
+  then prepare a new request with a new key and obtain a fresh URL.
+- `LEDGER_PDF_NOT_ENABLED` / absent tools: stop the PDF workflow and report pending rollout;
+  `LEDGER_DETAIL_DISABLED` does not authorize a local detail/export workaround.
 
-When the user asks to export/download a ledger or generate an Excel/spreadsheet file without choosing a format, use **XLSX**. Preserve an explicit CSV request. For a table to display in chat, follow Ledger Workflow without creating a file. Use `scripts/export_ledger.py` for file exports; do not recreate the exporter, coerce phone numbers to numbers, or round identifiers yourself.
-
-XLSX needs `openpyxl` from this skill's `requirements.txt`. Check the selected Python interpreter with `python3 -c 'import openpyxl'`. If missing, create an agent-owned virtual environment outside the output directory, install with `VENV/bin/python -m pip install -r requirements.txt`, and run the exporter with that interpreter. Do not modify unrelated Python environments or silently fall back to CSV. If dependency setup fails, report the narrow blocker.
-
-Treat the raw query result as an internal transient input, not a user deliverable. Create an agent-owned file in a system temporary directory outside the requested output directory, install a finally/trap cleanup before writing it, and save one exact `query_structured_dataset` result object containing the service `presentation` key, or an array of paginated result objects in request order, as UTF-8 JSON. Run the exporter with `--delete-input`; it removes that input after both successful export and handled validation failure:
-
-```bash
-python3 scripts/export_ledger.py TEMP_INPUT_JSON OUTPUT.xlsx --delete-input
-```
-
-For an explicit CSV request, use an `.csv` output filename (or `--format csv` in monthly mode):
-
-```bash
-python3 scripts/export_ledger.py TEMP_INPUT_JSON OUTPUT.csv --delete-input
-```
-
-XLSX saves phone numbers, receipt IDs, batches, dates, and other non-measure columns as literal string cells with text format `@`, preserving leading zeros and `+` prefixes without formulas or extra apostrophes. Quantities and amounts remain numeric. The exporter sets readable column widths, a frozen header, and filters. It rejects numeric or scientific-notation phone inputs rather than guessing lost digits; ask for the original phone string when that validation fails. CSV retains exact characters and formula-prefix protection, but cannot encode cell types; spreadsheet viewers may still infer numeric phones. Do not promise text-type preservation for CSV. The legacy `export_ledger_csv.py` entry point remains compatible and defaults to CSV.
-
-Use `--overwrite` only when the user explicitly asks to replace an existing single output file. The surrounding finally/trap must remove the exact temporary input and its empty temporary directory if execution is interrupted or the exporter never starts. Do not place the input JSON in the output directory or leave it anywhere after the run. Do not present, link, or mention the temporary query JSON. Present only the requested exported files and a concise result. If the user explicitly requests the raw query response as a separate deliverable, write that artifact separately.
-
-In either format, zero validated rows produce a successful no-op summary, create no output, and leave an existing target byte-identical even with `--overwrite`.
-
-For requests such as “生成通州店 2026 年 9 月的台账”, use per-store monthly create-or-maintain mode. Query the bounded requested scope in `detail` mode and include internal `store_name` in each returned row in addition to the eleven profile fields. Save the exact result JSON at the temporary input path described above, then run:
-
-```bash
-python3 scripts/export_ledger.py TEMP_INPUT_JSON --store-month-dir OUTPUT_DIR --month 2026-09 --delete-input
-```
-
-This mode defaults to `食品经营单位进货台帐_<门店名>_<YYYY-MM>.xlsx`; add `--format csv` only for an explicit CSV request. It maintains valid conventional files of the selected format: a receipt already present skips the entire receipt, while a new receipt appends all its rows without row-level deduplication. Do not ask for extra overwrite/update wording for this normal generate request. Existing CSV files are not automatically migrated, removed, or overwritten when choosing XLSX. Existing XLSX must contain one ledger worksheet with the exact headers, literal text identifiers/phones, and dates in the requested month; invalid files fail before any store is written. Maintenance regenerates the standard ledger layout, so custom worksheet formatting is not preserved. The internal `store_name` may not contain control characters or Windows-invalid filename characters `<>:"/\|?*`. Filename collisions after Unicode normalization and case-folding fail closed; ask the user to disambiguate the store scope.
-
-Both formats use the eleven Chinese headers in statutory order, render nullable absent values/JSON `null`/literal `"null"` as empty cells, validate inputs and affected existing files before writing, and atomically replace each output through a temporary file. CSV uses UTF-8 with BOM and Python `csv.writer`. Monthly mode emits a compact JSON run summary on stdout.
-
-## Quarantine-Certificate Photos
-
-Map user phrases “对账单编号”, “单据号”, and “收货单号” to the public field `receiptId`. Do not rename the API field and do not require a matching ledger row to exist.
-
-- Upload: call `upload_quarantine_certificate` once per JPG/JPEG/PNG image with exactly one `receiptId`, one stable `idempotencyKey`, and only a user-specified `confidentialityLevel`; otherwise omit it so the service default applies. Multiple photos require multiple calls. Prefer path encoding where supported.
-- Query: call `query_quarantine_certificates` with 1-100 explicit `receiptIds`. Empty visible results reveal nothing about higher-confidentiality images.
-- Download: call `get_source_document_download_url` with a returned visible `sourceDocumentId`; return the time-limited link and do not proxy or fetch bytes.
-- Archive one: call `archive_quarantine_certificates` with `sourceDocumentId`.
-- Archive all for receipt: use `receiptId` only when the authenticated user is an admin and explicitly requested bulk archive.
-- Reuse an idempotency key only for the exact same bytes, receipt ID, and confidentiality level.
+Preserve upload idempotency: original uploads reuse a key only for identical bytes/metadata;
+photos only for identical bytes, receipt ID, and classification. Map “对账单编号”, “单据号”, and
+“收货单号” to `receiptId`; do not change that public field name.
