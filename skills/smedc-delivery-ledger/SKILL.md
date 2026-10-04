@@ -1,6 +1,6 @@
 ---
 name: smedc-delivery-ledger
-description: Use when uploading original SMEDC delivery receipts, coordinating server daily ledger PDF refresh and ZIP download, or managing receipt-linked quarantine-certificate photos.
+description: Use when uploading original SMEDC delivery receipts, checking scheduled daily ledger PDF readiness and coordinating ZIP download, or managing receipt-linked quarantine-certificate photos.
 ---
 
 # SMEDC Delivery Ledger
@@ -22,7 +22,7 @@ core Skill pin. Do not install an unpublished launcher or alter the pin from ser
 
 If the core Skill is missing, stop before ledger/photo access, identify
 <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and install only with employee authorization.
-Never install another companion automatically. Discover all five archive tools from the connected
+Never install another companion automatically. Discover all four archive tools from the connected
 host; an absent tool or `LEDGER_PDF_NOT_ENABLED` means the PDF workflow is unavailable/pending.
 Report the blocker; do not promise PDFs or recreate them locally. Existing original uploads and
 photo operations may proceed through the current approved tools when independently requested.
@@ -31,8 +31,9 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
 ## Boundaries
 
 - Use MCP only; no direct HTTP, database, storage, service configuration, passwords, or tokens.
-- Admin role is required for original/photo uploads and `refresh_ledger_pdfs`. Preparing a download
-  requires service-authorized access to the existing PDFs. Do not bypass either boundary.
+- Admin role is required for original/photo uploads. Preparing a download requires
+  service-authorized access to the existing PDFs. Employee agents, including admins, cannot
+  trigger PDF generation through MCP or another API; do not bypass these boundaries.
 - Do not create local PDF, XLSX, or CSV ledgers, dynamically query rows to export them, append to
   monthly files, or run retired exporter scripts. No OCR, photo conversion/classification,
   authenticity judgment, business analysis, or sibling runtime imports.
@@ -41,8 +42,8 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
 - After archive cutover, ledger detail and original ledger CSV/XLSX signing are disabled for all
   roles. Only `count` (no field), `countDistinct(receipt_id)`, and `sum(purchase_amount)` are
   supported, with filters/groups on `store_name` and `purchase_date`. Other datasets are unaffected.
-- Ordinary supplier-catalog updates do not trigger historical PDF refresh. An explicitly requested
-  regeneration uses the then-current catalog; do not automatically refresh all historical dates.
+- Ordinary supplier-catalog updates do not trigger historical PDF refresh. Internal operator
+  regeneration uses the then-current catalog; employee agents must not request historical refresh.
 
 ## Upload, Refresh And Download
 
@@ -65,29 +66,29 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
    top-level `affectedLedgerPartitions`; archive also returns `archivedCount`. Do not invent dates
    for a photo with no affected ledger. Eligible photo originals use
    `get_source_document_download_url`; return its link without fetching the bytes.
-4. Deduplicate affected facts by exact `(storeName, purchaseDate)`. Build **one refresh scope per
-   store and that store's actual date set**, using `storeNames: [storeName]` and `dates`. Never
-   combine different stores' differing date sets into a Cartesian product. Example: facts A/10-01,
-   A/10-03, B/10-02 require A dates [10-01,10-03] and B dates [10-02], not both stores over all three
-   dates. Preserve full YYYY-MM-DD values and exact store names; no trimming or inferred dates.
-   If hints are absent/empty, do not invent a refresh scope or assume no hidden data exists.
-5. For each bounded scope call `refresh_ledger_pdfs` with a stable operation-specific
-   `idempotencyKey`. Poll `get_ledger_pdf_request_status` while `queued`/`running` and read all
-   partition pages through `nextCursor`. Wait for terminal `succeeded`, `partial_failed`, or
-   `failed`; resolve failures as below before claiming the requested archive is ready.
-6. For the user's requested download scope, use `describe_ledger_pdf_coverage` and paginate all
-   visible facts (200 per page). Use `prepare_ledger_pdf_download` with `storeNames`, the exact
-   date selection, and a separate `idempotencyKey`. It packages existing ready PDFs only and never
-   renders/repairs missing or stale PDFs. Poll the returned request to terminal and inspect pages.
+4. After every requested import is actually `applied` and requested photo changes have succeeded,
+   confirm the data upload. Use visible `affectedLedgerPartitions` only to summarize the exact
+   affected stores/dates; deduplicate them without guessing hidden dates or broadening the scope.
+   Do not submit a generation request. The service records changed partitions and generates their
+   PDFs in the next daily **03:00 Asia/Shanghai** run, combining repeated changes to the same day
+   and skipping healthy PDFs. Explain that upload completion does not mean PDF completion.
+5. For a user-requested download, call `describe_ledger_pdf_coverage` and paginate visible facts
+   (200 per page). If a partition is pending, missing, or stale, report that its latest PDF awaits
+   scheduled generation. Do not claim an old PDF contains new receipts/photos or repeatedly prepare
+   ZIPs to force rendering. Retry coverage after the scheduled run completes; do not keep an agent
+   polling overnight or set up reminders unless the user asks.
+6. Once the requested scope is ready, call `prepare_ledger_pdf_download` with `storeNames`, the exact
+   date selection, and a stable operation-specific `idempotencyKey`. It packages existing ready PDFs
+   only and never renders/repairs PDFs. Poll `get_ledger_pdf_request_status` while queued/running,
+   read all partition pages via `nextCursor`, and inspect the terminal result before claiming success.
 7. After successful preparation call `get_ledger_pdf_download_url` with `requestId` for a fresh
    `downloadUrl`/`expiresAt`. Return the short link and scope to the user. The signature lasts
    **15 minutes**; the ZIP is retained **24 hours**. Status contains no URL. Do not proxy/cache PDF
    or ZIP bytes, emit base64, or create local ledger artifacts. If only the link expired, ask the
    service for a fresh URL; if the ZIP expired, prepare again with a new key.
 
-The daily **03:00 Asia/Shanghai** reconciliation is a fallback. It does not replace proactive
-refresh after an applied original upload or successful photo mutation. Missing readiness requires
-an authorized refresh, not waiting until tomorrow while claiming upload produced the final PDF.
+Daily **03:00 Asia/Shanghai** generation is the normal workflow after uploads and photo changes.
+Internal operator CLI backfill/recovery belongs to service operations, not this employee Skill.
 
 ## Scope And Failure Handling
 
@@ -98,24 +99,23 @@ chunks when necessary, preserving each store's actual date set; do not broaden s
 limit. Only coverage may omit stores. Cursors are opaque continuations used with the same scope or
 request. Inputs are flat strict objects; do not send organization IDs, force/renderer flags,
 local paths, binary data, or base64 to PDF tools. Reuse a key only for the same operation/scope;
-changed scope, a new retry after terminal failure, or new preparation needs a new key.
+changed scope or new preparation after terminal failure needs a new key.
 
 - `partial_failed`: inspect every returned partition page and report exact visible successful and
-  failed scopes. Do not label the whole request complete; retry only failed visible store/date
-  scopes when appropriate with a new key. Any partial deliverable must be explicitly described.
+  failed scopes. Do not label the whole request complete; recheck coverage before preparing again
+  with a new key. Any partial deliverable must be explicitly described.
 - `failed`: report the safe error and affected visible scope; never substitute an old/local PDF.
-- `superseded` partition: the requested generation did not complete. Follow its visible
-  `latestRequest` reference and wait for that request; absent a visible reference, report the safe
-  blocker. Never count it as success or guess another request ID.
+- `superseded` partition: report that the request was replaced; recheck current coverage before
+  preparing another ZIP. Never count it as success, guess another request ID, or trigger generation.
 - `empty` partition: no ledger PDF exists for that day; do not generate an empty document.
 - `unavailable`, forbidden, or missing: report the safe result. Current permission to every ledger,
   supplier, and certificate source is required on coverage, status, prepare, and each fresh URL.
   Earlier access grants no permission now. Do not infer hidden counts/source IDs or drop photos to
   get a less restricted PDF.
-- `LEDGER_PDF_NOT_READY`: wait for the authorized refresh or explain that an admin must refresh.
+- `LEDGER_PDF_NOT_READY`: explain that the latest PDF awaits daily scheduled generation.
   Preparation/download never causes rendering; retry only after readiness is established.
-- `LEDGER_PDF_BUNDLE_STALE`: the old prepared bundle cannot be reused. Complete the needed refresh,
-  then prepare a new request with a new key and obtain a fresh URL.
+- `LEDGER_PDF_BUNDLE_STALE`: the old prepared bundle cannot be reused. Recheck coverage and wait
+  for scheduled generation if needed, then prepare with a new key and obtain a fresh URL.
 - `LEDGER_PDF_NOT_ENABLED` / absent tools: stop the PDF workflow and report pending rollout;
   `LEDGER_DETAIL_DISABLED` does not authorize a local detail/export workaround.
 

@@ -40,6 +40,16 @@ class LedgerSkillContractTests(unittest.TestCase):
         self.assertIn("server daily PDF archives", text)
         self.assertNotRegex(text, r"XLSX|CSV|monthly|text phone")
 
+    def test_upload_completion_waits_for_service_daily_generation(self):
+        text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn("refresh_ledger_pdfs", text)
+        self.assertIn("Do not submit a generation request", text)
+        self.assertIn("03:00 Asia/Shanghai", text)
+        self.assertIn("Employee agents, including admins, cannot", text)
+        self.assertIn("upload completion does not mean PDF completion", text)
+        self.assertIn("skipping healthy PDFs", text)
+        self.assertIn("Do not claim an old PDF contains new receipts/photos", text)
+
 
 if __name__ == "__main__":
     unittest.main()
