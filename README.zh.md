@@ -54,7 +54,7 @@ cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.age
 
 在 Codex 中，这三个技能优先使用内置 Chromium 浏览器（`iab`）完成登录、导出和下载。只有用户指定本机浏览器，或内置浏览器缺少必需能力/会话时才回退，并在切换前说明原因；不会仅因本机 Chrome 已登录就切换。
 
-下载 skills 默认保存到当前用户的 `~/Downloads`（不可用时使用 `~/Desktop`），使用通用 `meituan_...` 文件名并保留原始导出内容。三个技能统一使用 Chrome 下载事件与原生保存框处理 `ERR_BLOCKED_BY_CLIENT`；该方式已在菜品、营业报表验证，收货单自动回放尚未验证。上传 SMEDC 需要用户提出上传要求、核心 `smedc-mcp` skill 和已登录的 admin 账号。美团凭据由用户在浏览器中自行输入。业务流程适用于具备相应能力的智能体；浏览器 API 示例针对提供 `cua_repl` / `tab.playwright` / `cua.getApp` 的环境。其他智能体需要等价的浏览器、下载及本地文件操作能力，并在自身环境验证下载行为。本仓库不捆绑浏览器自动化运行环境。
+下载 skills 默认保存到当前用户的 `~/Downloads`（不可用时使用 `~/Desktop`），使用通用 `meituan_...` 文件名并保留原始导出内容。三个技能统一使用 Chrome 下载事件与原生保存框处理 `ERR_BLOCKED_BY_CLIENT`；默认连续等待下载事件 45 秒，外层工具调用设为 60 秒，每个文件/批次核对结果后最多自动重试一次。菜品、营业已在本机 Chrome 验证；一批 92 张收货单也已在内置浏览器采用较长等待成功下载并验证。这些记录不保证所有导出都在 45 秒内完成。上传 SMEDC 需要用户提出上传要求、核心 `smedc-mcp` skill 和已登录的 admin 账号。美团凭据由用户在浏览器中自行输入。业务流程适用于具备相应能力的智能体；浏览器 API 示例针对提供 `cua_repl` / `tab.playwright` / `cua.getApp` 的环境。其他智能体需要等价的浏览器、下载及本地文件操作能力，并在自身环境验证下载行为。本仓库不捆绑浏览器自动化运行环境。
 
 ## 开发
 
