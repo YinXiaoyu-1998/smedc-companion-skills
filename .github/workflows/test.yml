@@ -12,5 +12,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -r skills/smedc-business-analysis/requirements-dev.txt -r skills/smedc-delivery-ledger/requirements.txt
+      - run: python -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
       - run: python scripts/validate_all_skills.py
