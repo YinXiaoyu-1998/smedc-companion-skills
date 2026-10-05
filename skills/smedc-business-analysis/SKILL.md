@@ -7,7 +7,7 @@ description: Use when generating tenant-neutral SMEDC diagnosis, weekly, or mont
 
 Generate operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured data. The employee-owned agent performs the MCP calls through the user's authenticated launcher session; the local scripts validate saved SMEDC envelopes, aggregate launcher-managed partition extracts, and render self-contained HTML.
 
-**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.7.0`, and the MCP entry is `smedc`.
+**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.7.1`, and the MCP entry is `smedc`.
 
 If `smedc-mcp` is not installed, do not begin report data access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-delivery-ledger` automatically.
 
@@ -26,7 +26,7 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 
 ## Workflow
 
-1. Use `smedc-mcp` to install or verify `smedc-mcp-launcher@0.7.0`, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
+1. Use `smedc-mcp` to install or verify `smedc-mcp-launcher@0.7.1`, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
 
    If the same request first uploads a `business` or `dishes` source through the prerequisite skill, poll the returned `partitionImportJobId` with `get_partition_import_status` until `published`. Treat `failed` as terminal and report the service error.
 
