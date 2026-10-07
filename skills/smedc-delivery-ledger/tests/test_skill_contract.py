@@ -45,10 +45,8 @@ class LedgerSkillContractTests(unittest.TestCase):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("refresh_ledger_pdfs", text)
         self.assertIn("Do not submit a generation request", text)
-        self.assertIn("03:00 Asia/Shanghai", text)
         self.assertIn("Employee agents, including admins, cannot", text)
         self.assertIn("upload completion does not mean PDF completion", text)
-        self.assertIn("skipping healthy PDFs", text)
         self.assertIn("Do not claim an old PDF contains new receipts/photos", text)
 
 

@@ -1,6 +1,6 @@
 ---
 name: smedc-delivery-ledger
-description: Use when uploading original SMEDC delivery receipts, checking scheduled daily ledger PDF readiness and coordinating ZIP download, or managing receipt-linked quarantine-certificate photos.
+description: Use when uploading original SMEDC delivery receipts, checking automatically updated daily ledger PDF readiness and coordinating ZIP download, or managing receipt-linked quarantine-certificate photos.
 ---
 
 # SMEDC Delivery Ledger
@@ -68,13 +68,16 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
 4. After every requested import is actually `applied` and requested photo changes have succeeded,
    confirm the data upload. Use visible `affectedLedgerPartitions` only to summarize the exact
    affected stores/dates; deduplicate them without guessing hidden dates or broadening the scope.
-   Do not submit a generation request. The service records changed partitions and generates their
-   PDFs in the next daily **03:00 Asia/Shanghai** run, combining repeated changes to the same day
-   and skipping healthy PDFs. Explain that upload completion does not mean PDF completion.
+   Do not submit a generation request. The service automatically updates the affected daily PDFs.
+   Explain that upload completion does not mean PDF completion. A suitable user-facing reply is:
+   “系统会自动更新台账，完成后即可下载；是否就绪以查询结果为准。”
+   Keep internal scheduling details out of user-facing replies. Do not infer a fixed run time or
+   promise completion within 24 hours; give a completion window only if the service explicitly
+   provides one. The ZIP retention period is not an update deadline.
 5. For a user-requested download, call `describe_ledger_pdf_coverage` and paginate visible facts
    (200 per page). If a partition is pending, missing, or stale, report that its latest PDF awaits
-   scheduled generation. Do not claim an old PDF contains new receipts/photos or repeatedly prepare
-   ZIPs to force rendering. Retry coverage after the scheduled run completes; do not keep an agent
+   automatic updates. Do not claim an old PDF contains new receipts/photos or repeatedly prepare
+   ZIPs to force rendering. Recheck coverage when the user returns; do not keep an agent
    polling overnight or set up reminders unless the user asks.
 6. Once the requested scope is ready, call `prepare_ledger_pdf_download` with `storeNames`, the exact
    date selection, and a stable operation-specific `idempotencyKey`. It packages existing ready PDFs
@@ -86,7 +89,7 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
    or ZIP bytes, emit base64, or create local ledger artifacts. If only the link expired, ask the
    service for a fresh URL; if the ZIP expired, prepare again with a new key.
 
-Daily **03:00 Asia/Shanghai** generation is the normal workflow after uploads and photo changes.
+Automatic PDF updates are the normal workflow after uploads and photo changes.
 Internal operator CLI backfill/recovery belongs to service operations, not this employee Skill.
 
 ## Scope And Failure Handling
@@ -111,10 +114,10 @@ changed scope or new preparation after terminal failure needs a new key.
   supplier, and certificate source is required on coverage, status, prepare, and each fresh URL.
   Earlier access grants no permission now. Do not infer hidden counts/source IDs or drop photos to
   get a less restricted PDF.
-- `LEDGER_PDF_NOT_READY`: explain that the latest PDF awaits daily scheduled generation.
+- `LEDGER_PDF_NOT_READY`: explain that the latest PDF awaits an automatic update.
   Preparation/download never causes rendering; retry only after readiness is established.
 - `LEDGER_PDF_BUNDLE_STALE`: the old prepared bundle cannot be reused. Recheck coverage and wait
-  for scheduled generation if needed, then prepare with a new key and obtain a fresh URL.
+  for automatic updates if needed, then prepare with a new key and obtain a fresh URL.
 - `LEDGER_PDF_NOT_ENABLED` / absent tools: stop the PDF workflow and report pending rollout;
   `LEDGER_DETAIL_DISABLED` does not authorize a local detail/export workaround.
 

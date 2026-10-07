@@ -7,7 +7,7 @@ This repository is organized as independently installable sibling skills under `
 ## Skills
 
 - `skills/smedc-business-analysis/`: tenant-neutral operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured business datasets.
-- `skills/smedc-delivery-ledger/`: original receipt upload, receipt-linked photo operations, and scheduled server daily PDF readiness/ZIP download coordination after archive rollout. Local XLSX/CSV exports and monthly maintenance have been removed.
+- `skills/smedc-delivery-ledger/`: original receipt upload, receipt-linked photo operations, and automatic daily PDF update/readiness/ZIP download coordination after archive rollout. Local XLSX/CSV exports and monthly maintenance have been removed.
 - `skills/download-meituan-dish-sales/`: download original Meituan dish-sales XLSX reports for a business-date range; optionally upload to SMEDC `dishes` when requested.
 - `skills/download-meituan-business-data/`: download original Meituan business XLSX reports for a business-date range; optionally upload to SMEDC `business` when requested.
 - `skills/download-meituan-delivery-ledger/`: export received store receipts by receipt date, download ZIP batches page by page, and validate one original XLSX per receipt for optional SMEDC `delivery_ledger` upload.
@@ -40,7 +40,7 @@ cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/
 
 The business-analysis skill requires an authenticated `smedc-mcp` session using `smedc-mcp-launcher@0.7.1` and MCP entry `smedc`. If that prerequisite is missing, the skill must stop before report data access and ask for explicit authorization before installing it. It never installs another companion skill automatically.
 
-The delivery-ledger skill uses the same authenticated core prerequisite for original uploads and photo operations. Its PDF workflow uses the published and independently verified `smedc-mcp-launcher@0.7.1` core pin and also requires service archive delivery enabled. It polls actual import application, explains that changed PDFs await the daily 03:00 Asia/Shanghai service run, then checks coverage before preparing existing PDFs and requesting a fresh ZIP link. Employee agents cannot trigger PDF generation through MCP or HTTP. Retired local `export_ledger.py`, `export_ledger_csv.py`, and monthly maintenance are removed; no local PDF/XLSX/CSV generation or `openpyxl` dependency remains. If archive delivery is not enabled, report it as unavailable and wait for the service rollout. It never installs another companion automatically.
+The delivery-ledger skill uses the same authenticated core prerequisite for original uploads and photo operations. Its PDF workflow uses the published and independently verified `smedc-mcp-launcher@0.7.1` core pin and also requires service archive delivery enabled. It polls actual import application, explains that PDFs update automatically and availability is confirmed by their status, then checks coverage before preparing existing PDFs and requesting a fresh ZIP link. Employee agents cannot trigger PDF generation through MCP or HTTP. Retired local `export_ledger.py`, `export_ledger_csv.py`, and monthly maintenance are removed; no local PDF/XLSX/CSV generation or `openpyxl` dependency remains. If archive delivery is not enabled, report it as unavailable and wait for the service rollout. It never installs another companion automatically.
 
 To install the three Meituan download skills, reuse the companion repository checkout above (or clone it first), then copy their subtrees:
 
