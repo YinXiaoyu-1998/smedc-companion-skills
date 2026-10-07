@@ -1,5 +1,5 @@
 interface:
   display_name: "SMEDC Delivery Ledger"
   short_description: "SMEDC daily PDF archives and certificate photos"
-  default_prompt: "Use $smedc-delivery-ledger to upload original receipts, check scheduled server daily PDF archives, prepare ZIP links, or manage receipt-linked quarantine-certificate photos when the archive capability is released and enabled."
+  default_prompt: "Use $smedc-delivery-ledger to upload original receipts, check server daily PDF archives, prepare ZIP links, or manage receipt-linked quarantine-certificate photos when the archive capability is released and enabled."
   brand_color: "#0F766E"
