@@ -9,9 +9,23 @@ Generate operating diagnosis, weekly meeting, and monthly meeting reports from S
 
 **Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.7.1`, and the MCP entry is `smedc`.
 
-**Release gate for this branch:** Generated plans include the new asynchronous prepare/status/requestId workflow and service-side `storeNameContains`. Keep those steps disabled until Launcher **0.8.0 is published and independently verified** and the matching server endpoints are deployed. The installed/pinned 0.7.1 does not accept these new tools or inputs. Do not update installation pins ahead of that release. Legacy range-only download remains available on 0.7.1 for existing unfiltered manifests; do not send new plan selectors or steps to it.
+**Release gate for this branch:** Generated plans use filtered range downloads. Wait until Launcher **0.8.0 is published and independently verified** and the matching filtered range service is deployed. The installed/pinned 0.7.1 does not accept new filter inputs. Keep pins unchanged until verification; unfiltered existing range downloads remain available on 0.7.1.
 
 If `smedc-mcp` is not installed, do not begin report data access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-delivery-ledger` automatically.
+
+## Optional bundle download mode
+
+Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after Launcher **0.8.1 is published and independently verified** and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered. The installed pin remains 0.7.1 until release verification.
+
+Bundle extracts alone emit these steps:
+
+1. `prepare_structured_partition_download` takes the selector and persisted `idempotencyKey`. Save the full response and retain its `requestId`.
+2. `get_structured_partition_download_status` takes only `requestId`; wait `retryAfterSeconds` while queued/running. Check MCP `isError` and failed/expired status on every call.
+3. Only succeeded packaging permits `download_structured_partitions` with only `requestId`, without selectors. Save the full verified local envelope at `outputFile`; packaging success alone is not a local success.
+
+Each bundle run gets a persisted preparation generation/key. Saved exact retries retain it. `record-result` also accepts bundle prepare/status envelopes. On stale/expired bundle failures, `split-failed` renews the same scope with a fresh generation/key, including one day; other failed batches keep the common date splitting rules. Merge and split preserve the selected downloadMode. Mixed range/bundle plans are rejected clearly; regenerate all inputs in one selected mode. Legacy bundle JSON without an explicit mode also requires regeneration.
+
+If ZIP support is removed or unsupported, regenerate saved plans with `--download-mode range`. Do not silently retry a bundle failure as range. Authentication, integrity and source-scope failures stop the workflow; they must never be bypassed. Source filters and successful-local-batch validation/sharing/refcount cleanup apply identically to both modes.
 
 ## Boundaries
 
@@ -19,7 +33,7 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 - The only report-company source is `smedc_get_current_user.user.organizationName`. Missing, non-string, or blank organization names are a contract error; stop and tell the user their SMEDC account organization must be corrected.
 - Do not infer a report company from display name, email/domain, filenames, partition `enterpriseName`, store names, configuration defaults, or examples.
 - `enterpriseName` remains only the structured-data selector used for coverage and partition downloads.
-- Use these SMEDC MCP tools for reports: `smedc_get_current_user`, `list_structured_datasets`, `describe_structured_dataset_coverage`, `download_structured_partitions`, `query_structured_dataset`, and, when an upload is still processing, `get_partition_import_status`. The new `prepare_structured_partition_download` and `get_structured_partition_download_status` tools require the release gate below.
+- Use these SMEDC MCP tools for reports: `smedc_get_current_user`, `list_structured_datasets`, `describe_structured_dataset_coverage`, `download_structured_partitions`, `query_structured_dataset`, and, when an upload is still processing, `get_partition_import_status`.
 - Do not use direct HTTP, service databases, service configuration, or internal storage.
 - Do not handle passwords or tokens.
 - Do not request, reveal, copy, or persist presigned URLs. Let `download_structured_partitions` consume them inside the launcher and return a launcher-managed local directory.
@@ -78,10 +92,8 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 7. Check `releaseGate` before executing any generated extract. Business slices stay within a natural month; dishes slices contain at most seven inclusive days. Adjacent/overlapping reporting windows are merged before slicing, so current/previous/YoY/year-trend coverage does not duplicate downloads.
 
    For each extract, follow its `steps[]` through the employee's ordinary MCP session:
-   - Call `prepare_structured_partition_download` with the selector and persisted `idempotencyKey` for this preparation generation (the extract `input` is a selector, not a requestId download call).
-   - Save the full prepare/status envelopes. Use the returned `requestId` for `get_structured_partition_download_status`; wait the supplied `retryAfterSeconds` between checks while `queued` or `running`. Never poll inside Python or bypass the Launcher.
-   - Check `isError` on every tool response and treat `failed`/`expired` as terminal failures. Only `succeeded` packaging permits `download_structured_partitions({"requestId": "..."})`, with no date/filter selectors alongside it. Save its full local envelope at `outputFile`. A status of `succeeded` alone is not a completed local download.
-   - A successful zero has a verified local manifest and `files=[]`. Failure, timeout, expiry, missing output, and `isError` must never become zero rows in report totals.
+   - Execute each extract's single range `download_structured_partitions` step with its dataset, enterprise, dates and optional store filters. Save the complete successful local envelope at `outputFile`.
+   - Check MCP `isError`; failed downloads stop materialization and never imply empty data. A range extract never requires a server-side preparation request.
 
 8. Call `query_structured_dataset` only for manifest jobs whose `tool` is `query_structured_dataset`; currently that is the controlled `dish_catalog` snapshot query. Follow `nextCursor` until the returned `nextCursor` is `null`; save an array of page envelopes in request order at `jobs[].outputFile`.
 
@@ -123,9 +135,9 @@ Merge plans before data access, giving each report a distinct optional `reportId
 python3 scripts/partition_download_plan.py merge --plans runs/WEEK/query_manifest.json runs/MONTH/query_manifest.json --output runs/shared_download_index.json --reports-dir runs/shared_reports
 ```
 
-The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters. Same-scope overlapping report windows are subdivided at common coverage boundaries into bounded batches, even when weekly and monthly boundaries differ. Verified successful local batches remain intact; only uncovered dates need a new download. Different enterprises, organizations or store filters never share. Each fresh plan has a new persisted `preparationGeneration` and request key; reuse the saved key for exact network retries, not for a later independent report run. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
+The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters. Same-scope overlapping report windows are subdivided at common coverage boundaries into bounded batches, even when weekly and monthly boundaries differ. Verified successful local batches remain intact; only uncovered dates need a new download. Different enterprises, organizations or store filters never share. Plans retain their range download steps through sharing and date splits. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
 
-Record each saved prepare, status, or local download envelope in the index, including errors:
+Record each saved local download envelope in the index, including errors:
 
 ```bash
 python3 scripts/partition_download_plan.py record-result --index runs/shared_download_index.json --extract-id EXTRACT_ID --response runs/SAVED_RESPONSE.json
@@ -137,7 +149,7 @@ For a timed-out or oversized failed batch, record failure first, then replace it
 python3 scripts/partition_download_plan.py split-failed --plan runs/shared_download_index.json --extract-id EXTRACT_ID --output runs/shared_download_index.json
 ```
 
-For `PARTITION_DOWNLOAD_STALE` or `expired` (including `PARTITION_DOWNLOAD_EXPIRED` MCP errors), this command renews the same scope with a new persisted generation/key, including a one-day scope. It preserves the extract identity and consumer references. Other failed batches split: the failed parent is removed from every consumer reference; an already planned matching child retains its state and combines the consumers; only its two new children participate in aggregation. Follow each child's newly generated steps/key. Saved shared report manifests resolve the current index automatically, so a stale parent response cannot be counted. Standalone plans can use the same command with their manifest as `--plan`/`--output`. A one-day batch that still fails must stop and request a narrower employee-approved store-name scope. Never guess merchant IDs, exclude stores silently, or classify a failed download as missing business data.
+The failed parent is removed from every consumer reference; an already planned matching child retains its state and combines consumers. Only replacement children participate in aggregation. Saved shared reports resolve the current index, so a failed parent cannot be counted. A one-day failure stops and requires a narrower employee-approved store scope. Never guess merchant IDs, silently exclude stores or treat failures as missing business data.
 
 If a shared report stops before a runner can finalize it, release it explicitly:
 

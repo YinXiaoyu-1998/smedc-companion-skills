@@ -17,11 +17,23 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-RELEASE_GATE = {
-    'minimumPublishedLauncher': '0.8.0',
+BUNDLE_RELEASE_GATE = {
+    'minimumPublishedLauncher': '0.8.1',
     'requiresMatchingServerEndpoints': True,
     'enabledByDefault': False,
 }
+
+
+RELEASE_GATE = {**BUNDLE_RELEASE_GATE, 'minimumPublishedLauncher': '0.8.0'}
+
+
+def extract_download_mode(extract: dict[str, Any]) -> str:
+    mode = extract.get('downloadMode', 'range')
+    if mode not in {'range', 'bundle'}:
+        raise ValueError('downloadMode must be range or bundle')
+    if mode == 'range' and any(step.get('tool') == 'prepare_structured_partition_download' for step in extract.get('steps', [])):
+        raise ValueError('saved bundle plan has no explicit downloadMode; regenerate it with --download-mode bundle or range')
+    return mode
 
 
 def normalize_store_names(values: list[str] | None) -> list[str]:
@@ -77,7 +89,7 @@ def digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def make_extract(selector: dict[str, Any], scope: str = '') -> dict[str, Any]:
+def make_extract(selector: dict[str, Any], scope: str = '', download_mode: str = 'range') -> dict[str, Any]:
     selector = copy.deepcopy(selector)
     names = selector.get('storeNameContains')
     if names is not None:
@@ -86,13 +98,24 @@ def make_extract(selector: dict[str, Any], scope: str = '') -> dict[str, Any]:
         selector['storeIds'] = sorted(set(selector['storeIds']))
     key = digest({'scope': scope, 'selector': selector})
     extract_id = f"{selector['dataset']}_{key[:24]}"
+    if download_mode not in {'range', 'bundle'}:
+        raise ValueError('downloadMode must be range or bundle')
+    if download_mode == 'range':
+        return {
+            'id': extract_id, 'downloadMode': 'range', 'reuseScope': scope, 'tool': 'download_structured_partitions', 'input': selector,
+            'outputFile': f'partition-extracts/{extract_id}.json',
+            'releaseGate': copy.deepcopy(RELEASE_GATE),
+            'steps': [{'tool': 'download_structured_partitions', 'input': copy.deepcopy(selector),
+                       'when': 'Save the full successful local download envelope at outputFile.'}],
+            'downloadState': {'status': 'planned'},
+        }
     generation = uuid.uuid4().hex
     request_key = digest({'extract': key, 'generation': generation})
     request = '${prepare.requestId}'
     return {
-        'id': extract_id, 'preparationGeneration': generation, 'reuseScope': scope, 'tool': 'download_structured_partitions', 'input': selector,
+        'id': extract_id, 'downloadMode': 'bundle', 'preparationGeneration': generation, 'reuseScope': scope, 'tool': 'download_structured_partitions', 'input': selector,
         'outputFile': f'partition-extracts/{extract_id}.json',
-        'releaseGate': copy.deepcopy(RELEASE_GATE),
+        'releaseGate': copy.deepcopy(BUNDLE_RELEASE_GATE),
         'steps': [
             {'tool': 'prepare_structured_partition_download', 'input': {**selector, 'idempotencyKey': request_key}},
             {'tool': 'get_structured_partition_download_status', 'input': {'requestId': request},
@@ -111,7 +134,12 @@ def sync_reports(index: dict[str, Any]) -> None:
 
 
 def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
-    index: dict[str, Any] = {'schemaVersion': 1, 'extracts': [], 'reports': {}}
+    modes = {extract_download_mode(item) for plan in plans for item in plan.get('extracts', [])}
+    modes.update(plan['downloadMode'] for plan in plans if 'downloadMode' in plan)
+    if not modes <= {'range', 'bundle'} or len(modes) > 1:
+        raise ValueError('cannot merge mixed download modes; regenerate all plans in the same explicit mode')
+    download_mode = next(iter(modes), 'range')
+    index: dict[str, Any] = {'schemaVersion': 1, 'downloadMode': download_mode, 'extracts': [], 'reports': {}}
     groups = {}
     for ordinal, original in enumerate(plans, start=1):
         report = copy.deepcopy(original)
@@ -140,7 +168,7 @@ def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
             while start <= end:
                 group['days'].setdefault(start, set()).add(report_id)
                 start += timedelta(days=1)
-            candidate = make_extract(selector, scope)
+            candidate = make_extract(selector, scope, download_mode)
             if old.get('id') == candidate['id']:
                 candidate = copy.deepcopy(old)
             elif old.get('downloadState', {}).get('status') == 'succeeded':
@@ -179,7 +207,7 @@ def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
             for window in split_download_windows(group['base']['dataset'], [{'start': first, 'end': last}]):
                 selector = {**group['base'], 'startDate': date.fromisoformat(window['start']).strftime('%Y%m%d'),
                             'endDate': date.fromisoformat(window['end']).strftime('%Y%m%d')}
-                candidate = make_extract(selector, group['scope'])
+                candidate = make_extract(selector, group['scope'], download_mode)
                 add(group['existing'].get(candidate['id'], candidate), consumers)
             for day in list(days):
                 if first <= day <= last:
@@ -195,7 +223,9 @@ def renew_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, Any
     state = parent.get('downloadState', {})
     if state.get('status') != 'expired' and state.get('errorCode') != 'PARTITION_DOWNLOAD_STALE':
         raise ValueError('only stale or expired requests may be renewed')
-    fresh = make_extract(parent['input'], parent.get('reuseScope', ''))
+    if extract_download_mode(parent) != 'bundle':
+        raise ValueError('only bundle requests may be renewed')
+    fresh = make_extract(parent['input'], parent.get('reuseScope', ''), 'bundle')
     for key in ('preparationGeneration', 'steps', 'downloadState'):
         parent[key] = fresh[key]
     sync_reports(result)
@@ -210,7 +240,7 @@ def replace_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, A
     parent = matches[0]
     if parent.get('downloadState', {}).get('status') not in {'failed', 'expired'}:
         raise ValueError('only a failed or expired extract may be split')
-    if parent['downloadState'].get('status') == 'expired' or parent['downloadState'].get('errorCode') == 'PARTITION_DOWNLOAD_STALE':
+    if extract_download_mode(parent) == 'bundle' and (parent['downloadState'].get('status') == 'expired' or parent['downloadState'].get('errorCode') == 'PARTITION_DOWNLOAD_STALE'):
         return renew_failed_extract(result, extract_id)
     selector = parent['input']
     start, end = (date.fromisoformat(selector[name]) for name in ('startDate', 'endDate'))
@@ -219,7 +249,7 @@ def replace_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, A
     middle = start + timedelta(days=(end - start).days // 2)
     children = []
     for first, last in ((start, middle), (middle + timedelta(days=1), end)):
-        child = make_extract({**selector, 'startDate': first.strftime('%Y%m%d'), 'endDate': last.strftime('%Y%m%d')}, parent.get('reuseScope', ''))
+        child = make_extract({**selector, 'startDate': first.strftime('%Y%m%d'), 'endDate': last.strftime('%Y%m%d')}, parent.get('reuseScope', ''), extract_download_mode(parent))
         child['replaces'] = extract_id
         for name in ('consumers', 'releasedBy'):
             if name in parent:
@@ -271,10 +301,12 @@ def record_download_result(index: dict[str, Any], extract_id: str, response: dic
     if status is None and 'localDirectory' in payload:
         verify_local_download(extract, payload)
         state = {'status': 'succeeded', 'localDirectory': payload['localDirectory'], 'response': payload}
-    elif status in {'queued', 'running', 'succeeded', 'failed', 'expired'}:
+    elif extract_download_mode(extract) == 'bundle' and status in {'queued', 'running', 'succeeded', 'failed', 'expired'}:
         # Packaging succeeded does not mean a verified local directory exists yet.
         state = {key: payload[key] for key in ('requestId', 'retryAfterSeconds', 'errorCode', 'expiresAt') if key in payload}
         state['status'] = 'ready' if status == 'succeeded' else status
+    elif status == 'failed':
+        state = {'status': 'failed', 'errorCode': payload.get('errorCode', 'MCP_ERROR')}
     else:
         raise ValueError('download result has no valid status or local envelope')
     extract['downloadState'] = state
