@@ -28,10 +28,10 @@ class LedgerSkillContractTests(unittest.TestCase):
             with self.subTest(path=path):
                 text = path.read_text(encoding="utf-8")
                 pins = re.findall(r"smedc-mcp-launcher@([^\s`]+)", text)
-                self.assertTrue(set(pins) <= {"0.8.1"})
+                self.assertTrue(set(pins) <= {"0.8.2"})
                 self.assertNotIn("python3 scripts/export_ledger", text)
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("smedc-mcp-launcher@0.8.1", text)
+        self.assertIn("smedc-mcp-launcher@0.8.2", text)
         self.assertIn("independently verified", text)
         self.assertNotIn("once published", text)
 
