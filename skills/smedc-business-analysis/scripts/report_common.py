@@ -128,6 +128,16 @@ def cleanup_partition_extracts(bundle_path: Path) -> None:
         bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return
+    if isinstance(bundle, dict) and "sharedDownload" in bundle:
+        from partition_download_plan import release_saved_report
+        shared = bundle["sharedDownload"]
+        try:
+            if not isinstance(shared, dict) or not isinstance(shared.get("indexPath"), str) or not isinstance(shared.get("reportId"), str):
+                return
+            release_saved_report(Path(shared["indexPath"]), shared["reportId"])
+        except (ValueError, OSError, KeyError, TypeError):
+            return
+        return
     directories = bundle.get("partitionExtractDirectories") if isinstance(bundle, dict) else None
     if not isinstance(directories, list):
         return

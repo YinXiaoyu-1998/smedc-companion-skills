@@ -191,6 +191,24 @@ class ReportHtmlTests(unittest.TestCase):
         self.assertNotRegex(html, forbidden)
         self.assertEqual(summary["meta"]["report_grain"], "month")
 
+    def test_shared_trend_tooltip_keeps_dates_and_revenue_without_year_heading(self) -> None:
+        for grain in ("weekly", "monthly"):
+            with self.subTest(grain=grain):
+                _, html, _ = self.render_from_profile(
+                    f"profile_{grain}_data.py", f"generate_{grain}_report_html.py",
+                    f"{grain}_bundle.json", f"{grain}_meeting_summary.json",
+                )
+                trend = html.split("function renderTrend() {", 1)[1].split("function ", 1)[0]
+                self.assertIn("const showTrendTip = (event, pointRange, value)", trend)
+                self.assertIn("tip.innerHTML = `${pointRange}<br>业务收入：${fmtWan(value)}`;", trend)
+                self.assertNotIn("<strong>", trend)
+                self.assertIn("title.textContent = `${pointRange} 业务收入：${fmtWan(value)}`;", html)
+                self.assertIn("showTrendTip(event, pointRange, value)", html)
+                self.assertIn(".textContent = currentLabel;", html)
+                self.assertIn(".textContent = `${priorLabel}同期`;", html)
+                self.assertIn("`${first}–${last}`", html)
+                self.assertNotIn("${seriesLabel}", html.split("function renderTrend() {", 1)[1].split("function render", 1)[0])
+
     def test_diagnosis_renderer_rejects_company_override(self) -> None:
         output_dir = self.profile_to_directory("profile_business_data.py", "diagnosis_bundle.json")
         report_path = output_dir / "diagnosis-override.html"

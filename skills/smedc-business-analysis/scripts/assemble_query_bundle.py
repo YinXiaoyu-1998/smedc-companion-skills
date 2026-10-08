@@ -389,6 +389,8 @@ def sort_notices(notices: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def assemble_bundle(manifest: dict[str, Any], responses_dir: Path, config: dict[str, Any]) -> dict[str, Any]:
+    from partition_download_plan import resolve_shared_report
+    manifest = resolve_shared_report(manifest)
     jobs = validate_manifest(manifest)
     expected_paths = expected_response_paths(responses_dir, jobs)
     validate_no_unplanned_response_files(responses_dir, expected_paths)
@@ -433,9 +435,18 @@ def assemble_bundle(manifest: dict[str, Any], responses_dir: Path, config: dict[
         if not isinstance(output_file, str):
             raise BundleError(f"manifest extract {index} has invalid outputFile")
         response_path = manifest_output_path(responses_dir, output_file)
-        if not response_path.exists():
+        saved_response = extract.get("downloadState", {}).get("response") if extract.get("downloadState", {}).get("status") == "succeeded" else None
+        if not response_path.exists() and saved_response is None:
+            if "releaseGate" in extract:
+                raise BundleError("partition download response is missing")
             continue
-        response = unwrap_success_envelope(load_json(response_path, "partition download response"))
+        raw_response = saved_response if saved_response is not None else load_json(response_path, "partition download response")
+        response = unwrap_success_envelope(raw_response)
+        if is_error_envelope(raw_response) or is_error_envelope(response) or (isinstance(response, dict) and response.get("status") in {"failed", "expired", "queued", "running"}):
+            raise BundleError("partition download failed or is incomplete")
+        if "releaseGate" in extract:
+            from load_partition_extract import validate_download
+            validate_download(extract, response)
         if isinstance(response, dict) and isinstance(response.get("localDirectory"), str):
             extract_directories.append(response["localDirectory"])
     return {
@@ -447,6 +458,7 @@ def assemble_bundle(manifest: dict[str, Any], responses_dir: Path, config: dict[
         "outputContract": manifest.get("outputContract"),
         "jobs": jobs_metadata,
         "partitionExtractDirectories": sorted(set(extract_directories)),
+        **({"sharedDownload": manifest["sharedDownload"]} if "sharedDownload" in manifest else {}),
         "resultsByJobId": {job_id: results_by_job_id[job_id] for job_id in sorted(results_by_job_id)},
     }
 
@@ -475,7 +487,7 @@ def main(argv: list[str]) -> int:
         bundle = assemble_bundle(manifest, args.responses_dir, config)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(dump_json_exact(bundle, indent=2) + "\n", encoding="utf-8")
-    except BundleError as exc:
+    except (BundleError, ValueError, OSError, KeyError, TypeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 0

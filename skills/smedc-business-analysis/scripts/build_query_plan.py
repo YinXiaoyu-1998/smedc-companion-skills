@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from identity import ORGANIZATION_ERROR, organization_name_from_current_user_file
+from partition_download_plan import RELEASE_GATE, make_extract, normalize_store_names, split_download_windows
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -775,7 +776,7 @@ def add_if_covered(
                 notices.append(make_partial_notice(dataset_name, window, module, gaps))
 
 
-def build_extracts(jobs: list[dict[str, Any]], enterprise_name: str) -> list[dict[str, Any]]:
+def build_extracts(jobs: list[dict[str, Any]], enterprise_name: str, store_name_contains: list[str] | None = None, organization_name: str = "") -> list[dict[str, Any]]:
     by_dataset: dict[str, list[DateWindow]] = {}
     for job in jobs:
         if job["tool"] != "local_partition_aggregate":
@@ -788,30 +789,14 @@ def build_extracts(jobs: list[dict[str, Any]], enterprise_name: str) -> list[dic
         by_dataset.setdefault(query["dataset"], []).append(
             DateWindow(job["id"], parse_date(values[0], f"{job['id']}.start"), parse_date(values[1], f"{job['id']}.end"))
         )
-
-    extracts: list[dict[str, Any]] = []
+    extracts = []
     for dataset_name in sorted(by_dataset):
-        merged: list[DateWindow] = []
-        for window in sorted(by_dataset[dataset_name], key=lambda item: (item.start, item.end)):
-            if merged and merged[-1].touches(window):
-                previous = merged[-1]
-                merged[-1] = DateWindow(previous.name, min(previous.start, window.start), max(previous.end, window.end))
-            else:
-                merged.append(window)
-        for index, window in enumerate(merged, start=1):
-            extracts.append(
-                {
-                    "id": f"{dataset_name}_extract_{index}",
-                    "tool": "download_structured_partitions",
-                    "input": {
-                        "dataset": dataset_name,
-                        "enterpriseName": enterprise_name,
-                        "startDate": window.start.strftime("%Y%m%d"),
-                        "endDate": window.end.strftime("%Y%m%d"),
-                    },
-                    "outputFile": f"partition-extracts/{dataset_name}_{index}.json",
-                }
-            )
+        for window in split_download_windows(dataset_name, by_dataset[dataset_name]):
+            selector = {"dataset": dataset_name, "enterpriseName": enterprise_name,
+                        "startDate": window["start"].replace("-", ""), "endDate": window["end"].replace("-", "")}
+            if store_name_contains:
+                selector["storeNameContains"] = store_name_contains
+            extracts.append(make_extract(selector, organization_name))
     return extracts
 
 
@@ -826,6 +811,7 @@ def build_plan(
     organization_name: str | None = None,
     store_name_contains: list[str] | None = None,
 ) -> dict[str, Any]:
+    store_name_contains = normalize_store_names(store_name_contains) if store_name_contains else []
     business_date = require_field(config, registry, "business.date", "filter").canonical
     business_store = require_field(config, registry, "business.store", "group").canonical
     business_month = require_field(config, registry, "business.month", "group").canonical
@@ -1060,7 +1046,15 @@ def build_plan(
         },
         "coverage": coverage_manifest,
         "notices": ordered_notices,
-        "extracts": build_extracts(ordered_jobs, enterprise_name),
+        "extracts": build_extracts(ordered_jobs, enterprise_name, store_name_contains, organization_name or ""),
+        "releaseGate": RELEASE_GATE,
+        "coverageRequests": [
+            {"tool": "describe_structured_dataset_coverage", "input": {
+                "dataset": dataset, "enterpriseName": enterprise_name,
+                **({"storeNameContains": store_name_contains} if store_name_contains else {}),
+            }, "releaseGate": RELEASE_GATE}
+            for dataset in ("business", "dishes")
+        ],
         "jobs": ordered_jobs,
     }
     if organization_name is not None:
@@ -1120,13 +1114,7 @@ def main(argv: list[str]) -> int:
         registry, limits = registry_by_dataset(registry_response)
         validate_config_fields(config, registry)
         coverage, coverage_notices = load_coverage(config, registry, args.coverage_dir, args.enterprise_name)
-        store_name_contains = []
-        for value in args.store_name_contains or []:
-            fragment = value.strip()
-            if not fragment:
-                raise PlanError("store-name-contains values must be non-blank")
-            if fragment not in store_name_contains:
-                store_name_contains.append(fragment)
+        store_name_contains = normalize_store_names(args.store_name_contains)
         manifest = build_plan(
             config,
             registry,
@@ -1145,7 +1133,7 @@ def main(argv: list[str]) -> int:
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    except PlanError as exc:
+    except (PlanError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 0
