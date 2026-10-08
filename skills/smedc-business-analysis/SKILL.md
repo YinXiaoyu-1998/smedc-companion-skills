@@ -78,7 +78,7 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 7. Check `releaseGate` before executing any generated extract. Business slices stay within a natural month; dishes slices contain at most seven inclusive days. Adjacent/overlapping reporting windows are merged before slicing, so current/previous/YoY/year-trend coverage does not duplicate downloads.
 
    For each extract, follow its `steps[]` through the employee's ordinary MCP session:
-   - Call `prepare_structured_partition_download` with the selector and generated stable `idempotencyKey` (the extract `input` is a selector, not a requestId download call).
+   - Call `prepare_structured_partition_download` with the selector and persisted `idempotencyKey` for this preparation generation (the extract `input` is a selector, not a requestId download call).
    - Save the full prepare/status envelopes. Use the returned `requestId` for `get_structured_partition_download_status`; wait the supplied `retryAfterSeconds` between checks while `queued` or `running`. Never poll inside Python or bypass the Launcher.
    - Check `isError` on every tool response and treat `failed`/`expired` as terminal failures. Only `succeeded` packaging permits `download_structured_partitions({"requestId": "..."})`, with no date/filter selectors alongside it. Save its full local envelope at `outputFile`. A status of `succeeded` alone is not a completed local download.
    - A successful zero has a verified local manifest and `files=[]`. Failure, timeout, expiry, missing output, and `isError` must never become zero rows in report totals.
@@ -123,7 +123,7 @@ Merge plans before data access, giving each report a distinct optional `reportId
 python3 scripts/partition_download_plan.py merge --plans runs/WEEK/query_manifest.json runs/MONTH/query_manifest.json --output runs/shared_download_index.json --reports-dir runs/shared_reports
 ```
 
-The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters; different scopes never share. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
+The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters. Same-scope overlapping report windows are subdivided at common coverage boundaries into bounded batches, even when weekly and monthly boundaries differ. Verified successful local batches remain intact; only uncovered dates need a new download. Different enterprises, organizations or store filters never share. Each fresh plan has a new persisted `preparationGeneration` and request key; reuse the saved key for exact network retries, not for a later independent report run. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
 
 Record each saved prepare, status, or local download envelope in the index, including errors:
 
@@ -137,7 +137,7 @@ For a timed-out or oversized failed batch, record failure first, then replace it
 python3 scripts/partition_download_plan.py split-failed --plan runs/shared_download_index.json --extract-id EXTRACT_ID --output runs/shared_download_index.json
 ```
 
-The failed parent is removed from every consumer reference; an already planned matching child retains its state and combines the consumers; only its two new children participate in aggregation. Follow each child's newly generated steps/key. Saved shared report manifests resolve the current index automatically, so a stale parent response cannot be counted. Standalone plans can use the same command with their manifest as `--plan`/`--output`. A one-day batch that still fails must stop and request a narrower employee-approved store-name scope. Never guess merchant IDs, exclude stores silently, or classify a failed download as missing business data.
+For `PARTITION_DOWNLOAD_STALE` or `expired` (including `PARTITION_DOWNLOAD_EXPIRED` MCP errors), this command renews the same scope with a new persisted generation/key, including a one-day scope. It preserves the extract identity and consumer references. Other failed batches split: the failed parent is removed from every consumer reference; an already planned matching child retains its state and combines the consumers; only its two new children participate in aggregation. Follow each child's newly generated steps/key. Saved shared report manifests resolve the current index automatically, so a stale parent response cannot be counted. Standalone plans can use the same command with their manifest as `--plan`/`--output`. A one-day batch that still fails must stop and request a narrower employee-approved store-name scope. Never guess merchant IDs, exclude stores silently, or classify a failed download as missing business data.
 
 If a shared report stops before a runner can finalize it, release it explicitly:
 
@@ -145,7 +145,7 @@ If a shared report stops before a runner can finalize it, release it explicitly:
 python3 scripts/partition_download_plan.py release-report --index runs/shared_download_index.json --report-id REPORT_ID
 ```
 
-Release is idempotent; the ledger persists after source CSV cleanup. Release and result-recording CLI updates serialize on a local ledger lock. Plan merging/splitting must finish before concurrent consumers read or release that ledger.
+Release is idempotent; the ledger persists after source CSV cleanup. Release and result-recording CLI updates serialize on a local ledger lock (POSIX flock or Windows byte-range locking). Plan merging/splitting must finish before concurrent consumers read or release that ledger.
 
 ## Revenue Trend Interaction
 

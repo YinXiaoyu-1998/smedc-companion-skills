@@ -332,7 +332,11 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         for file_spec in files:
             if not isinstance(file_spec, dict):
                 raise ExtractError(f"extract {extract_spec['id']} has malformed file metadata")
-            identity = (dataset, extract_spec["input"]["enterpriseName"], file_spec.get("storeId"), file_spec.get("businessDate"))
+            # New ZIP names carry a full stable store-key hash. Legacy launcher names
+            # carry the ID/name hash, so both layouts support null merchant IDs.
+            store_id = file_spec.get("storeId")
+            store_identity = f"id:{store_id}" if isinstance(store_id, str) and store_id else file_spec.get("fileName")
+            identity = (dataset, extract_spec["input"]["enterpriseName"], store_identity, file_spec.get("businessDate"))
             if any(not isinstance(value, str) or not value for value in identity):
                 raise ExtractError("partition metadata is missing its store/date identity")
             checksum = file_spec.get("checksumSha256")

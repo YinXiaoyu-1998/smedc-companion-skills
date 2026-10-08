@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
-import fcntl
 import hashlib
 import json
 import shutil
 import sys
+import os
+import uuid
+from contextlib import contextmanager
 import unicodedata
 from datetime import date, timedelta
 from pathlib import Path
@@ -84,13 +86,15 @@ def make_extract(selector: dict[str, Any], scope: str = '') -> dict[str, Any]:
         selector['storeIds'] = sorted(set(selector['storeIds']))
     key = digest({'scope': scope, 'selector': selector})
     extract_id = f"{selector['dataset']}_{key[:24]}"
+    generation = uuid.uuid4().hex
+    request_key = digest({'extract': key, 'generation': generation})
     request = '${prepare.requestId}'
     return {
-        'id': extract_id, 'reuseScope': scope, 'tool': 'download_structured_partitions', 'input': selector,
+        'id': extract_id, 'preparationGeneration': generation, 'reuseScope': scope, 'tool': 'download_structured_partitions', 'input': selector,
         'outputFile': f'partition-extracts/{extract_id}.json',
         'releaseGate': copy.deepcopy(RELEASE_GATE),
         'steps': [
-            {'tool': 'prepare_structured_partition_download', 'input': {**selector, 'idempotencyKey': key}},
+            {'tool': 'prepare_structured_partition_download', 'input': {**selector, 'idempotencyKey': request_key}},
             {'tool': 'get_structured_partition_download_status', 'input': {'requestId': request},
              'wait': 'Follow retryAfterSeconds while queued/running; reject isError/failed/expired.'},
             {'tool': 'download_structured_partitions', 'input': {'requestId': request},
@@ -108,7 +112,7 @@ def sync_reports(index: dict[str, Any]) -> None:
 
 def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
     index: dict[str, Any] = {'schemaVersion': 1, 'extracts': [], 'reports': {}}
-    by_id = {}
+    groups = {}
     for ordinal, original in enumerate(plans, start=1):
         report = copy.deepcopy(original)
         report_id = report.get('reportId') or f'report-{digest(report)[:16]}-{ordinal}'
@@ -127,27 +131,75 @@ def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
             if 'storeNameContains' in selector and set(normalize_store_names(selector['storeNameContains'])) != set(report_names):
                 raise ValueError('extract storeNameContains differs from report scope')
             if report_names:
-                selector['storeNameContains'] = report_names
+                selector['storeNameContains'] = sorted(report_names)
+            if 'storeIds' in selector:
+                selector['storeIds'] = sorted(set(selector['storeIds']))
+            base = {k: v for k, v in selector.items() if k not in {'startDate', 'endDate'}}
+            group = groups.setdefault(digest([scope, base]), {'scope': scope, 'base': base, 'days': {}, 'existing': {}})
+            start, end = (date.fromisoformat(selector[k]) for k in ('startDate', 'endDate'))
+            while start <= end:
+                group['days'].setdefault(start, set()).add(report_id)
+                start += timedelta(days=1)
             candidate = make_extract(selector, scope)
-            key = candidate['id']
-            if key not in by_id:
-                candidate['consumers'] = []
-                candidate['releasedBy'] = []
-                by_id[key] = candidate
-            if old.get('downloadState', {}).get('status') == 'succeeded':
-                # Reuse requires a saved full envelope and a still-valid local extract.
-                saved = old['downloadState'].get('response')
-                if saved is not None:
-                    verify_local_download(candidate, saved)
-                    if by_id[key]['downloadState']['status'] != 'succeeded':
-                        by_id[key]['downloadState'] = copy.deepcopy(old['downloadState'])
-            if key not in report['extractRefs']:
-                report['extractRefs'].append(key)
-                by_id[key]['consumers'].append(report_id)
+            if old.get('id') == candidate['id']:
+                candidate = copy.deepcopy(old)
+            elif old.get('downloadState', {}).get('status') == 'succeeded':
+                candidate['downloadState'] = copy.deepcopy(old['downloadState'])
+            prior = group['existing'].get(candidate['id'])
+            if prior is None or candidate.get('downloadState', {}).get('status') == 'succeeded':
+                group['existing'][candidate['id']] = candidate
         index['reports'][report_id] = report
-    index['extracts'] = [by_id[key] for key in sorted(by_id)]
+
+    def add(extract, consumers):
+        extract['consumers'] = sorted(consumers)
+        extract['releasedBy'] = []
+        index['extracts'].append(extract)
+        for consumer in consumers:
+            index['reports'][consumer]['extractRefs'].append(extract['id'])
+
+    for group in groups.values():
+        days = group['days']
+        # Keep verified local successes intact; new requests cover only the remaining days.
+        for existing in group['existing'].values():
+            state = existing.get('downloadState', {})
+            if state.get('status') != 'succeeded' or state.get('response') is None:
+                continue
+            verify_local_download(existing, state['response'])
+            first, last = (date.fromisoformat(existing['input'][k]) for k in ('startDate', 'endDate'))
+            covered = [day for day in days if first <= day <= last]
+            if covered:
+                add(existing, set().union(*(days[day] for day in covered)))
+                for day in covered:
+                    del days[day]
+        while days:
+            first = last = min(days)
+            consumers = days[first]
+            while days.get(last + timedelta(days=1)) == consumers:
+                last += timedelta(days=1)
+            for window in split_download_windows(group['base']['dataset'], [{'start': first, 'end': last}]):
+                selector = {**group['base'], 'startDate': date.fromisoformat(window['start']).strftime('%Y%m%d'),
+                            'endDate': date.fromisoformat(window['end']).strftime('%Y%m%d')}
+                candidate = make_extract(selector, group['scope'])
+                add(group['existing'].get(candidate['id'], candidate), consumers)
+            for day in list(days):
+                if first <= day <= last:
+                    del days[day]
+    index['extracts'].sort(key=lambda item: item['id'])
     sync_reports(index)
     return index
+
+
+def renew_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, Any]:
+    result = copy.deepcopy(plan)
+    parent = next(item for item in result['extracts'] if item['id'] == extract_id)
+    state = parent.get('downloadState', {})
+    if state.get('status') != 'expired' and state.get('errorCode') != 'PARTITION_DOWNLOAD_STALE':
+        raise ValueError('only stale or expired requests may be renewed')
+    fresh = make_extract(parent['input'], parent.get('reuseScope', ''))
+    for key in ('preparationGeneration', 'steps', 'downloadState'):
+        parent[key] = fresh[key]
+    sync_reports(result)
+    return result
 
 
 def replace_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, Any]:
@@ -158,6 +210,8 @@ def replace_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, A
     parent = matches[0]
     if parent.get('downloadState', {}).get('status') not in {'failed', 'expired'}:
         raise ValueError('only a failed or expired extract may be split')
+    if parent['downloadState'].get('status') == 'expired' or parent['downloadState'].get('errorCode') == 'PARTITION_DOWNLOAD_STALE':
+        return renew_failed_extract(result, extract_id)
     selector = parent['input']
     start, end = (date.fromisoformat(selector[name]) for name in ('startDate', 'endDate'))
     if start >= end:
@@ -206,7 +260,9 @@ def record_download_result(index: dict[str, Any], extract_id: str, response: dic
     try:
         payload = unwrap_success_envelope(response)
         if is_error_envelope(response) or is_error_envelope(payload):
-            payload = {'status': 'failed', 'errorCode': 'MCP_ERROR'}
+            code = payload.get('error', {}).get('code') if isinstance(payload, dict) and isinstance(payload.get('error'), dict) else None
+            payload = {'status': 'expired' if code == 'PARTITION_DOWNLOAD_EXPIRED' else 'failed',
+                       'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
         if not isinstance(payload, dict):
             raise ValueError('download result must be an object')
     except ValueError:
@@ -286,10 +342,35 @@ def save_json(path: Path, value: Any) -> None:
     temporary.replace(path)
 
 
+@contextmanager
+def shared_lock(path: Path):
+    # Lock one persistent byte on Windows; closing the handle also releases the lock.
+    with path.with_suffix(path.suffix + '.lock').open('a+b') as lock:
+        if os.name == 'nt':
+            import msvcrt
+            lock.seek(0, 2)
+            if lock.tell() == 0:
+                lock.write(b'\0')
+                lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+
 def release_saved_report(path: Path, report_id: str) -> list[str]:
     # Serialize concurrent runner finalizers so no consumer release is lost.
-    with path.with_suffix(path.suffix + '.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with shared_lock(path):
         index = json.loads(path.read_text(encoding='utf-8'))
         deleted = release_report_extracts(index, report_id)
         save_json(path, index)
@@ -348,8 +429,7 @@ def main(argv: list[str]) -> int:
         elif args.command == 'release-report':
             release_saved_report(args.index, args.report_id)
         else:
-            with args.index.with_suffix(args.index.suffix + '.lock').open('a') as lock:
-                fcntl.flock(lock, fcntl.LOCK_EX)
+            with shared_lock(args.index):
                 result = json.loads(args.index.read_text(encoding='utf-8'))
                 record_download_result(result, args.extract_id, json.loads(args.response.read_text(encoding='utf-8')))
                 save_json(args.index, result)

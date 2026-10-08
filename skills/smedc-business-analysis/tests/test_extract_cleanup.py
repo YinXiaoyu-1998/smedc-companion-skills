@@ -54,8 +54,9 @@ class ExtractCleanupTests(unittest.TestCase):
             unsafe = root / 'keep'
             valid.mkdir(parents=True)
             unsafe.mkdir()
-            extracts = [planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': day, 'endDate': day}) for day in ('20240201', '20240202')]
+            extracts = [planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': day, 'endDate': day}) for day in ('20240201', '20240203')]
             index = planner.merge_download_plans([{'reportId': 'one', 'extracts': extracts}])
+            self.assertEqual(len(index['extracts']), 2)
             by_id = {extract['id']: extract for extract in index['extracts']}
             for extract_id, directory in zip(index['reports']['one']['extractRefs'], (valid, unsafe)):
                 by_id[extract_id]['downloadState'] = {'status': 'succeeded', 'localDirectory': str(directory)}

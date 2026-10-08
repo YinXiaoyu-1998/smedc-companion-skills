@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch, Mock
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -56,7 +57,7 @@ class DownloadPlanTests(unittest.TestCase):
         different = plan('organization')
         different['metadata'] = {'organization_name': '其他组织'}
         plans.append(different)
-        self.assertEqual(len(planner.merge_download_plans(plans)['extracts']), 4)
+        self.assertEqual(len(planner.merge_download_plans(plans)['extracts']), 8)
 
     def test_month_and_week_splits_cover_union_without_overlap(self):
         for dataset in ('business', 'dishes'):
@@ -100,18 +101,94 @@ class DownloadPlanTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'narrower store'):
             planner.replace_failed_extract(tiny, tiny['extracts'][0]['id'])
 
-    def test_failed_split_reuses_existing_child_without_losing_consumers(self):
+    def test_partial_month_boundaries_share_without_duplicate_dates(self):
         first, second = plan('one'), plan('two')
         second['extracts'][0]['input']['endDate'] = '20240215'
         index = planner.merge_download_plans([first, second])
-        parent = next(extract for extract in index['extracts'] if extract['input']['endDate'] == '20240229')
-        parent['downloadState'] = {'status': 'failed'}
-        result = planner.replace_failed_extract(index, parent['id'])
-        self.assertEqual(len(result['extracts']), 2)
-        child = next(extract for extract in result['extracts'] if extract['input']['endDate'] == '20240215')
+        self.assertEqual(len(index['extracts']), 2)
+        child = next(extract for extract in index['extracts'] if extract['input']['endDate'] == '20240215')
         self.assertEqual(set(child['consumers']), {'one', 'two'})
-        self.assertEqual(result['reports']['two']['extractRefs'], [child['id']])
-        self.assertEqual(len(result['reports']['one']['extractRefs']), 2)
+        self.assertEqual(index['reports']['two']['extractRefs'], [child['id']])
+        self.assertEqual(len(index['reports']['one']['extractRefs']), 2)
+
+    def test_unequal_week_month_boundaries_cover_each_date_once(self):
+        def report(name, ranges):
+            return {'reportId': name, 'extracts': [planner.make_extract({'dataset': 'dishes', 'enterpriseName': '企业',
+                'startDate': first, 'endDate': last}) for first, last in ranges]}
+        index = planner.merge_download_plans([report('week', [('20261005', '20261011')]),
+            report('month', [('20261001', '20261007'), ('20261008', '20261014')])])
+        seen = set()
+        for item in index['extracts']:
+            first, last = (date.fromisoformat(item['input'][k]) for k in ('startDate', 'endDate'))
+            days = {first + timedelta(days=i) for i in range((last-first).days+1)}
+            self.assertFalse(seen & days)
+            seen |= days
+        self.assertEqual(len(seen), 14)
+        weekly = [e for e in index['extracts'] if e['id'] in index['reports']['week']['extractRefs']]
+        self.assertEqual([(e['input']['startDate'], e['input']['endDate']) for e in weekly], [('20261005', '20261011')])
+        self.assertEqual(set(weekly[0]['consumers']), {'week', 'month'})
+
+    def test_fresh_run_and_stale_expired_renewal_escape_terminal_replay(self):
+        first, next_day = plan(), plan()
+        a, b = first['extracts'][0], next_day['extracts'][0]
+        key = lambda item: item['steps'][0]['input']['idempotencyKey']
+        self.assertEqual(a['id'], b['id'])
+        self.assertNotEqual(key(a), key(b))
+        # Service retains terminal states for an exact key. Persistence/merge must
+        # preserve retries, while a new run or explicit recovery escapes that replay.
+        terminal = {key(a): 'expired'}
+        saved = json.loads(json.dumps(first))
+        self.assertEqual(key(saved['extracts'][0]), key(a))
+        self.assertEqual(key(planner.merge_download_plans([saved])['extracts'][0]), key(a))
+        self.assertNotIn(key(b), terminal)
+        for state in ({'status': 'expired'}, {'status': 'failed', 'errorCode': 'PARTITION_DOWNLOAD_STALE'}):
+            saved['extracts'][0]['downloadState'] = state
+            renewed = planner.replace_failed_extract(saved, a['id'])['extracts'][0]
+            self.assertEqual(renewed['id'], a['id'])
+            self.assertEqual(renewed['input'], a['input'])
+            self.assertNotEqual(key(renewed), key(a))
+            self.assertEqual(renewed['downloadState']['status'], 'planned')
+
+    def test_saved_mcp_stale_and_expired_errors_renew_even_a_single_day(self):
+        for code in ('PARTITION_DOWNLOAD_STALE', 'PARTITION_DOWNLOAD_EXPIRED'):
+            original = plan()
+            original['extracts'] = [planner.make_extract({**original['extracts'][0]['input'], 'endDate': '20240201'})]
+            item = original['extracts'][0]
+            planner.record_download_result(original, item['id'], {'isError': True, 'content': [{'type': 'text', 'text': json.dumps({'error': {'code': code}})}]})
+            renewed = planner.replace_failed_extract(original, item['id'])['extracts'][0]
+            self.assertEqual(renewed['id'], item['id'])
+            self.assertNotEqual(renewed['steps'][0]['input']['idempotencyKey'], item['steps'][0]['input']['idempotencyKey'])
+
+    def test_planning_import_without_fcntl(self):
+        script = "import sys; sys.modules['fcntl'] = None; sys.path.insert(0, " + repr(str(ROOT/'scripts')) + "); import build_query_plan; sys.exit(build_query_plan.main(sys.argv[1:]))"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)/'manifest.json'
+            fixtures = ROOT/'tests'/'fixtures'
+            result = subprocess.run([sys.executable, '-c', script,
+                '--report-type', 'weekly', '--enterprise-name', '示例企业',
+                '--current-start', '2026-07-25', '--current-end', '2026-07-31',
+                '--previous-start', '2026-07-18', '--previous-end', '2026-07-24',
+                '--yoy-start', '2025-07-26', '--yoy-end', '2025-08-01',
+                '--current-user', str(fixtures/'current_user_response.json'),
+                '--registry-response', str(fixtures/'registry_response.json'),
+                '--coverage-dir', str(fixtures), '--output', str(output)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads(output.read_text())
+            self.assertTrue(manifest['extracts'])
+            self.assertNotIn('sharedDownload', manifest)
+
+    def test_windows_shared_lock_uses_same_byte_and_unlocks_on_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary)/'index.json'
+            windows = Mock(LK_LOCK=1, LK_UNLCK=0)
+            import os
+            positions = []
+            windows.locking.side_effect = lambda fd, mode, count: positions.append((os.lseek(fd, 0, 1), mode, count))
+            with patch.object(planner.os, 'name', 'nt'), patch.dict(sys.modules, {'msvcrt': windows}):
+                with self.assertRaisesRegex(ValueError, 'synthetic'):
+                    with planner.shared_lock(path):
+                        raise ValueError('synthetic')
+            self.assertEqual(positions, [(0, 1, 1), (0, 0, 1)])
 
     def test_release_last_consumer_only(self):
         with tempfile.TemporaryDirectory() as temporary:

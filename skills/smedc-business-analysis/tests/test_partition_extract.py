@@ -37,6 +37,37 @@ class PartitionExtractTests(unittest.TestCase):
     def aggregate_manifest(self, extracts):
         return {"report": {}, "extracts": extracts, "jobs": [{"id": "total", "tool": "local_partition_aggregate", "outputFile": "query-results/total.json", "input": {"dataset": "business", "filter": {"field": "business_date", "op": "between", "value": ["2024-02-01", "2024-02-02"]}, "groupBy": [], "aggregates": [{"op": "sum", "field": "order_revenue", "as": "revenue"}]}}]}
 
+    def test_null_id_overlapping_extracts_materialize_and_reject_conflicts(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root, responses = Path(temporary), Path(temporary)/'responses'
+            extracts = [planner.make_extract({'dataset': 'business', 'enterpriseName': '企业',
+                'startDate': '20240201', 'endDate': end}) for end in ('20240201', '20240202')]
+            manifests = []
+            for i, extract in enumerate(extracts):
+                response = self.save_download(root, responses, extract, [('2024-02-01', 10)], str(i))
+                path = Path(response['localDirectory'])/'manifest.json'
+                metadata = json.loads(path.read_text())
+                metadata['files'][0]['storeId'] = None
+                # Same display name, distinct stable file/store identity: keep both stores.
+                second = {**metadata['files'][0], 'fileName': 'other-store.csv'}
+                (path.parent/second['fileName']).write_bytes((path.parent/metadata['files'][0]['fileName']).read_bytes())
+                metadata['files'].append(second)
+                metadata['partitionCount'] = metadata['totalRowCount'] = 2
+                response.update({'partitionCount': 2, 'totalRowCount': 2, 'files': [f['fileName'] for f in metadata['files']]})
+                (responses/extract['outputFile']).write_text(json.dumps(response))
+                path.write_text(json.dumps(metadata))
+                manifests.append((path, metadata))
+            loader.materialize(self.aggregate_manifest(extracts), json.loads(REGISTRY.read_text()), responses)
+            self.assertEqual(json.loads((responses/'query-results/total.json').read_text())['rows'], [{'revenue': 20}])
+            path, metadata = manifests[1]
+            csv_file = path.parent/metadata['files'][0]['fileName']
+            csv_file.write_text(csv_file.read_text().replace(',10', ',20'))
+            metadata['files'][0]['checksumSha256'] = hashlib.sha256(csv_file.read_bytes()).hexdigest()
+            path.write_text(json.dumps(metadata))
+            with self.assertRaisesRegex(loader.ExtractError, 'conflicting checksums'):
+                loader.materialize(self.aggregate_manifest(extracts), json.loads(REGISTRY.read_text()), responses)
+
     def test_split_shared_failed_parent_materializes_only_children(self):
         import partition_download_plan as planner
         with tempfile.TemporaryDirectory() as temporary:
@@ -74,6 +105,27 @@ class PartitionExtractTests(unittest.TestCase):
             for report in index['reports'].values():
                 loader.materialize(report, json.loads(REGISTRY.read_text()), responses)
                 self.assertEqual(json.loads((responses / report['jobs'][0]['outputFile']).read_text())['rows'], [{'revenue': 10}])
+
+    def test_partially_overlapping_plan_keeps_verified_success_and_downloads_only_tail(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root, responses = Path(temporary), Path(temporary)/'responses'
+            first = planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': '20240201', 'endDate': '20240201'})
+            response = self.save_download(root, responses, first, [('2024-02-01', 10)], 'success')
+            first['downloadState'] = {'status': 'succeeded', 'localDirectory': response['localDirectory'], 'response': response}
+            second = planner.make_extract({**first['input'], 'endDate': '20240202'})
+            index = planner.merge_download_plans([{**self.aggregate_manifest([first]), 'reportId': 'one'}, {**self.aggregate_manifest([second]), 'reportId': 'two'}])
+            self.assertEqual(len(index['extracts']), 2)
+            kept = next(e for e in index['extracts'] if e['id'] == first['id'])
+            self.assertEqual(kept['downloadState'], first['downloadState'])
+            self.assertEqual(set(kept['consumers']), {'one', 'two'})
+            tail = next(e for e in index['extracts'] if e['id'] != first['id'])
+            self.assertEqual((tail['input']['startDate'], tail['input']['endDate']), ('20240202', '20240202'))
+            planner.record_download_result(index, tail['id'], self.save_download(root, responses, tail, [('2024-02-02', 20)], 'tail'))
+            for name, total in [('one', 10), ('two', 30)]:
+                report = index['reports'][name]
+                loader.materialize(report, json.loads(REGISTRY.read_text()), responses)
+                self.assertEqual(json.loads((responses/report['jobs'][0]['outputFile']).read_text())['rows'], [{'revenue': total}])
 
     def test_two_shared_reports_keep_separate_results_and_assemble_independently(self):
         import partition_download_plan as planner
