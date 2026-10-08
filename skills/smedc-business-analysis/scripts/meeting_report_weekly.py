@@ -12,6 +12,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from build_query_plan import WEEKLY_TREND_WEEKS, weekly_trend_window
 from identity import organization_name_from_metadata
 
 
@@ -127,7 +128,7 @@ def aggregate_trend(rows: list[dict[str, Any]], max_week_end: date | None) -> li
     for label, values in groups.items():
         result.append({"week_label": label, **{key: round(value, 2) for key, value in values.items()}})
     result.sort(key=lambda row: row["week_label"])
-    return result[-16:]
+    return result[-WEEKLY_TREND_WEEKS:]
 
 
 def build_trend_entities(rows: list[dict[str, Any]], max_week_end: date | None) -> list[dict[str, Any]]:
@@ -554,16 +555,16 @@ def build_payload(input_dir: Path, company: str | None = None) -> dict[str, Any]
     revenue_threshold = median([float(row.get("current_net_revenue") or 0) for row in comparison])
     current_window_end = parse_report_date(summary["meta"]["target_windows"]["current"]["end"])
     yoy_window_end = parse_report_date(summary["meta"]["target_windows"]["yoy"]["end"])
-    current_trend_start = current_window_end.fromordinal(current_window_end.toordinal() - 111) if current_window_end else None
-    yoy_trend_start = yoy_window_end.fromordinal(yoy_window_end.toordinal() - 111) if yoy_window_end else None
-    trend_note = "完整周口径；实线=本年，虚线=同期，均为最近 16 个自然周窗口。"
+    current_trend_start = weekly_trend_window(current_window_end).start if current_window_end else None
+    yoy_trend_start = weekly_trend_window(yoy_window_end).start if yoy_window_end else None
+    trend_note = "完整周口径；实线=本期，虚线=同期，均为最近一年（52 个完整周）。"
     def short_date(value: date) -> str:
-        return f"{value.month}/{value.day}"
+        return value.isoformat()
 
     if current_window_end and yoy_window_end and current_trend_start and yoy_trend_start:
         trend_note = (
-            f"完整周口径；实线={current_window_end:%Y}（{short_date(current_trend_start)}-{short_date(current_window_end)}），"
-            f"虚线={yoy_window_end:%Y}同期（{short_date(yoy_trend_start)}-{short_date(yoy_window_end)}）。"
+            f"完整周口径；实线=本期（{short_date(current_trend_start)}-{short_date(current_window_end)}），"
+            f"虚线=同期（{short_date(yoy_trend_start)}-{short_date(yoy_window_end)}）。"
         )
 
     current_channels = [row for row in channels if row.get("period") == "本周"]
@@ -760,6 +761,16 @@ HTML_TEMPLATE = r'''<!doctype html>
     .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .full-row { margin-top: 16px; }
+    .trend-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+    .trend-controls[hidden] { display: none; }
+    .trend-controls label { display: flex; align-items: center; gap: 6px; }
+    .trend-controls select { max-width: 190px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); }
+    .trend-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+    .trend-presets button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); cursor: pointer; }
+    .trend-presets button[aria-pressed="true"] { background: #eff6ff; border-color: #2563eb; color: #1d4ed8; }
+    .trend-navigator { margin: 12px 0 6px; touch-action: none; user-select: none; }
+    .trend-navigator svg { display: block; width: 100%; height: 64px; }
+    .trend-range-label { flex-basis: 100%; }
     .rule-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
     .rule {
       border: 1px dashed var(--line);
@@ -954,10 +965,18 @@ HTML_TEMPLATE = r'''<!doctype html>
       </div>
       <div class="panel full-row">
         <div class="panel-head">
-          <div class="panel-title-row"><h3>最近 16 周收入趋势</h3><select id="trendStoreSelect" class="mini-select" aria-label="选择门店趋势"></select></div>
+          <div class="panel-title-row"><h3>最近一年收入趋势（52 周）</h3><select id="trendStoreSelect" class="mini-select" aria-label="选择门店趋势"></select></div>
           <span class="label" id="trendMetricLabel">完整周，整体业务收入（万元）；实线=本年，虚线=同期</span>
         </div>
         <div class="chart" id="trend"></div>
+        <div class="trend-navigator" id="trendNavigator" aria-label="拖动两端调整时间范围，拖动选区移动时间段"></div>
+        <div class="trend-controls" id="trendControls">
+          <div class="trend-presets" id="trendPresets" aria-label="快捷时间范围"></div>
+          <label>开始<select id="trendStartSelect" aria-label="趋势开始时间"></select></label>
+          <label>结束<select id="trendEndSelect" aria-label="趋势结束时间"></select></label>
+          <span class="trend-range-label" id="trendRangeLabel" role="status" aria-live="polite"></span>
+          <span>拖动总览两端可缩放，拖动选区可平移；也可选择开始和结束时间。</span>
+        </div>
       </div>
     </section>
 
@@ -1118,6 +1137,7 @@ HTML_TEMPLATE = r'''<!doctype html>
     const colors = { teal:'#006d77', blue:'#2f5b9f', green:'#3a7d44', amber:'#b85c00', red:'#b23a48', violet:'#7557a6', orange:'#d96b3b', yellow:'#c89b18', yellowFill:'#f2c94c', maximum:'#2f80ed', maximumStroke:'#1c5fb8', minimum:'#e5484d', minimumStroke:'#b42318' };
     const segmentGroups = data.segment_groups || [];
     let selectedTrendKey = '__all__';
+    let trendStart = 0, trendEnd = null;
     let selectedHourlyKey = '__all__';
     let selectedStallMixKey = '__all__';
     const selectedProductSalesPer10kKeys = {orderRevenue:'__all__', grossSales:'__all__'};
@@ -1444,7 +1464,101 @@ HTML_TEMPLATE = r'''<!doctype html>
     }
     function currentTrendEntity() {
       const entities = data.trend_entities || [{key:'__all__', label:'全体门店', rows:data.trend}];
-      return entities.find(item => item.key === selectedTrendKey) || entities[0];
+      return entities.find(item => item.key === selectedTrendKey) || entities[0] || {key:'__all__', label:'全体门店', rows:[]};
+    }
+    function setTrendRange(start, end) {
+      const count = (currentTrendEntity().rows || []).length;
+      if (!count) return;
+      trendStart = Math.max(0, Math.min(Math.round(start), count - 1));
+      trendEnd = Math.max(trendStart, Math.min(Math.round(end), count - 1));
+      renderTrend();
+    }
+    function renderTrendControls() {
+      const rows = currentTrendEntity().rows || [];
+      const isMonthly = data.meta.report_grain === 'month';
+      const presets = document.getElementById('trendPresets');
+      (isMonthly ? [[2, '最近 2 个月'], [0, '全部']] : [[2, '最近 2 周'], [5, '最近 5 周'], [16, '最近 16 周'], [0, '全年']]).forEach(([size, label]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.dataset.size = size;
+        button.addEventListener('click', () => {
+          const count = (currentTrendEntity().rows || []).length;
+          setTrendRange(size ? Math.max(0, count - size) : 0, count - 1);
+        });
+        presets.appendChild(button);
+      });
+      ['trendStartSelect', 'trendEndSelect'].forEach(id => {
+        const select = document.getElementById(id);
+        rows.forEach((row, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.textContent = row.current_week_range || row.week_label;
+          select.appendChild(option);
+        });
+        select.disabled = !rows.length;
+        select.addEventListener('change', () => {
+          const value = Number(select.value);
+          if (id === 'trendStartSelect') setTrendRange(value, Math.max(value, trendEnd));
+          else setTrendRange(Math.min(trendStart, value), value);
+        });
+      });
+      const navigator = document.getElementById('trendNavigator');
+      let drag = null;
+      const boundary = event => {
+        const bounds = navigator.getBoundingClientRect();
+        const count = (currentTrendEntity().rows || []).length;
+        return Math.max(0, Math.min(count, Math.round((event.clientX - bounds.left) / bounds.width * count)));
+      };
+      navigator.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || !rows.length) return;
+        const mode = event.target.getAttribute('data-drag') || 'select';
+        drag = {mode, anchor:boundary(event), start:trendStart, end:trendEnd};
+        navigator.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      navigator.addEventListener('pointermove', event => {
+        if (!drag) return;
+        const value = boundary(event);
+        const count = (currentTrendEntity().rows || []).length;
+        if (drag.mode === 'start') setTrendRange(Math.min(value, drag.end), drag.end);
+        else if (drag.mode === 'end') setTrendRange(drag.start, Math.max(drag.start, value - 1));
+        else if (drag.mode === 'pan') {
+          const offset = Math.max(-drag.start, Math.min(value - drag.anchor, count - 1 - drag.end));
+          setTrendRange(drag.start + offset, drag.end + offset);
+        } else setTrendRange(Math.min(value, drag.anchor), Math.max(value, drag.anchor) - 1);
+      });
+      const endDrag = () => { drag = null; };
+      navigator.addEventListener('pointerup', endDrag);
+      navigator.addEventListener('pointercancel', endDrag);
+      navigator.addEventListener('lostpointercapture', endDrag);
+    }
+    function renderTrendNavigator(rows, currentField, priorField) {
+      const el = document.getElementById('trendNavigator');
+      const root = svg('svg', {viewBox:'0 0 1120 64', preserveAspectRatio:'none', 'aria-hidden':'true'});
+      root.appendChild(svg('rect', {x:0, y:0, width:1120, height:64, rx:6, fill:'#f4f7fa', 'data-drag':'select'}));
+      const max = Math.max(1, ...rows.flatMap(row => [Number(row[currentField] || 0), Number(row[priorField] || 0)]));
+      [currentField, priorField].forEach((field, series) => {
+        let segment = [];
+        const flush = () => {
+          if (segment.length) root.appendChild(svg('polyline', {points:segment.join(' '), fill:'none', stroke:colors.yellow, 'stroke-width':2, ...(series ? {'stroke-dasharray':'5 4'} : {}), 'pointer-events':'none'}));
+          segment = [];
+        };
+        rows.forEach((row, index) => {
+          const value = row[field];
+          if (value === null || value === undefined || value === '') { flush(); return; }
+          segment.push(`${(index + .5) / rows.length * 1120},${56 - Number(value) / max * 48}`);
+        });
+        flush();
+      });
+      const startX = trendStart / rows.length * 1120;
+      const endX = (trendEnd + 1) / rows.length * 1120;
+      [[0, startX], [endX, 1120 - endX]].forEach(([x, width]) => root.appendChild(svg('rect', {x, y:0, width, height:64, fill:'#dbe4ef', opacity:.65, 'data-drag':'select'})));
+      root.appendChild(svg('rect', {x:startX, y:1, width:endX - startX, height:62, fill:'#2563eb', 'fill-opacity':.08, stroke:'#2563eb', 'stroke-width':2, 'data-drag':'pan', style:'cursor:grab'}));
+      [[startX, 'start'], [endX, 'end']].forEach(([x, mode]) => {
+        root.appendChild(svg('rect', {x:Math.max(0, Math.min(1104, x - 8)), y:0, width:16, height:64, rx:4, fill:'#2563eb', 'data-drag':mode, style:'cursor:ew-resize'}));
+      });
+      el.replaceChildren(root);
     }
     function renderTrendSelector() {
       const select = document.getElementById('trendStoreSelect');
@@ -1455,13 +1569,30 @@ HTML_TEMPLATE = r'''<!doctype html>
         selectedTrendKey = select.value;
         renderTrend();
       });
+      renderTrendControls();
     }
     function renderTrend() {
       const el = document.getElementById('trend');
       const entity = currentTrendEntity();
-      const rows = entity.rows || [];
+      const allRows = entity.rows || [];
+      if (!allRows.length) {
+        el.replaceChildren();
+        document.getElementById('trendNavigator').replaceChildren();
+        document.getElementById('trendControls').hidden = true;
+        return;
+      }
+      trendEnd = Math.min(trendEnd ?? allRows.length - 1, allRows.length - 1);
+      trendStart = Math.min(trendStart, trendEnd);
+      const rows = allRows.slice(trendStart, trendEnd + 1);
+      const yearLabel = (field, fallback) => {
+        const first = String(rows[0][field] || '').slice(0, 4);
+        const last = String(rows[rows.length - 1][field] || '').slice(11, 15);
+        return first && last ? (first === last ? first : `${first}–${last}`) : fallback;
+      };
+      const currentLabel = yearLabel('current_week_range', currentTrendYear);
+      const priorLabel = yearLabel('prior_week_range', yoyTrendYear);
       const isAllStores = entity.key === '__all__';
-      document.getElementById('trendMetricLabel').textContent = `完整周，${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；实线=${currentTrendYear}，虚线=${yoyTrendYear}同期`;
+      document.getElementById('trendMetricLabel').textContent = `完整周，${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；实线=${currentLabel}，虚线=${priorLabel}同期`;
       const w = 1120, h = 360, left = 82, right = 84, top = 34, bottom = 78;
       const hasComparisonShape = rows.some(r => Object.prototype.hasOwnProperty.call(r, 'current_net_revenue') || Object.prototype.hasOwnProperty.call(r, 'prior_net_revenue'));
       const currentField = hasComparisonShape ? 'current_net_revenue' : 'net_revenue';
@@ -1491,7 +1622,7 @@ HTML_TEMPLATE = r'''<!doctype html>
         return rows.map((r,i) => {
           const raw = r[field];
           if (raw === null || raw === undefined || raw === '') return null;
-          const x = left + i / Math.max(1, rows.length - 1) * (w-left-right);
+          const x = rows.length === 1 ? (w+left-right)/2 : left + i / (rows.length - 1) * (w-left-right);
           const y = yScale(Number(raw || 0));
           return [x,y,r,Number(raw || 0),i];
         }).filter(Boolean);
@@ -1540,28 +1671,39 @@ HTML_TEMPLATE = r'''<!doctype html>
           }
         });
       }
-      drawTrendLine(currentField, colors.yellow, '', currentTrendYear, hasComparisonShape ? 'current_week_range' : 'week_label');
-      if (hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', `${yoyTrendYear}同期`, 'prior_week_range');
+      drawTrendLine(currentField, colors.yellow, '', currentLabel, hasComparisonShape ? 'current_week_range' : 'week_label');
+      if (hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', `${priorLabel}同期`, 'prior_week_range');
 
       rows.forEach((r, i) => {
-        const x = left + i / Math.max(1, rows.length - 1) * (w-left-right);
-        if (i % 2 === 0 || i === rows.length - 1) {
+        const x = rows.length === 1 ? (w+left-right)/2 : left + i / (rows.length - 1) * (w-left-right);
+        if (i % Math.max(1, Math.ceil(rows.length / 10)) === 0 || i === rows.length - 1) {
           const anchor = i === rows.length - 1 ? 'end' : 'middle';
           const tx = i === rows.length - 1 ? x - 4 : x;
-          root.appendChild(svg('text', {x:tx, y:h-42, 'text-anchor':anchor, 'font-size':'10', fill:'#657386', transform:`rotate(-32 ${tx} ${h-42})`})).textContent = String(r.week_label).slice(5);
+          root.appendChild(svg('text', {x:tx, y:h-42, 'text-anchor':anchor, 'font-size':'10', fill:'#657386', transform:`rotate(-32 ${tx} ${h-42})`})).textContent = r.current_week_range ? String(r.current_week_range).slice(0, 10) : String(r.week_label);
         }
       });
       root.appendChild(svg('line', {x1:left+190, y1:15, x2:left+232, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-linecap':'round'}));
-      root.appendChild(svg('text', {x:left+240, y:19, 'font-size':'11', fill:'#657386'})).textContent = currentTrendYear;
+      root.appendChild(svg('text', {x:left+240, y:19, 'font-size':'11', fill:'#657386'})).textContent = currentLabel;
       if (hasComparisonShape) {
-        root.appendChild(svg('line', {x1:left+292, y1:15, x2:left+334, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-dasharray':'7 5', 'stroke-linecap':'round'}));
-        root.appendChild(svg('text', {x:left+342, y:19, 'font-size':'11', fill:'#657386'})).textContent = `${yoyTrendYear}同期`;
+        root.appendChild(svg('line', {x1:left+362, y1:15, x2:left+404, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-dasharray':'7 5', 'stroke-linecap':'round'}));
+        root.appendChild(svg('text', {x:left+412, y:19, 'font-size':'11', fill:'#657386'})).textContent = `${priorLabel}同期`;
       }
       root.appendChild(svg('text', {x:left, y:18, 'font-size':'12', fill:'#657386', 'font-weight':'700'})).textContent = '业务收入（万元）';
-      root.appendChild(svg('text', {x:w-right, y:18, 'text-anchor':'end', 'font-size':'11', fill:'#657386'})).textContent = data.trend_note || '';
       el.innerHTML = '';
       el.appendChild(root);
       el.appendChild(tip);
+      document.getElementById('trendStartSelect').value = trendStart;
+      document.getElementById('trendEndSelect').value = trendEnd;
+      const start = rows[0].current_week_range || rows[0].week_label;
+      const end = rows[rows.length - 1].current_week_range || rows[rows.length - 1].week_label;
+      const label = start.includes('-') && start.length === 21 ? `${start.slice(0, 10)} 至 ${end.slice(11)}` : `${start} 至 ${end}`;
+      document.getElementById('trendRangeLabel').textContent = `当前显示：${label}（${rows.length} ${data.meta.report_grain === 'month' ? '个月' : '周'}） · ${data.trend_note || ''}`;
+      document.querySelectorAll('#trendPresets button').forEach(button => {
+        const size = Number(button.dataset.size) || allRows.length;
+        button.disabled = !allRows.length;
+        button.setAttribute('aria-pressed', String(trendEnd === allRows.length - 1 && rows.length === Math.min(size, allRows.length)));
+      });
+      renderTrendNavigator(allRows, currentField, priorField);
     }
     function renderMixBars() {
       const rows = stores;

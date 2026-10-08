@@ -151,8 +151,11 @@ def same_date_previous_year(value: date) -> date:
         return month_end(value.year - 1, value.month)
 
 
+WEEKLY_TREND_WEEKS = 52
+
+
 def weekly_trend_window(current_end: date) -> DateWindow:
-    return DateWindow("trend", current_end - timedelta(days=(16 * 7) - 1), current_end)
+    return DateWindow("trend", current_end - timedelta(days=(WEEKLY_TREND_WEEKS * 7) - 1), current_end)
 
 
 def monthly_trend_window(current_end: date) -> DateWindow:
@@ -945,7 +948,7 @@ def build_plan(
     else:
         if report_type == "weekly":
             trend_window = weekly_trend_window(windows["current"].end)
-            trend_id = "business_16_week_store_trend"
+            trend_id = "business_52_week_store_trend"
             trend_group = [business_store, require_field(config, registry, "business.date", "group").canonical]
             trend_module = "weeklyTrend"
         else:
@@ -959,7 +962,7 @@ def build_plan(
         prior_window = (
             DateWindow(
                 "prior_year_trend",
-                windows["yoy"].end - timedelta(days=(16 * 7) - 1),
+                windows["yoy"].end - timedelta(days=(WEEKLY_TREND_WEEKS * 7) - 1),
                 windows["yoy"].end,
             )
             if report_type == "weekly"
@@ -970,7 +973,7 @@ def build_plan(
             )
         )
         prior_trend_id = (
-            "business_16_week_prior_year_store_trend"
+            "business_52_week_prior_year_store_trend"
             if report_type == "weekly"
             else "business_6_month_prior_year_store_trend"
         )

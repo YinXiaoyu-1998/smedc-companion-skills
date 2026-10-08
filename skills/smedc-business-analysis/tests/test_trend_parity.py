@@ -31,7 +31,24 @@ class TrendParityTests(unittest.TestCase):
 
     def test_saturday_report_does_not_drop_its_last_six_days(self):
         self.assertEqual(weekly_trend_window(date(2026, 6, 20)).as_json(),
-                         {"start": "2026-03-01", "end": "2026-06-20"})
+                         {"start": "2025-06-22", "end": "2026-06-20"})
+
+    def test_year_window_includes_oldest_week_and_preserves_cross_year_order(self):
+        bundle = json.loads((ROOT / "tests/fixtures/weekly_bundle.json").read_text())
+        bundle["resultsByJobId"] = {"business_52_week_store_trend": {"rows": [
+            {"store_name": "示例一店", "business_date": "2025-07-28", "order_revenue": "10"},
+            {"store_name": "示例一店", "business_date": "2025-12-29", "order_revenue": "20"},
+            {"store_name": "示例一店", "business_date": "2026-07-26", "order_revenue": "30"},
+            {"store_name": "示例一店", "business_date": "2025-07-27", "order_revenue": "999"}]}}
+        entities = weekly_chart(weekly_rows(bundle))
+        self.assertTrue(entities, "daily trend facts must produce a chart")
+        chart = entities[0]["rows"]
+        self.assertEqual(len(chart), 52)
+        self.assertEqual(chart[0]["current_week_range"], "2025-07-28-2025-08-03")
+        self.assertEqual(chart[0]["current_net_revenue"], 10)
+        self.assertEqual(chart[22]["current_net_revenue"], 20)
+        self.assertEqual(chart[-1]["current_net_revenue"], 30)
+        self.assertIsNone(chart[1]["current_net_revenue"])
 
     def test_month_gap_keeps_matching_calendar_month_and_unknown_value(self):
         bundle = json.loads((ROOT / "tests/fixtures/monthly_bundle.json").read_text())
@@ -64,8 +81,10 @@ class TrendParityTests(unittest.TestCase):
                 {"store_name": "示例一店", "business_date": "2025-06-14", "order_revenue": "80"},
                 {"store_name": "示例一店", "business_date": "2025-06-21", "order_revenue": "250"}]},
         }
-        chart = weekly_chart(weekly_rows(bundle))[0]["rows"]
-        self.assertEqual(len(chart), 16)
+        entities = weekly_chart(weekly_rows(bundle))
+        self.assertTrue(entities, "daily trend facts must produce a chart")
+        chart = entities[0]["rows"]
+        self.assertEqual(len(chart), 52)
         self.assertEqual(chart[-1]["current_week_range"], "2026-06-14-2026-06-20")
         self.assertEqual(chart[-1]["prior_week_range"], "2025-06-15-2025-06-21")
         self.assertEqual((chart[-1]["current_net_revenue"], chart[-1]["prior_net_revenue"]), (400, 250))

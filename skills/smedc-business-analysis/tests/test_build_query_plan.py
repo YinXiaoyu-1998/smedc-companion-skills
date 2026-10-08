@@ -95,13 +95,20 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
         extracts = manifest["extracts"]
-        self.assertEqual([entry["input"]["dataset"] for entry in extracts], ["business", "business", "dishes", "dishes"])
+        self.assertEqual([entry["input"]["dataset"] for entry in extracts], ["business", "dishes", "dishes"])
         self.assertTrue(all(entry["tool"] == "download_structured_partitions" for entry in extracts))
         self.assertTrue(all(entry["input"]["enterpriseName"] == "示例企业" for entry in extracts))
         self.assertEqual(
-            [(entry["input"]["startDate"], entry["input"]["endDate"]) for entry in extracts[:2]],
-            [("20250412", "20250801"), ("20260411", "20260731")],
+            [(entry["input"]["startDate"], entry["input"]["endDate"]) for entry in extracts if entry["input"]["dataset"] == "business"],
+            [("20240803", "20260731")],
         )
+
+        self.assertEqual(manifest["report"]["trendWindows"], {
+            "current": {"start": "2025-08-02", "end": "2026-07-31"},
+            "priorYear": {"start": "2024-08-03", "end": "2025-08-01"},
+        })
+        self.assertIn("business_52_week_store_trend", {job["id"] for job in manifest["jobs"]})
+        self.assertIn("business_52_week_prior_year_store_trend", {job["id"] for job in manifest["jobs"]})
 
         partition_jobs = [job for job in manifest["jobs"] if job["input"]["dataset"] in {"business", "dishes"}]
         self.assertTrue(partition_jobs)
