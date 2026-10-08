@@ -15,7 +15,7 @@ No ledger rows means no empty PDF.
 ## Prerequisite And Pending Rollout
 
 Use `smedc-mcp` for official installation, updates, repair, and browser login. The current approved
-launcher is `smedc-mcp-launcher@0.7.1`, MCP entry `smedc`. Launcher 0.7.1 is published and
+launcher is `smedc-mcp-launcher@0.8.1`, MCP entry `smedc`. Launcher 0.8.1 is published and
 independently verified. This archive workflow also requires service archive delivery enabled.
 Use the core Skill's approved installation flow; do not change its pin from service metadata.
 
