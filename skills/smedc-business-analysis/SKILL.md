@@ -7,15 +7,15 @@ description: Use when generating tenant-neutral SMEDC diagnosis, weekly, or mont
 
 Generate operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured data. The employee-owned agent performs the MCP calls through the user's authenticated launcher session; the local scripts validate saved SMEDC envelopes, aggregate launcher-managed partition extracts, and render self-contained HTML.
 
-**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.7.1`, and the MCP entry is `smedc`.
+**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.8.1`, and the MCP entry is `smedc`.
 
-**Release gate for this branch:** Generated plans use filtered range downloads. Wait until Launcher **0.8.0 is published and independently verified** and the matching filtered range service is deployed. The installed/pinned 0.7.1 does not accept new filter inputs. Keep pins unchanged until verification; unfiltered existing range downloads remain available on 0.7.1.
+**Release gate:** Launcher **0.8.1 is published and independently verified** and is the approved exact pin. Generated plans use filtered range downloads, which require Launcher 0.8.0 or newer and the matching filtered range service deployment. Verify the connected service before executing a generated plan.
 
 If `smedc-mcp` is not installed, do not begin report data access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-delivery-ledger` automatically.
 
 ## Optional bundle download mode
 
-Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after Launcher **0.8.1 is published and independently verified** and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered. The installed pin remains 0.7.1 until release verification.
+Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after Launcher **0.8.1 is published and independently verified** and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered. The approved exact pin is the published and independently verified 0.8.1.
 
 Bundle extracts alone emit these steps:
 
@@ -42,7 +42,7 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
 
 ## Workflow
 
-1. Use `smedc-mcp` to install or verify `smedc-mcp-launcher@0.7.1`, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
+1. Use `smedc-mcp` to install or verify `smedc-mcp-launcher@0.8.1`, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
 
    If the same request first uploads a `business` or `dishes` source through the prerequisite skill, poll the returned `partitionImportJobId` with `get_partition_import_status` until `published`. Treat `failed` as terminal and report the service error.
 
