@@ -13,6 +13,20 @@ Generate operating diagnosis, weekly meeting, and monthly meeting reports from S
 
 If `smedc-mcp` is not installed, do not begin report data access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-delivery-ledger` automatically.
 
+## Optional bundle download mode
+
+Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after Launcher **0.8.1 is published and independently verified** and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered. The installed pin remains 0.7.1 until release verification.
+
+Bundle extracts alone emit these steps:
+
+1. `prepare_structured_partition_download` takes the selector and persisted `idempotencyKey`. Save the full response and retain its `requestId`.
+2. `get_structured_partition_download_status` takes only `requestId`; wait `retryAfterSeconds` while queued/running. Check MCP `isError` and failed/expired status on every call.
+3. Only succeeded packaging permits `download_structured_partitions` with only `requestId`, without selectors. Save the full verified local envelope at `outputFile`; packaging success alone is not a local success.
+
+Each bundle run gets a persisted preparation generation/key. Saved exact retries retain it. `record-result` also accepts bundle prepare/status envelopes. On stale/expired bundle failures, `split-failed` renews the same scope with a fresh generation/key, including one day; other failed batches keep the common date splitting rules. Merge and split preserve the selected downloadMode. Mixed range/bundle plans are rejected clearly; regenerate all inputs in one selected mode. Legacy bundle JSON without an explicit mode also requires regeneration.
+
+If ZIP support is removed or unsupported, regenerate saved plans with `--download-mode range`. Do not silently retry a bundle failure as range. Authentication, integrity and source-scope failures stop the workflow; they must never be bypassed. Source filters and successful-local-batch validation/sharing/refcount cleanup apply identically to both modes.
+
 ## Boundaries
 
 - Before querying report data, call `smedc_get_current_user` and save the full response as `current_user.json`.
@@ -78,7 +92,7 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 7. Check `releaseGate` before executing any generated extract. Business slices stay within a natural month; dishes slices contain at most seven inclusive days. Adjacent/overlapping reporting windows are merged before slicing, so current/previous/YoY/year-trend coverage does not duplicate downloads.
 
    For each extract, follow its `steps[]` through the employee's ordinary MCP session:
-   - Execute each extract's single range `download_structured_partitions` step with its dataset, enterprise, dates and optional store filters. Save the complete successful local envelope at `outputFile`.
+   - For `downloadMode: range`, execute the single `download_structured_partitions` selector call with dataset, enterprise, dates and optional store filters. For explicitly selected `downloadMode: bundle`, follow the three generated steps described in **Optional bundle download mode** above. Save the complete successful local download envelope at `outputFile`.
    - Check MCP `isError`; failed downloads stop materialization and never imply empty data. A range extract never requires a server-side preparation request.
 
 8. Call `query_structured_dataset` only for manifest jobs whose `tool` is `query_structured_dataset`; currently that is the controlled `dish_catalog` snapshot query. Follow `nextCursor` until the returned `nextCursor` is `null`; save an array of page envelopes in request order at `jobs[].outputFile`.
@@ -121,7 +135,7 @@ Merge plans before data access, giving each report a distinct optional `reportId
 python3 scripts/partition_download_plan.py merge --plans runs/WEEK/query_manifest.json runs/MONTH/query_manifest.json --output runs/shared_download_index.json --reports-dir runs/shared_reports
 ```
 
-The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters. Same-scope overlapping report windows are subdivided at common coverage boundaries into bounded batches, even when weekly and monthly boundaries differ. Verified successful local batches remain intact; only uncovered dates need a new download. Different enterprises, organizations or store filters never share. Plans retain their range download steps through sharing and date splits. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
+The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters. Same-scope overlapping report windows are subdivided at common coverage boundaries into bounded batches, even when weekly and monthly boundaries differ. Verified successful local batches remain intact; only uncovered dates need a new download. Different enterprises, organizations or store filters never share. Sharing and date splits preserve the selected `downloadMode` and its generated steps; range plans remain range, and explicitly selected bundle plans remain bundle. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
 
 Record each saved local download envelope in the index, including errors:
 

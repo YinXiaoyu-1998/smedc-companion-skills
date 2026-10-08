@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from identity import ORGANIZATION_ERROR, organization_name_from_current_user_file
-from partition_download_plan import RELEASE_GATE, make_extract, normalize_store_names, split_download_windows
+from partition_download_plan import BUNDLE_RELEASE_GATE, RELEASE_GATE, make_extract, normalize_store_names, split_download_windows
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -776,7 +776,7 @@ def add_if_covered(
                 notices.append(make_partial_notice(dataset_name, window, module, gaps))
 
 
-def build_extracts(jobs: list[dict[str, Any]], enterprise_name: str, store_name_contains: list[str] | None = None, organization_name: str = "") -> list[dict[str, Any]]:
+def build_extracts(jobs: list[dict[str, Any]], enterprise_name: str, store_name_contains: list[str] | None = None, organization_name: str = "", download_mode: str = "range") -> list[dict[str, Any]]:
     by_dataset: dict[str, list[DateWindow]] = {}
     for job in jobs:
         if job["tool"] != "local_partition_aggregate":
@@ -796,7 +796,7 @@ def build_extracts(jobs: list[dict[str, Any]], enterprise_name: str, store_name_
                         "startDate": window["start"].replace("-", ""), "endDate": window["end"].replace("-", "")}
             if store_name_contains:
                 selector["storeNameContains"] = store_name_contains
-            extracts.append(make_extract(selector, organization_name))
+            extracts.append(make_extract(selector, organization_name, download_mode))
     return extracts
 
 
@@ -810,6 +810,7 @@ def build_plan(
     enterprise_name: str,
     organization_name: str | None = None,
     store_name_contains: list[str] | None = None,
+    download_mode: str = "range",
 ) -> dict[str, Any]:
     store_name_contains = normalize_store_names(store_name_contains) if store_name_contains else []
     business_date = require_field(config, registry, "business.date", "filter").canonical
@@ -1046,8 +1047,9 @@ def build_plan(
         },
         "coverage": coverage_manifest,
         "notices": ordered_notices,
-        "extracts": build_extracts(ordered_jobs, enterprise_name, store_name_contains, organization_name or ""),
-        "releaseGate": RELEASE_GATE,
+        "downloadMode": download_mode,
+        "extracts": build_extracts(ordered_jobs, enterprise_name, store_name_contains, organization_name or "", download_mode),
+        "releaseGate": BUNDLE_RELEASE_GATE if download_mode == "bundle" else RELEASE_GATE,
         "coverageRequests": [
             {"tool": "describe_structured_dataset_coverage", "input": {
                 "dataset": dataset, "enterpriseName": enterprise_name,
@@ -1080,6 +1082,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--previous-end", required=True, help="Previous comparison window end date, YYYY-MM-DD.")
     parser.add_argument("--yoy-start", required=True, help="Year-over-year comparison window start date, YYYY-MM-DD.")
     parser.add_argument("--yoy-end", required=True, help="Year-over-year comparison window end date, YYYY-MM-DD.")
+    parser.add_argument("--download-mode", choices=("range", "bundle"), default="range", help="Use range by default; select bundle only for a verified matching ZIP deployment.")
     parser.add_argument("--enterprise-name", required=True, help="Enterprise/source name to select and download.")
     parser.add_argument(
         "--store-name-contains",
@@ -1125,6 +1128,7 @@ def main(argv: list[str]) -> int:
             args.enterprise_name,
             organization_name,
             store_name_contains,
+            args.download_mode,
         )
         manifest["notices"] = sort_notices([*manifest["notices"], *coverage_notices])
         manifest["outputContract"] = {

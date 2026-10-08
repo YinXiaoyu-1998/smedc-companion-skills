@@ -13,10 +13,10 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import partition_download_plan as planner
 
 
-def plan(report_id='one', fragments=None):
+def plan(report_id='one', fragments=None, mode='range'):
     return {'reportId': report_id, 'report': {'storeNameContains': fragments or []}, 'jobs': [],
             'extracts': [planner.make_extract({'dataset': 'business', 'enterpriseName': '企业',
-                'startDate': '20240201', 'endDate': '20240229', **({'storeNameContains': fragments} if fragments else {})})]}
+                'startDate': '20240201', 'endDate': '20240229', **({'storeNameContains': fragments} if fragments else {})}, download_mode=mode)]}
 
 
 class DownloadPlanTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class DownloadPlanTests(unittest.TestCase):
             index = json.loads(index_path.read_text())
             extract_id = index['extracts'][0]['id']
             failed = root / 'failed.json'
-            failed.write_text(json.dumps({'status': 'failed', 'errorCode': 'PARTITION_DOWNLOAD_LIMIT_EXCEEDED'}))
+            failed.write_text(json.dumps({'status': 'failed', 'requestId': 'req', 'errorCode': 'PACKAGE_TOO_LARGE'}))
             recorded = subprocess.run([sys.executable, script, 'record-result', '--index', str(index_path), '--extract-id', extract_id, '--response', str(failed)], capture_output=True, text=True)
             self.assertEqual(recorded.returncode, 0, recorded.stderr)
             split = subprocess.run([sys.executable, script, 'split-failed', '--plan', str(index_path), '--extract-id', extract_id, '--output', str(index_path)], capture_output=True, text=True)
@@ -44,6 +44,24 @@ class DownloadPlanTests(unittest.TestCase):
             self.assertEqual(len(json.loads(index_path.read_text())['extracts']), 2)
             release = subprocess.run([sys.executable, script, 'release-report', '--index', str(index_path), '--report-id', 'one'], capture_output=True, text=True)
             self.assertEqual(release.returncode, 0, release.stderr)
+
+    def test_range_is_default_and_modes_survive_merge_and_failure_split(self):
+        for mode in ('range', 'bundle'):
+            original = plan(mode=mode)
+            merged = planner.merge_download_plans([original])
+            self.assertEqual(merged['downloadMode'], mode)
+            parent = merged['extracts'][0]
+            parent['downloadState'] = {'status': 'failed', 'errorCode': 'PACKAGE_TOO_LARGE'}
+            children = planner.replace_failed_extract(merged, parent['id'])['extracts']
+            self.assertTrue(all(item['downloadMode'] == mode for item in children))
+            self.assertTrue(all(item['steps'][0]['tool'] == ('download_structured_partitions' if mode == 'range' else 'prepare_structured_partition_download') for item in children))
+        self.assertEqual(plan()['extracts'][0]['downloadMode'], 'range')
+        with self.assertRaisesRegex(ValueError, 'mixed download modes'):
+            planner.merge_download_plans([plan('one'), plan('two', mode='bundle')])
+        saved = plan(mode='bundle')
+        del saved['extracts'][0]['downloadMode']
+        with self.assertRaisesRegex(ValueError, 'regenerate'):
+            planner.merge_download_plans([saved])
 
     def test_full_leap_february_is_one_business_batch(self):
         self.assertEqual(planner.split_download_windows('business', [{'start': '2024-02-01', 'end': '2024-02-29'}]), [{'start': '2024-02-01', 'end': '2024-02-29'}])
@@ -128,6 +146,37 @@ class DownloadPlanTests(unittest.TestCase):
         self.assertEqual([(e['input']['startDate'], e['input']['endDate']) for e in weekly], [('20261005', '20261011')])
         self.assertEqual(set(weekly[0]['consumers']), {'week', 'month'})
 
+    def test_fresh_run_and_stale_expired_renewal_escape_terminal_replay(self):
+        first, next_day = plan(mode='bundle'), plan(mode='bundle')
+        a, b = first['extracts'][0], next_day['extracts'][0]
+        key = lambda item: item['steps'][0]['input']['idempotencyKey']
+        self.assertEqual(a['id'], b['id'])
+        self.assertNotEqual(key(a), key(b))
+        # Service retains terminal states for an exact key. Persistence/merge must
+        # preserve retries, while a new run or explicit recovery escapes that replay.
+        terminal = {key(a): 'expired'}
+        saved = json.loads(json.dumps(first))
+        self.assertEqual(key(saved['extracts'][0]), key(a))
+        self.assertEqual(key(planner.merge_download_plans([saved])['extracts'][0]), key(a))
+        self.assertNotIn(key(b), terminal)
+        for state in ({'status': 'expired'}, {'status': 'failed', 'errorCode': 'PARTITION_DOWNLOAD_STALE'}):
+            saved['extracts'][0]['downloadState'] = state
+            renewed = planner.replace_failed_extract(saved, a['id'])['extracts'][0]
+            self.assertEqual(renewed['id'], a['id'])
+            self.assertEqual(renewed['input'], a['input'])
+            self.assertNotEqual(key(renewed), key(a))
+            self.assertEqual(renewed['downloadState']['status'], 'planned')
+
+    def test_saved_mcp_stale_and_expired_errors_renew_even_a_single_day(self):
+        for code in ('PARTITION_DOWNLOAD_STALE', 'PARTITION_DOWNLOAD_EXPIRED'):
+            original = plan(mode='bundle')
+            original['extracts'] = [planner.make_extract({**original['extracts'][0]['input'], 'endDate': '20240201'}, download_mode='bundle')]
+            item = original['extracts'][0]
+            planner.record_download_result(original, item['id'], {'isError': True, 'content': [{'type': 'text', 'text': json.dumps({'error': {'code': code}})}]})
+            renewed = planner.replace_failed_extract(original, item['id'])['extracts'][0]
+            self.assertEqual(renewed['id'], item['id'])
+            self.assertNotEqual(renewed['steps'][0]['input']['idempotencyKey'], item['steps'][0]['input']['idempotencyKey'])
+
     def test_planning_import_without_fcntl(self):
         script = "import sys; sys.modules['fcntl'] = None; sys.path.insert(0, " + repr(str(ROOT/'scripts')) + "); import build_query_plan; sys.exit(build_query_plan.main(sys.argv[1:]))"
         with tempfile.TemporaryDirectory() as temporary:
@@ -172,20 +221,17 @@ class DownloadPlanTests(unittest.TestCase):
             planner.release_report_extracts(shared, 'two')
             self.assertFalse(directory.exists())
 
-    def test_steps_are_release_gated_range_only(self):
-        extract = plan(fragments=['店'])['extracts'][0]
-        self.assertEqual(extract['downloadMode'], 'range')
-        self.assertEqual(len(extract['steps']), 1)
-        self.assertEqual(extract['steps'][0]['tool'], 'download_structured_partitions')
-        self.assertEqual(extract['steps'][0]['input'], extract['input'])
-        self.assertEqual(extract['releaseGate']['minimumPublishedLauncher'], '0.8.0')
+    def test_steps_are_release_gated_and_download_only_uses_request_id(self):
+        extract = plan(fragments=['店'], mode='bundle')['extracts'][0]
+        self.assertEqual(extract['steps'][0]['tool'], 'prepare_structured_partition_download')
+        self.assertEqual(extract['steps'][0]['input']['storeNameContains'], ['店'])
+        self.assertEqual(len(extract['steps'][0]['input']['idempotencyKey']), 64)
+        self.assertEqual(list(extract['steps'][2]['input']), ['requestId'])
+        self.assertEqual(extract['releaseGate']['minimumPublishedLauncher'], '0.8.1')
 
     def test_failure_and_pending_cannot_be_reused_as_zero(self):
-        shared = planner.merge_download_plans([plan()])
+        shared = planner.merge_download_plans([plan(mode='bundle')])
         extract_id = shared['extracts'][0]['id']
-        for response in ({'isError': True}, {'status': 'failed'}, {'status': 'running'}):
-            try:
-                planner.record_download_result(shared, extract_id, response)
-            except ValueError:
-                pass
+        for response in ({'isError': True}, {'status': 'failed', 'requestId': 'req'}, {'status': 'running', 'requestId': 'req', 'retryAfterSeconds': 2}):
+            planner.record_download_result(shared, extract_id, response)
             self.assertNotEqual(shared['extracts'][0]['downloadState']['status'], 'succeeded')

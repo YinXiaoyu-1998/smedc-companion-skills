@@ -20,12 +20,14 @@ class BuildQueryPlanTests(unittest.TestCase):
         empty_dish_catalog: bool = False,
         current_user: Path | None = FIXTURES / "current_user_response.json",
         store_name_contains: list[str] | None = None,
+        download_mode: str | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], dict]:
         completed, output = self.run_plan_command(
             report_type=report_type,
             empty_dish_catalog=empty_dish_catalog,
             current_user=current_user,
             store_name_contains=store_name_contains,
+            download_mode=download_mode,
         )
         return completed, json.loads(output.read_text(encoding="utf-8")) if output.exists() else {}
 
@@ -36,6 +38,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         empty_dish_catalog: bool = False,
         current_user: Path | None = FIXTURES / "current_user_response.json",
         store_name_contains: list[str] | None = None,
+        download_mode: str | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], Path]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -82,6 +85,8 @@ class BuildQueryPlanTests(unittest.TestCase):
             command[6:6] = ["--current-user", str(current_user)]
         if store_name_contains is not None:
             command.extend(["--store-name-contains", *store_name_contains])
+        if download_mode is not None:
+            command.extend(["--download-mode", download_mode])
         completed = subprocess.run(
             command,
             cwd=ROOT,
@@ -89,6 +94,16 @@ class BuildQueryPlanTests(unittest.TestCase):
             capture_output=True,
         )
         return completed, output
+
+    def test_bundle_cli_is_optional_and_range_is_default(self) -> None:
+        default, range_plan = self.run_plan()
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertEqual(range_plan['downloadMode'], 'range')
+        self.assertTrue(all(item['steps'][0]['tool'] == 'download_structured_partitions' for item in range_plan['extracts']))
+        explicit, bundle_plan = self.run_plan(download_mode='bundle')
+        self.assertEqual(explicit.returncode, 0, explicit.stderr)
+        self.assertEqual(bundle_plan['releaseGate']['minimumPublishedLauncher'], '0.8.1')
+        self.assertTrue(all(item['downloadMode'] == 'bundle' and item['steps'][0]['tool'] == 'prepare_structured_partition_download' for item in bundle_plan['extracts']))
 
     def test_weekly_plan_downloads_only_contiguous_partition_windows(self) -> None:
         completed, manifest = self.run_plan()
