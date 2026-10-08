@@ -1604,8 +1604,8 @@ HTML_TEMPLATE = r'''<!doctype html>
       const root = svg('svg', {viewBox:`0 0 ${w} ${h}`});
       const tip = document.createElement('div');
       tip.className = 'chart-tooltip';
-      const showTrendTip = (event, seriesLabel, weekLabel, weekRange, value) => {
-        tip.innerHTML = `<strong>${seriesLabel}</strong>${weekRange || weekLabel}<br>业务收入：${fmtWan(value)}`;
+      const showTrendTip = (event, pointRange, value) => {
+        tip.innerHTML = `${pointRange}<br>业务收入：${fmtWan(value)}`;
         positionTooltip(tip, el, event);
       };
       const hideTrendTip = () => { tip.style.display = 'none'; };
@@ -1627,7 +1627,7 @@ HTML_TEMPLATE = r'''<!doctype html>
           return [x,y,r,Number(raw || 0),i];
         }).filter(Boolean);
       }
-      function drawTrendLine(field, color, dash, seriesLabel, rangeField) {
+      function drawTrendLine(field, color, dash, rangeField) {
         const points = trendPoints(field);
         if (!points.length) return;
         const values = points.map(([, , , value]) => value);
@@ -1656,13 +1656,13 @@ HTML_TEMPLATE = r'''<!doctype html>
             style:'cursor:pointer'
           });
           const weekLabel = String(r.week_label || '');
-          const weekRange = String(r[rangeField] || '');
+          const pointRange = String(r[rangeField] || weekLabel);
           const title = svg('title', {});
-          title.textContent = `${seriesLabel} ${weekRange || weekLabel} 业务收入：${fmtWan(value)}`;
+          title.textContent = `${pointRange} 业务收入：${fmtWan(value)}`;
           point.appendChild(title);
-          point.addEventListener('mousemove', event => showTrendTip(event, seriesLabel, weekLabel, weekRange, value));
+          point.addEventListener('mousemove', event => showTrendTip(event, pointRange, value));
           point.addEventListener('mouseleave', hideTrendTip);
-          point.addEventListener('focus', event => showTrendTip(event, seriesLabel, weekLabel, weekRange, value));
+          point.addEventListener('focus', event => showTrendTip(event, pointRange, value));
           point.addEventListener('blur', hideTrendTip);
           root.appendChild(point);
           if (i === points.length - 1) {
@@ -1671,8 +1671,8 @@ HTML_TEMPLATE = r'''<!doctype html>
           }
         });
       }
-      drawTrendLine(currentField, colors.yellow, '', currentLabel, hasComparisonShape ? 'current_week_range' : 'week_label');
-      if (hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', `${priorLabel}同期`, 'prior_week_range');
+      drawTrendLine(currentField, colors.yellow, '', hasComparisonShape ? 'current_week_range' : 'week_label');
+      if (hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', 'prior_week_range');
 
       rows.forEach((r, i) => {
         const x = rows.length === 1 ? (w+left-right)/2 : left + i / (rows.length - 1) * (w-left-right);
