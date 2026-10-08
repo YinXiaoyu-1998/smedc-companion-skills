@@ -59,7 +59,7 @@ class ProfileWeeklyDataTests(unittest.TestCase):
 
         trend = read_csv(output_dir / "weekly_trend_comparison_metrics.csv")
         observed = [row for row in trend if row["net_revenue"]]
-        self.assertEqual({row["window_index"] for row in observed}, {"15", "16"})
+        self.assertEqual({row["window_index"] for row in observed}, {"51", "52"})
         self.assertEqual(observed[0]["week_label"], "07/14-07/20")
         self.assertEqual(observed[0]["series_key"], "prior_year")
 

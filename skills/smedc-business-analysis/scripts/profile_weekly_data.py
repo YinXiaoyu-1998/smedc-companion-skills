@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from build_query_plan import weekly_trend_window
+from build_query_plan import WEEKLY_TREND_WEEKS, weekly_trend_window
 
 from identity import organization_name_from_current_user_file, organization_name_from_metadata
 from report_common import (
@@ -56,12 +56,14 @@ def trend_rows(bundle: dict[str, Any]) -> list[dict[str, Any]]:
     windows = bundle["report"]["windows"]
     frames = {}
     for job_id, series, period in (
-        ("business_16_week_prior_year_store_trend", "prior_year", "yoy"),
-        ("business_16_week_store_trend", "current_year", "current"),
+        ("business_52_week_prior_year_store_trend", "prior_year", "yoy"),
+        ("business_52_week_store_trend", "current_year", "current"),
     ):
         frame = weekly_trend_window(date.fromisoformat(windows[period]["end"]))
         frames[series] = frame
-        for source in rows_for(bundle, job_id):
+        # Older durable bundles contain daily facts under the original job names.
+        source_job_id = job_id if job_id in bundle.get("resultsByJobId", {}) else job_id.replace("52_week", "16_week")
+        for source in rows_for(bundle, source_job_id):
             try:
                 day = date.fromisoformat(str(source.get("business_date") or "")[:10].replace("/", "-"))
             except ValueError:
@@ -71,7 +73,7 @@ def trend_rows(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                 groups[(series, str(source.get("store_name") or "未知门店"), index)].append(source)
     stores = sorted({store for _, store, _ in groups})
     output = []
-    for index in range(1, 17):
+    for index in range(1, WEEKLY_TREND_WEEKS + 1):
         for series, frame in frames.items():
             start = frame.start + timedelta(days=(index - 1) * 7)
             end = start + timedelta(days=6)

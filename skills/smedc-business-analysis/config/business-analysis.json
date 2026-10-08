@@ -178,12 +178,12 @@
     },
     "weeklyTrend": {
       "requiredDatasets": ["business"],
-      "bucketCount": 16,
+      "bucketCount": 52,
       "partialPolicy": "renderAvailableCompleteWeeks"
     },
     "monthlyTrend": {
       "requiredDatasets": ["business"],
-      "bucketCount": 6,
+      "bucketCount": 12,
       "partialPolicy": "renderAvailableCompleteMonths"
     },
     "channelMix": {

@@ -107,6 +107,12 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 
 Every runner deletes only the launcher extract directories recorded in the bundle in a `finally` block.
 
+## Revenue Trend Interaction
+
+Weekly reports download and aggregate the latest 52 complete seven-day windows ending on the requested current-period end, plus 52 matching windows ending on the requested YoY-period end. Treat this as a rolling year (364 days), not a calendar year. Keep the requested reporting period and other report modules unchanged. Missing weeks retain their positions and unknown values; do not connect lines across gaps.
+
+The self-contained HTML starts with the full year. Employees can drag either edge of the overview to resize the displayed interval, drag the selected interval to move it, or choose its start and end from labeled selectors. Shortcuts show the latest 2, 5, or 16 weeks and restore the full year. Both comparison lines use the same selected positions; switching stores preserves the interval. Monthly reports download and aggregate the latest 12 complete calendar months, plus the matching 12 months from the previous year. If the requested end falls within an incomplete month, end the trend at the last complete month. Month-specific controls show the latest two months or restore the full year; arbitrary monthly intervals use the same overview and selectors. Previously generated HTML is static; generate a new report with a new query plan to obtain the expanded history.
+
 ## Partial Reports
 
 Data gaps are normal. Always build the best available partial or empty report, including when every query returns no rows.
