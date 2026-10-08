@@ -68,6 +68,24 @@ class AssembleQueryBundleTests(unittest.TestCase):
             self.assertEqual(bundle["partitionExtractDirectories"], ["/tmp/smedc-partition-extracts/extract-abc"])
             self.assertEqual(bundle["jobs"][0]["tool"], "local_partition_aggregate")
 
+    def test_shared_reference_survives_assembly_and_failed_download_stops_it(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            data = manifest(aggregate_job())
+            # Legacy extract fixtures may omit transport fields; shared references still propagate.
+            index = {'schemaVersion': 1, 'reports': {'one': {'extractRefs': ['business_extract_1']}}, 'extracts': data['extracts']}
+            ledger = root / 'index.json'
+            planner.save_json(ledger, index)
+            data['sharedDownload'] = {'indexPath': str(ledger), 'reportId': 'one'}
+            bundle = assemble_bundle(data, root, load_config())
+            self.assertEqual(bundle['sharedDownload'], data['sharedDownload'])
+            extract_path = root / data['extracts'][0]['outputFile']
+            extract_path.parent.mkdir(parents=True)
+            extract_path.write_text(json.dumps({'isError': True, 'result': {'localDirectory': '/tmp/smedc-partition-extracts/extract-ignore'}}))
+            with self.assertRaisesRegex(BundleError, 'failed'):
+                assemble_bundle(data, root, load_config())
+
     def test_query_pages_still_concatenate_and_require_a_null_final_cursor(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             responses = Path(temporary)
