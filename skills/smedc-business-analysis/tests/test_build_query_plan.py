@@ -95,12 +95,12 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
         extracts = manifest["extracts"]
-        self.assertEqual([entry["input"]["dataset"] for entry in extracts], ["business", "dishes", "dishes"])
+        self.assertEqual({entry["input"]["dataset"] for entry in extracts}, {"business", "dishes"})
         self.assertTrue(all(entry["tool"] == "download_structured_partitions" for entry in extracts))
         self.assertTrue(all(entry["input"]["enterpriseName"] == "示例企业" for entry in extracts))
         self.assertEqual(
             [(entry["input"]["startDate"], entry["input"]["endDate"]) for entry in extracts if entry["input"]["dataset"] == "business"],
-            [("20240803", "20260731")],
+            [("20240803", "20240831")] + [(f"{year}{month:02}01", f"{year}{month:02}{day}") for year, month, day in [(2024, m, 30 if m in (9, 11) else 31) for m in range(9, 13)] + [(2025, m, 28 if m == 2 else 30 if m in (4, 6, 9, 11) else 31) for m in range(1, 13)] + [(2026, m, 28 if m == 2 else 30 if m in (4, 6) else 31) for m in range(1, 8)]],
         )
 
         self.assertEqual(manifest["report"]["trendWindows"], {
@@ -130,8 +130,11 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertIn("business_12_month_store_trend", jobs)
         self.assertIn("business_12_month_prior_year_store_trend", jobs)
         business_extracts = [entry for entry in manifest["extracts"] if entry["input"]["dataset"] == "business"]
-        self.assertEqual([(entry["input"]["startDate"], entry["input"]["endDate"]) for entry in business_extracts],
-                         [("20240801", "20260731")])
+        self.assertEqual(len(business_extracts), 24)
+        self.assertEqual(business_extracts[0]["input"]["startDate"], "20240801")
+        self.assertEqual(business_extracts[-1]["input"]["endDate"], "20260731")
+        for extract in business_extracts:
+            self.assertEqual(extract["input"]["startDate"][:6], extract["input"]["endDate"][:6])
 
     def test_diagnosis_plan_needs_one_business_extract_and_no_row_query(self) -> None:
         completed, manifest = self.run_plan("diagnosis")
@@ -147,6 +150,8 @@ class BuildQueryPlanTests(unittest.TestCase):
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 self.assertEqual(manifest["report"]["storeNameContains"], ["示例一", "示例三"])
                 self.assertTrue(all("storeIds" not in item["input"] for item in manifest["extracts"]))
+                self.assertTrue(all(item["input"]["storeNameContains"] == ["示例一", "示例三"] for item in manifest["extracts"]))
+                self.assertTrue(all(item["input"]["storeNameContains"] == ["示例一", "示例三"] for item in manifest["coverageRequests"]))
 
     def test_blank_store_name_fragment_fails_before_writing_manifest(self) -> None:
         completed, output = self.run_plan_command(store_name_contains=["   "])

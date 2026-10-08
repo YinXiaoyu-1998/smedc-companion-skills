@@ -9,6 +9,8 @@ Generate operating diagnosis, weekly meeting, and monthly meeting reports from S
 
 **Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.7.1`, and the MCP entry is `smedc`.
 
+**Release gate for this branch:** Generated plans include the new asynchronous prepare/status/requestId workflow and service-side `storeNameContains`. Keep those steps disabled until Launcher **0.8.0 is published and independently verified** and the matching server endpoints are deployed. The installed/pinned 0.7.1 does not accept these new tools or inputs. Do not update installation pins ahead of that release. Legacy range-only download remains available on 0.7.1 for existing unfiltered manifests; do not send new plan selectors or steps to it.
+
 If `smedc-mcp` is not installed, do not begin report data access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-delivery-ledger` automatically.
 
 ## Boundaries
@@ -17,7 +19,7 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 - The only report-company source is `smedc_get_current_user.user.organizationName`. Missing, non-string, or blank organization names are a contract error; stop and tell the user their SMEDC account organization must be corrected.
 - Do not infer a report company from display name, email/domain, filenames, partition `enterpriseName`, store names, configuration defaults, or examples.
 - `enterpriseName` remains only the structured-data selector used for coverage and partition downloads.
-- Use only these SMEDC MCP tools for reports: `smedc_get_current_user`, `list_structured_datasets`, `describe_structured_dataset_coverage`, `download_structured_partitions`, `query_structured_dataset`, and, when an upload is still processing, `get_partition_import_status`.
+- Use these SMEDC MCP tools for reports: `smedc_get_current_user`, `list_structured_datasets`, `describe_structured_dataset_coverage`, `download_structured_partitions`, `query_structured_dataset`, and, when an upload is still processing, `get_partition_import_status`. The new `prepare_structured_partition_download` and `get_structured_partition_download_status` tools require the release gate below.
 - Do not use direct HTTP, service databases, service configuration, or internal storage.
 - Do not handle passwords or tokens.
 - Do not request, reveal, copy, or persist presigned URLs. Let `download_structured_partitions` consume them inside the launcher and return a launcher-managed local directory.
@@ -50,7 +52,7 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 
 4. Call `list_structured_datasets` and save the full returned envelope as `registry_response.json`.
 
-5. Call `describe_structured_dataset_coverage` once for each canonical dataset, in this order: `business`, `dishes`, `dish_catalog`. Save the envelopes as `coverage_business.json`, `coverage_dishes.json`, and `coverage_dish_catalog.json`.
+5. Call `describe_structured_dataset_coverage` once for each canonical dataset, in this order: `business`, `dishes`, `dish_catalog`. Save the envelopes as `coverage_business.json`, `coverage_dishes.json`, and `coverage_dish_catalog.json`. After selecting `enterpriseName`, obtain scoped business/dishes coverage with that enterprise and the same `storeNameContains` used for the report, once the release gate is met. Generated `coverageRequests[]` records these exact inputs; repeat coverage and regenerate the plan if the selection changes. Do not infer `storeIds` from coverage.
 
 6. Choose the exact `enterpriseName` shown in both partition coverage responses, then run `python3 scripts/build_query_plan.py` with that selector, the saved current-user response, the requested report type, and date windows:
 
@@ -71,9 +73,15 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
      --output runs/RUN_ID/query_manifest.json
    ```
 
-   Use `--report-type diagnosis`, `weekly`, or `monthly`. Add `--store-name-contains` only when the employee requests a store-name scope; omit it for the complete enterprise. The option accepts one or more nonblank fragments and keeps a store when its name contains any fragment (case-sensitive). The same filter applies to business and dishes before local aggregation, across current, previous, YoY, and trend windows. `全体门店` in a filtered report means the selected stores' combined total. The partition download remains enterprise-wide because the MCP download tool has no store-name condition; do not narrow it using `storeIds` inferred from coverage, which can omit stores without merchant IDs. Do not apply a one-off filter only to the rendered report or only to the current week. Data coverage decides which modules can be shown; it must never change the requested reporting period.
+   Use `--report-type diagnosis`, `weekly`, or `monthly`. Add `--store-name-contains` only when the employee requests a store-name scope; omit it for the complete enterprise. The option accepts 1–20 trimmed, NFC-normalized nonblank fragments of at most 255 characters each and keeps a store when its name contains any fragment (case-sensitive). The same filter applies to business and dishes before local aggregation, across current, previous, YoY, and trend windows. `全体门店` in a filtered report means the selected stores' combined total. Every extract selector and business/dishes coverage request carries the same service-side scope. Local name checks validate the service result; a scoped download containing an out-of-scope store is a contract failure, not a reason to silently drop its rows. Do not narrow it using `storeIds` inferred from coverage, which can omit stores without merchant IDs. Do not apply a one-off filter only to the rendered report or only to the current week. Data coverage decides which modules can be shown; it must never change the requested reporting period.
 
-7. For every `extracts[]` entry, call `download_structured_partitions` with its `input` exactly as emitted. Save the full tool response at `extracts[].outputFile`.
+7. Check `releaseGate` before executing any generated extract. Business slices stay within a natural month; dishes slices contain at most seven inclusive days. Adjacent/overlapping reporting windows are merged before slicing, so current/previous/YoY/year-trend coverage does not duplicate downloads.
+
+   For each extract, follow its `steps[]` through the employee's ordinary MCP session:
+   - Call `prepare_structured_partition_download` with the selector and generated stable `idempotencyKey` (the extract `input` is a selector, not a requestId download call).
+   - Save the full prepare/status envelopes. Use the returned `requestId` for `get_structured_partition_download_status`; wait the supplied `retryAfterSeconds` between checks while `queued` or `running`. Never poll inside Python or bypass the Launcher.
+   - Check `isError` on every tool response and treat `failed`/`expired` as terminal failures. Only `succeeded` packaging permits `download_structured_partitions({"requestId": "..."})`, with no date/filter selectors alongside it. Save its full local envelope at `outputFile`. A status of `succeeded` alone is not a completed local download.
+   - A successful zero has a verified local manifest and `files=[]`. Failure, timeout, expiry, missing output, and `isError` must never become zero rows in report totals.
 
 8. Call `query_structured_dataset` only for manifest jobs whose `tool` is `query_structured_dataset`; currently that is the controlled `dish_catalog` snapshot query. Follow `nextCursor` until the returned `nextCursor` is `null`; save an array of page envelopes in request order at `jobs[].outputFile`.
 
@@ -105,7 +113,39 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 
    For weekly or monthly reports only, append `--company "展示标题公司名"` when the user explicitly wants a different company name in the rendered title. This is a nonblank presentation-only override: still require and validate `--current-user`, keep `organizationName` in report metadata, and never use the override for authorization, enterprise/data selection, query planning, jobs, or partitions. Diagnosis reports do not accept this override.
 
-Every runner deletes only the launcher extract directories recorded in the bundle in a `finally` block.
+Every runner cleans launcher extracts in a `finally` block. For a shared bundle it releases that report in the persisted consumer ledger; only the last consumer deletes the shared directory. An unavailable or malformed shared ledger never falls back to unconditional deletion.
+
+## Shared Plans and Failure Recovery
+
+Merge plans before data access, giving each report a distinct optional `reportId` (otherwise deterministic IDs are assigned):
+
+```bash
+python3 scripts/partition_download_plan.py merge --plans runs/WEEK/query_manifest.json runs/MONTH/query_manifest.json --output runs/shared_download_index.json --reports-dir runs/shared_reports
+```
+
+The saved JSON index owns each unique extract and its consumer/release/download state. `reports` contains independently materializable query plans with `extractRefs` and `sharedDownload`; `--reports-dir` saves those plans as JSON files. Use a common responses directory for their shared extract `outputFile` paths and deterministic per-report aggregate/result subdirectories and preserve `sharedDownload` through bundle assembly. Scope identity includes dataset, enterprise, organization, date range, and normalized filters; different scopes never share. Execute only extracts that are not already verified `succeeded`. Reuse a successful batch only while its saved full envelope and local files pass validation; keep its response at the shared `outputFile`. Local partition store/date identities are deduplicated to prevent double counting; conflicting versions fail.
+
+Record each saved prepare, status, or local download envelope in the index, including errors:
+
+```bash
+python3 scripts/partition_download_plan.py record-result --index runs/shared_download_index.json --extract-id EXTRACT_ID --response runs/SAVED_RESPONSE.json
+```
+
+For a timed-out or oversized failed batch, record failure first, then replace it deterministically with two nonoverlapping date halves:
+
+```bash
+python3 scripts/partition_download_plan.py split-failed --plan runs/shared_download_index.json --extract-id EXTRACT_ID --output runs/shared_download_index.json
+```
+
+The failed parent is removed from every consumer reference; an already planned matching child retains its state and combines the consumers; only its two new children participate in aggregation. Follow each child's newly generated steps/key. Saved shared report manifests resolve the current index automatically, so a stale parent response cannot be counted. Standalone plans can use the same command with their manifest as `--plan`/`--output`. A one-day batch that still fails must stop and request a narrower employee-approved store-name scope. Never guess merchant IDs, exclude stores silently, or classify a failed download as missing business data.
+
+If a shared report stops before a runner can finalize it, release it explicitly:
+
+```bash
+python3 scripts/partition_download_plan.py release-report --index runs/shared_download_index.json --report-id REPORT_ID
+```
+
+Release is idempotent; the ledger persists after source CSV cleanup. Release and result-recording CLI updates serialize on a local ledger lock. Plan merging/splitting must finish before concurrent consumers read or release that ledger.
 
 ## Revenue Trend Interaction
 
@@ -121,7 +161,7 @@ Data gaps are normal. Always build the best available partial or empty report, i
 - In the HTML and user-facing summary, describe omissions in concise business language, for example “缺少历史营业数据，趋势图未展示。”
 - Never expose coverage tables, source file names, document/import IDs, query job IDs, internal dataset names, transport error codes, or raw MCP errors in the report.
 - Do not fabricate zeros, fill gaps from old workbooks, or describe missing optional dish/catalog modules as service failures.
-- Preserve failed or missing saved MCP payloads as `QUERY_RESPONSE_ERROR` or `QUERY_RESPONSE_MISSING` notices during bundle assembly.
+- Preserve failed or missing saved row-query MCP payloads as `QUERY_RESPONSE_ERROR` or `QUERY_RESPONSE_MISSING` notices during bundle assembly. Partition download failures stop materialization and require recovery; they never yield successful empty aggregates.
 
 ## Provenance and Cleanup
 

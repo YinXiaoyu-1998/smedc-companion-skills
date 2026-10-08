@@ -10,10 +10,153 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "load_partition_extract.py"
+sys.path.insert(0, str(ROOT / "scripts"))
+import load_partition_extract as loader
+
 REGISTRY = ROOT / "tests" / "fixtures" / "registry_response.json"
 
 
 class PartitionExtractTests(unittest.TestCase):
+    def save_download(self, root, responses, extract, rows, suffix, strings=False):
+        directory = root / "smedc-partition-extracts" / f"extract-{suffix}"
+        directory.mkdir(parents=True)
+        files = []
+        for day, amount in rows:
+            path = directory / f"{day}.csv"
+            path.write_text(f"营业日期,门店名称,订单营业收入\n{day},示例一店,{amount}\n", encoding="utf-8")
+            payload = path.read_bytes()
+            files.append({"fileName": path.name, "storeId": "001", "businessDate": day, "storeName": "示例一店", "rowCount": "1" if strings else 1, "byteSize": str(len(payload)) if strings else len(payload), "checksumSha256": hashlib.sha256(payload).hexdigest()})
+        selector = extract["input"]
+        response = {"dataset": selector["dataset"], "enterpriseName": selector["enterpriseName"], "startDate": loader.compact_to_iso(selector["startDate"]), "endDate": loader.compact_to_iso(selector["endDate"]), "partitionCount": str(len(files)) if strings else len(files), "totalRowCount": str(len(files)) if strings else len(files), "localDirectory": str(directory), "files": [f["fileName"] for f in files]}
+        (directory / "manifest.json").write_text(json.dumps({**response, "files": files}), encoding="utf-8")
+        output = responses / extract["outputFile"]
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(response), encoding="utf-8")
+        return response
+
+    def aggregate_manifest(self, extracts):
+        return {"report": {}, "extracts": extracts, "jobs": [{"id": "total", "tool": "local_partition_aggregate", "outputFile": "query-results/total.json", "input": {"dataset": "business", "filter": {"field": "business_date", "op": "between", "value": ["2024-02-01", "2024-02-02"]}, "groupBy": [], "aggregates": [{"op": "sum", "field": "order_revenue", "as": "revenue"}]}}]}
+
+    def test_split_shared_failed_parent_materializes_only_children(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            responses = root / "responses"
+            parent = planner.make_extract({"dataset": "business", "enterpriseName": "企业", "startDate": "20240201", "endDate": "20240202"})
+            old = self.aggregate_manifest([parent])
+            old['reportId'] = 'one'
+            index = planner.merge_download_plans([old, {**old, 'reportId': 'two'}])
+            parent = index['extracts'][0]
+            self.save_download(root, responses, parent, [('2024-02-01', 900)], 'parent')
+            parent['downloadState'] = {'status': 'failed'}
+            index = planner.replace_failed_extract(index, parent['id'])
+            for child, day, amount in zip(sorted(index['extracts'], key=lambda extract: extract['input']['startDate']), ('2024-02-01', '2024-02-02'), (10, 20)):
+                response = self.save_download(root, responses, child, [(day, amount)], day, True)
+                planner.record_download_result(index, child['id'], response)
+            ledger = root / 'index.json'
+            planner.save_json(ledger, index)
+            old['sharedDownload'] = {'indexPath': str(ledger), 'reportId': 'one'}
+            loader.materialize(old, json.loads(REGISTRY.read_text()), responses)
+            self.assertEqual(json.loads((responses / index['reports']['one']['jobs'][0]['outputFile']).read_text())['rows'], [{'revenue': 30}])
+
+    def test_verified_success_reuse_materializes_without_redownload_or_new_response_file(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            responses = root / 'responses'
+            extract = planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': '20240201', 'endDate': '20240202'})
+            response = self.save_download(root, responses, extract, [('2024-02-01', 10)], 'reuse')
+            extract['downloadState'] = {'status': 'succeeded', 'localDirectory': response['localDirectory'], 'response': response}
+            old = self.aggregate_manifest([extract])
+            index = planner.merge_download_plans([{**old, 'reportId': 'one'}, {**old, 'reportId': 'two'}])
+            self.assertEqual(len(index['extracts']), 1)
+            (responses / extract['outputFile']).unlink()
+            for report in index['reports'].values():
+                loader.materialize(report, json.loads(REGISTRY.read_text()), responses)
+                self.assertEqual(json.loads((responses / report['jobs'][0]['outputFile']).read_text())['rows'], [{'revenue': 10}])
+
+    def test_two_shared_reports_keep_separate_results_and_assemble_independently(self):
+        import partition_download_plan as planner
+        from assemble_query_bundle import assemble_bundle, load_config
+        with tempfile.TemporaryDirectory() as temporary:
+            root, responses = Path(temporary), Path(temporary) / 'responses'
+            extract = planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': '20240201', 'endDate': '20240202'})
+            response = self.save_download(root, responses, extract, [('2024-02-01', 10), ('2024-02-02', 20)], 'independent')
+            first = self.aggregate_manifest([extract])
+            first.update({'schemaVersion': 1, 'reportId': 'one', 'coverage': {}, 'notices': []})
+            first['jobs'][0]['module'] = 'coreBusiness'
+            second = json.loads(json.dumps(first))
+            second['reportId'] = 'two'
+            second['jobs'][0]['input']['filter']['value'][1] = '2024-02-01'
+            index = planner.merge_download_plans([first, second])
+            planner.record_download_result(index, index['extracts'][0]['id'], response)
+            ledger = root / 'index.json'
+            planner.save_json(ledger, index)
+            for report_id, report in index['reports'].items():
+                report['sharedDownload'] = {'indexPath': str(ledger), 'reportId': report_id}
+                loader.materialize(report, json.loads(REGISTRY.read_text()), responses)
+            for report_id, report in index['reports'].items():
+                bundle = assemble_bundle(report, responses, load_config())
+                self.assertEqual(bundle['resultsByJobId']['total']['rows'], [{'revenue': 30 if report_id == 'one' else 10}])
+                self.assertEqual(bundle['sharedDownload']['reportId'], report_id)
+
+    def test_duplicate_partition_identity_does_not_double_count(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root, extracts = Path(temporary), []
+            responses = root / 'responses'
+            for suffix in ('one', 'two'):
+                extract = planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': '20240201', 'endDate': '20240202'}, suffix)
+                self.save_download(root, responses, extract, [('2024-02-01', 10)], suffix)
+                extracts.append(extract)
+            loader.materialize(self.aggregate_manifest(extracts), json.loads(REGISTRY.read_text()), responses)
+            self.assertEqual(json.loads((responses / 'query-results/total.json').read_text())['rows'], [{'revenue': 10}])
+
+    def test_legal_string_counts_zero_and_row_mismatch(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            responses = root / 'responses'
+            extract = planner.make_extract({'dataset': 'business', 'enterpriseName': '企业', 'startDate': '20240201', 'endDate': '20240202'})
+            response = self.save_download(root, responses, extract, [], 'zero', True)
+            manifest = self.aggregate_manifest([extract])
+            loader.materialize(manifest, json.loads(REGISTRY.read_text()), responses)
+            self.assertEqual(json.loads((responses / 'query-results/total.json').read_text())['rows'], [])
+            # Non-empty string counts are consumed without requiring a new Launcher layout.
+            response = self.save_download(root, responses, extract, [('2024-02-01', 10)], 'strings', True)
+            loader.materialize(manifest, json.loads(REGISTRY.read_text()), responses)
+            self.assertEqual(json.loads((responses / 'query-results/total.json').read_text())['rows'], [{'revenue': 10}])
+            directory = Path(response['localDirectory'])
+            local = json.loads((directory / 'manifest.json').read_text())
+            local['files'][0]['rowCount'] = '2'
+            local['totalRowCount'] = '2'
+            response['totalRowCount'] = '2'
+            (directory / 'manifest.json').write_text(json.dumps(local))
+            (responses / extract['outputFile']).write_text(json.dumps(response))
+            with self.assertRaisesRegex(ValueError, 'row count mismatch'):
+                loader.materialize(manifest, json.loads(REGISTRY.read_text()), responses)
+
+    def test_decimal_count_validation_rejects_invalid_and_accepts_strings(self):
+        self.assertEqual(loader.metadata_count("12", "count"), 12)
+        for value in (-1, True, "-1", "1.0", "1e3", 1.5, " 1", ""):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                loader.metadata_count(value, "count")
+
+    def test_service_filtered_rows_are_validated_instead_of_hidden(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve()
+            path = directory / "day.csv"
+            path.write_text("营业日期,门店名称,订单营业收入\n2024-02-01,范围外,10\n", encoding="utf-8")
+            payload = path.read_bytes()
+            metadata = {"fileName": path.name, "businessDate": "2024-02-01", "storeId": "1", "storeName": "范围外", "rowCount": "1", "byteSize": str(len(payload)), "checksumSha256": hashlib.sha256(payload).hexdigest()}
+            fields = {"business_date": {"canonicalName": "business_date", "sourceColumn": "营业日期", "type": "string"}, "store_name": {"canonicalName": "store_name", "sourceColumn": "门店名称", "type": "string"}}
+            accumulator = loader.JobAccumulator({"id": "totals", "input": {"filter": {"field": "business_date", "op": "between", "value": ["2024-02-01", "2024-02-01"]}, "groupBy": [], "aggregates": []}})
+            with self.assertRaisesRegex(ValueError, "storeNameContains"):
+                loader.process_file("business", directory, metadata, fields, [accumulator], ["一店"], True)
+            metadata["storeName"] = "一店"
+            with self.assertRaisesRegex(ValueError, "storeNameContains"):
+                loader.process_file("business", directory, metadata, fields, [accumulator], ["一店"], True)
+
     def test_store_name_filter_applies_to_business_and_dishes_before_aggregation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)

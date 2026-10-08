@@ -7,6 +7,7 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 import shutil
 import sys
 from collections import defaultdict
@@ -15,7 +16,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from assemble_query_bundle import dump_json_exact, unwrap_success_envelope
+from assemble_query_bundle import dump_json_exact, is_error_envelope, unwrap_success_envelope
 
 
 class ExtractError(ValueError):
@@ -174,36 +175,15 @@ class JobAccumulator:
         return rows
 
 
-def validate_download(extract_spec: dict[str, Any], response: dict[str, Any]) -> tuple[Path, list[dict[str, Any]]]:
-    expected = extract_spec["input"]
-    for name in ("dataset", "enterpriseName"):
-        if response.get(name) != expected.get(name):
-            raise ExtractError(f"extract {extract_spec['id']} response {name} mismatch")
-    for name in ("startDate", "endDate"):
-        if response.get(name) != compact_to_iso(expected[name]):
-            raise ExtractError(f"extract {extract_spec['id']} response {name} mismatch")
-    directory = validate_extract_directory(response.get("localDirectory"))
-    local_manifest = require_object(load_json(directory / "manifest.json", "launcher extract manifest"), "launcher extract manifest")
-    for name in ("dataset", "enterpriseName", "startDate", "endDate", "partitionCount", "totalRowCount"):
-        if local_manifest.get(name) != response.get(name):
-            raise ExtractError(f"extract {extract_spec['id']} local manifest {name} mismatch")
-    files = local_manifest.get("files")
-    response_files = response.get("files")
-    if not isinstance(files, list) or not isinstance(response_files, list):
-        raise ExtractError(f"extract {extract_spec['id']} files must be arrays")
-    if [item.get("fileName") for item in files if isinstance(item, dict)] != response_files:
-        raise ExtractError(f"extract {extract_spec['id']} file list mismatch")
-    return directory, files
+def metadata_count(value: Any, label: str) -> int:
+    if type(value) is int and value >= 0:
+        return value
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
+        return int(value)
+    raise ExtractError(f"{label} must be a nonnegative integer or decimal string")
 
 
-def process_file(
-    dataset: str,
-    directory: Path,
-    file_spec: dict[str, Any],
-    fields: dict[str, dict[str, Any]],
-    accumulators: list[JobAccumulator],
-    store_name_contains: list[str],
-) -> None:
+def validate_file_integrity(directory: Path, file_spec: dict[str, Any]) -> Path:
     file_name = file_spec.get("fileName")
     if not isinstance(file_name, str) or Path(file_name).name != file_name:
         raise ExtractError(f"invalid launcher partition file name: {file_name}")
@@ -214,8 +194,68 @@ def process_file(
     with path.open("rb") as binary:
         for chunk in iter(lambda: binary.read(1024 * 1024), b""):
             digest.update(chunk)
-    if path.stat().st_size != file_spec.get("byteSize") or digest.hexdigest() != file_spec.get("checksumSha256"):
+    if path.stat().st_size != metadata_count(file_spec.get("byteSize"), "byteSize") or digest.hexdigest() != file_spec.get("checksumSha256"):
         raise ExtractError(f"launcher partition integrity mismatch: {file_name}")
+    metadata_count(file_spec.get("rowCount"), "rowCount")
+    return path
+
+
+def validate_download(extract_spec: dict[str, Any], response: dict[str, Any]) -> tuple[Path, list[dict[str, Any]]]:
+    expected = extract_spec["input"]
+    for name in ("dataset", "enterpriseName"):
+        if response.get(name) != expected.get(name):
+            raise ExtractError(f"extract {extract_spec['id']} response {name} mismatch")
+    for name in ("startDate", "endDate"):
+        if response.get(name) != compact_to_iso(expected[name]):
+            raise ExtractError(f"extract {extract_spec['id']} response {name} mismatch")
+    directory = validate_extract_directory(response.get("localDirectory"))
+    local_manifest = require_object(load_json(directory / "manifest.json", "launcher extract manifest"), "launcher extract manifest")
+    for name in ("dataset", "enterpriseName", "startDate", "endDate"):
+        if local_manifest.get(name) != response.get(name):
+            raise ExtractError(f"extract {extract_spec['id']} local manifest {name} mismatch")
+    files = local_manifest.get("files")
+    response_files = response.get("files")
+    if not isinstance(files, list) or not isinstance(response_files, list):
+        raise ExtractError(f"extract {extract_spec['id']} files must be arrays")
+    if any(not isinstance(item, dict) for item in files) or any(not isinstance(item, str) for item in response_files):
+        raise ExtractError("partition extract has malformed file metadata")
+    if [item.get("fileName") for item in files] != response_files:
+        raise ExtractError(f"extract {extract_spec['id']} file list mismatch")
+    start, end = compact_to_iso(expected["startDate"]), compact_to_iso(expected["endDate"])
+    for item in files:
+        business_date = item.get("businessDate")
+        if not isinstance(business_date, str) or not start <= business_date <= end:
+            raise ExtractError("partition date is outside requested download range")
+        fragments = expected.get("storeNameContains", [])
+        if fragments and not any(fragment in str(item.get("storeName") or "") for fragment in fragments):
+            raise ExtractError("partition metadata violates requested storeNameContains")
+        if expected.get("storeIds") and item.get("storeId") not in expected["storeIds"]:
+            raise ExtractError("partition metadata violates requested storeIds")
+    for name in ("partitionCount", "totalRowCount"):
+        if metadata_count(local_manifest.get(name), name) != metadata_count(response.get(name), name):
+            raise ExtractError(f"extract {extract_spec['id']} local manifest {name} mismatch")
+    if metadata_count(response.get("partitionCount"), "partitionCount") != len(files):
+        raise ExtractError("partition count does not match files")
+    if len(response_files) != len(set(response_files)):
+        raise ExtractError("partition extract repeats file names")
+    if metadata_count(response.get("totalRowCount"), "totalRowCount") != sum(metadata_count(item.get("rowCount"), "rowCount") for item in files):
+        raise ExtractError("total row count does not match files")
+    return directory, files
+
+
+def process_file(
+    dataset: str,
+    directory: Path,
+    file_spec: dict[str, Any],
+    fields: dict[str, dict[str, Any]],
+    accumulators: list[JobAccumulator],
+    store_name_contains: list[str],
+    validate_service_scope: bool = False,
+) -> None:
+    path = validate_file_integrity(directory, file_spec)
+    file_name = file_spec["fileName"]
+    if validate_service_scope and store_name_contains and not any(fragment in str(file_spec.get("storeName") or "") for fragment in store_name_contains):
+        raise ExtractError(f"partition {file_name} violates requested storeNameContains")
     needed = set().union(*(required_fields(item.job) for item in accumulators))
     if store_name_contains:
         needed.add("store_name")
@@ -239,14 +279,18 @@ def process_file(
             if row.get("business_date") != file_spec.get("businessDate"):
                 raise ExtractError(f"partition {file_name} row {index} date does not match its manifest")
             if store_name_contains and not any(fragment in str(row.get("store_name") or "") for fragment in store_name_contains):
+                if validate_service_scope:
+                    raise ExtractError(f"partition {file_name} row {index} violates requested storeNameContains")
                 continue
             for accumulator in accumulators:
                 accumulator.add(row)
-    if row_count != file_spec.get("rowCount"):
+    if row_count != metadata_count(file_spec.get("rowCount"), "rowCount"):
         raise ExtractError(f"partition {file_name} row count mismatch")
 
 
 def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], responses_dir: Path) -> None:
+    from partition_download_plan import resolve_shared_report
+    manifest = resolve_shared_report(manifest)
     jobs = manifest.get("jobs")
     extracts = manifest.get("extracts")
     if not isinstance(jobs, list) or not isinstance(extracts, list):
@@ -262,12 +306,21 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
     fields_by_dataset = registry_maps(registry_response)
     accumulators = {job["id"]: JobAccumulator(job) for job in local_jobs}
     seen_directories: set[Path] = set()
+    seen_partitions: dict[tuple[str, str, str, str], tuple[str, int]] = {}
     for extract_spec in extracts:
         if not isinstance(extract_spec, dict) or extract_spec.get("tool") != "download_structured_partitions":
             raise ExtractError("manifest contains a malformed partition extract")
+        state = extract_spec.get("downloadState", {}).get("status")
+        if ("sharedDownload" in manifest and state != "succeeded") or state in {"failed", "expired", "queued", "running", "ready"}:
+            raise ExtractError(f"extract {extract_spec['id']} is not a successful local download")
+        if "storeNameContains" in extract_spec["input"] and set(extract_spec["input"]["storeNameContains"]) != set(store_name_contains):
+            raise ExtractError("extract storeNameContains differs from report scope")
         response_path = safe_response_path(responses_dir, extract_spec["outputFile"])
-        raw_response = load_json(response_path, "saved partition download response")
+        saved_response = extract_spec.get("downloadState", {}).get("response") if state == "succeeded" else None
+        raw_response = saved_response if saved_response is not None else load_json(response_path, "saved partition download response")
         response = require_object(unwrap_success_envelope(raw_response), "partition download response")
+        if is_error_envelope(raw_response) or is_error_envelope(response) or response.get("status") in {"failed", "expired", "queued", "running"}:
+            raise ExtractError("partition download failed or is not complete")
         directory, files = validate_download(extract_spec, response)
         if directory in seen_directories:
             raise ExtractError(f"partition extract directory is reused: {directory}")
@@ -279,7 +332,17 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         for file_spec in files:
             if not isinstance(file_spec, dict):
                 raise ExtractError(f"extract {extract_spec['id']} has malformed file metadata")
-            process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators, store_name_contains)
+            identity = (dataset, extract_spec["input"]["enterpriseName"], file_spec.get("storeId"), file_spec.get("businessDate"))
+            if any(not isinstance(value, str) or not value for value in identity):
+                raise ExtractError("partition metadata is missing its store/date identity")
+            checksum = file_spec.get("checksumSha256")
+            if identity in seen_partitions:
+                validate_file_integrity(directory, file_spec)
+                if seen_partitions[identity] != (checksum, metadata_count(file_spec.get("rowCount"), "rowCount")):
+                    raise ExtractError("partition identity has conflicting checksums")
+                continue
+            seen_partitions[identity] = (checksum, metadata_count(file_spec.get("rowCount"), "rowCount"))
+            process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators, store_name_contains, "storeNameContains" in extract_spec["input"])
 
     for accumulator in accumulators.values():
         job = accumulator.job
@@ -296,6 +359,11 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
 
 
 def cleanup_downloads(manifest: dict[str, Any], responses_dir: Path) -> None:
+    if "sharedDownload" in manifest:
+        from partition_download_plan import release_saved_report
+        shared = require_object(manifest["sharedDownload"], "shared download reference")
+        release_saved_report(Path(shared["indexPath"]), shared["reportId"])
+        return
     extracts = manifest.get("extracts", [])
     if not isinstance(extracts, list):
         return
@@ -333,7 +401,7 @@ def main(argv: list[str]) -> int:
             raise ExtractError("--registry-response is required unless --cleanup-only is used")
         registry = require_object(load_json(args.registry_response, "registry response"), "registry response")
         materialize(manifest, registry, args.responses_dir)
-    except (ExtractError, ValueError) as exc:
+    except (ExtractError, ValueError, OSError, KeyError, TypeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 0
