@@ -81,6 +81,8 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
    - Execute each extract's single range `download_structured_partitions` step with its dataset, enterprise, dates and optional store filters. Save the complete successful local envelope at `outputFile`.
    - Check MCP `isError`; failed downloads stop materialization and never imply empty data. A range extract never requires a server-side preparation request.
 
+8. Call `query_structured_dataset` only for manifest jobs whose `tool` is `query_structured_dataset`; currently that is the controlled `dish_catalog` snapshot query. Follow `nextCursor` until the returned `nextCursor` is `null`; save an array of page envelopes in request order at `jobs[].outputFile`.
+
 9. Stream the downloaded canonical CSV partitions into local aggregate job results:
 
    ```bash
