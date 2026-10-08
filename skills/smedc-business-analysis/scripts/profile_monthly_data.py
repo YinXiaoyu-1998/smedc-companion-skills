@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from build_query_plan import monthly_trend_window, subtract_months
+from build_query_plan import MONTHLY_TREND_MONTHS, monthly_trend_window, subtract_months
 
 from identity import organization_name_from_current_user_file, organization_name_from_metadata
 from report_common import (
@@ -67,26 +67,28 @@ def comparison_fieldnames() -> list[str]:
 
 
 def trend_rows(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-    """Anchor both series to the same six calendar positions, never observed-row ranks."""
+    """Anchor both series to the same twelve calendar positions, never observed-row ranks."""
     current = monthly_trend_window(date.fromisoformat(bundle["report"]["windows"]["current"]["end"]))
     starts = {"current_year": current.start, "prior_year": current.start.replace(year=current.start.year - 1)}
     groups: dict[tuple[str, str, int], list[dict[str, Any]]] = defaultdict(list)
     for job_id, series in (
-        ("business_6_month_prior_year_store_trend", "prior_year"),
-        ("business_6_month_store_trend", "current_year"),
+        ("business_12_month_prior_year_store_trend", "prior_year"),
+        ("business_12_month_store_trend", "current_year"),
     ):
-        for source in rows_for(bundle, job_id):
+        # Preserve monthly facts saved by older six-month report plans.
+        source_job_id = job_id if job_id in bundle.get("resultsByJobId", {}) else job_id.replace("12_month", "6_month")
+        for source in rows_for(bundle, source_job_id):
             _, month_start, _ = normalize_business_month(source.get("business_month"))
             if not month_start:
                 continue
             month = date.fromisoformat(month_start)
             first = starts[series]
             index = (month.year - first.year) * 12 + month.month - first.month + 1
-            if 1 <= index <= 6:
+            if 1 <= index <= MONTHLY_TREND_MONTHS:
                 groups[(series, str(source.get("store_name") or "未知门店"), index)].append(source)
     stores = sorted({store for _, store, _ in groups})
     output = []
-    for index in range(1, 7):
+    for index in range(1, MONTHLY_TREND_MONTHS + 1):
         for series, first in starts.items():
             start = subtract_months(first, -(index - 1))
             end = date(start.year, start.month, monthrange(start.year, start.month)[1])

@@ -217,7 +217,7 @@ def build_payload(input_dir: Path, company: str | None = None) -> dict[str, Any]
         "dayparts": aggregate_dayparts([row for row in dayparts if row.get("period") in {"本月", "上月"}]),
         "trend": [],
         "trend_entities": build_trend_comparison_entities(trend_comparison),
-        "trend_note": "自然月口径；仅展示最近 6 个月，实线=本年，虚线=同期。",
+        "trend_note": "完整自然月口径；最近一年（12 个月），实线=本期，虚线=同期。",
         "daypart_attribution": {
             "enabled": bool(summary["meta"].get("daypart_attribution", {}).get("enabled", True)) and bool(daypart_drivers),
             "meta": summary["meta"].get("daypart_attribution", {}),
@@ -237,7 +237,7 @@ def monthly_template() -> str:
         ("环比周", "上月"),
         ("同比周", "去年同月"),
         ("周会", "月会"),
-        ("最近一年收入趋势（52 周）", "最近 6 个月收入趋势"),
+        ("最近一年收入趋势（52 周）", "最近一年收入趋势（12 个月）"),
         ("完整周，整体业务收入（万元）；实线=本年，虚线=同期", "自然月，整体业务收入（万元）；实线=本年，虚线=同期"),
         ("完整周，", "自然月，"),
         ("完整周口径", "自然月口径"),

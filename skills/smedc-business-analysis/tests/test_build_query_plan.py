@@ -119,6 +119,20 @@ class BuildQueryPlanTests(unittest.TestCase):
         )
         self.assertEqual(manifest["metadata"]["organization_name"], "示例餐饮管理有限公司")
 
+    def test_monthly_plan_downloads_a_full_year_and_prior_year(self) -> None:
+        completed, manifest = self.run_plan("monthly")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(manifest["report"]["trendWindows"], {
+            "current": {"start": "2025-08-01", "end": "2026-07-31"},
+            "priorYear": {"start": "2024-08-01", "end": "2025-07-31"},
+        })
+        jobs = {job["id"] for job in manifest["jobs"]}
+        self.assertIn("business_12_month_store_trend", jobs)
+        self.assertIn("business_12_month_prior_year_store_trend", jobs)
+        business_extracts = [entry for entry in manifest["extracts"] if entry["input"]["dataset"] == "business"]
+        self.assertEqual([(entry["input"]["startDate"], entry["input"]["endDate"]) for entry in business_extracts],
+                         [("20240801", "20260731")])
+
     def test_diagnosis_plan_needs_one_business_extract_and_no_row_query(self) -> None:
         completed, manifest = self.run_plan("diagnosis")
         self.assertEqual(completed.returncode, 0, completed.stderr)

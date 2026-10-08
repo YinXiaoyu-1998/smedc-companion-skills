@@ -152,6 +152,7 @@ def same_date_previous_year(value: date) -> date:
 
 
 WEEKLY_TREND_WEEKS = 52
+MONTHLY_TREND_MONTHS = 12
 
 
 def weekly_trend_window(current_end: date) -> DateWindow:
@@ -161,7 +162,7 @@ def weekly_trend_window(current_end: date) -> DateWindow:
 def monthly_trend_window(current_end: date) -> DateWindow:
     current_month_end = month_end(current_end.year, current_end.month)
     end = current_end if current_end == current_month_end else date(current_end.year, current_end.month, 1) - timedelta(days=1)
-    return DateWindow("trend", subtract_months(end, 5), end)
+    return DateWindow("trend", subtract_months(end, MONTHLY_TREND_MONTHS - 1), end)
 
 
 def registry_by_dataset(registry: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, int]]:
@@ -953,7 +954,7 @@ def build_plan(
             trend_module = "weeklyTrend"
         else:
             trend_window = monthly_trend_window(windows["current"].end)
-            trend_id = "business_6_month_store_trend"
+            trend_id = "business_12_month_store_trend"
             trend_group = [business_store, business_month]
             trend_module = "monthlyTrend"
         trend_windows["current"] = trend_window.as_json()
@@ -975,7 +976,7 @@ def build_plan(
         prior_trend_id = (
             "business_52_week_prior_year_store_trend"
             if report_type == "weekly"
-            else "business_6_month_prior_year_store_trend"
+            else "business_12_month_prior_year_store_trend"
         )
         trend_windows["priorYear"] = prior_window.as_json()
         add_business_window(

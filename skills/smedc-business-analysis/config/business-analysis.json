@@ -183,7 +183,7 @@
     },
     "monthlyTrend": {
       "requiredDatasets": ["business"],
-      "bucketCount": 6,
+      "bucketCount": 12,
       "partialPolicy": "renderAvailableCompleteMonths"
     },
     "channelMix": {

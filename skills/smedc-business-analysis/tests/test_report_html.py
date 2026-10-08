@@ -171,6 +171,8 @@ class ReportHtmlTests(unittest.TestCase):
         )
 
         assert_self_contained(self, html)
+        self.assertIn("最近一年收入趋势（12 个月）", html)
+        self.assertEqual(len(embedded_payload(html)["trend_entities"][0]["rows"]), 12)
         self.assertIn("<h1>示例餐饮管理有限公司月经营会报</h1>", html)
         self.assertNotIn("示例餐饮管理有限公司月会经营报告", html)
         self.assertIn("2026-07-01", html)

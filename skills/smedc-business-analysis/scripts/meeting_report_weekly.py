@@ -1477,7 +1477,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const rows = currentTrendEntity().rows || [];
       const isMonthly = data.meta.report_grain === 'month';
       const presets = document.getElementById('trendPresets');
-      (isMonthly ? [[2, '最近 2 个月'], [0, '全部']] : [[2, '最近 2 周'], [5, '最近 5 周'], [16, '最近 16 周'], [0, '全年']]).forEach(([size, label]) => {
+      (isMonthly ? [[2, '最近 2 个月'], [0, '全年']] : [[2, '最近 2 周'], [5, '最近 5 周'], [16, '最近 16 周'], [0, '全年']]).forEach(([size, label]) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = label;
