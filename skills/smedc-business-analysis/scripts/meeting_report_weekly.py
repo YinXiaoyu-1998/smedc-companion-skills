@@ -1244,7 +1244,7 @@ HTML_TEMPLATE = r'''<!doctype html>
     }
     function renderBucketedRevenueRanking() {
       const el = document.getElementById('revenueBar');
-      const groups = segmentGroups.length ? segmentGroups : [{label:'全体门店', rows:stores}];
+      const groups = segmentGroups.length ? segmentGroups : [{label:'全体门店', rows:stores, revenue_threshold:data.segment_rules.revenue_threshold}];
       const w = 760, left = 150, right = 80, groupGap = 40;
       const rowH = 30;
       const totalRows = groups.reduce((sum, group) => sum + (group.rows || []).length, 0);

@@ -1,5 +1,6 @@
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -190,6 +191,36 @@ class ReportHtmlTests(unittest.TestCase):
         forbidden = re.compile("|".join(["pro" + "fit", "monthly_" + "pro" + "fit", "利" + "润"]), re.IGNORECASE)
         self.assertNotRegex(html, forbidden)
         self.assertEqual(summary["meta"]["report_grain"], "month")
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed to execute the embedded chart")
+    def test_monthly_ranking_displays_the_all_store_revenue_median(self) -> None:
+        _, html, _ = self.render_from_profile(
+            "profile_monthly_data.py", "generate_monthly_report_html.py",
+            "monthly_bundle.json", "monthly_meeting_summary.json",
+        )
+        # The fixture stores earn 40,000 and 20,000 yuan: median 30,000, or 3万.
+        payload = embedded_payload(html)
+        declarations = html.split("const data = JSON.parse", 1)[1].split("let selectedTrendKey", 1)[0]
+        svg_function = html.split("function svg(", 1)[1].split("function positionTooltip", 1)[0]
+        ranking = html.split("function renderBucketedRevenueRanking()", 1)[1].split("function renderGrowthBar", 1)[0]
+        script = """
+const chart = {appendChild(node) {this.root = node;}};
+const document = {
+  getElementById(id) {return id === 'report-data' ? {textContent: PAYLOAD} : chart;},
+  createElementNS(_, tag) {
+    return {tag, children: [], setAttribute() {}, appendChild(node) {this.children.push(node); return node;}};
+  }
+};
+""".replace("PAYLOAD", json.dumps(json.dumps(payload, ensure_ascii=False)))
+        script += "const data = JSON.parse" + declarations
+        script += "function svg(" + svg_function
+        script += "function renderBucketedRevenueRanking()" + ranking
+        script += "renderBucketedRevenueRanking(); console.log(JSON.stringify(chart.root.children.filter(n => n.tag === 'text').map(n => n.textContent)));"
+        result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        labels = json.loads(result.stdout)
+        self.assertIn("全体门店（2家）", labels)
+        self.assertIn("中位数 3万", labels)
 
     def test_shared_trend_tooltip_keeps_dates_and_revenue_without_year_heading(self) -> None:
         for grain in ("weekly", "monthly"):
