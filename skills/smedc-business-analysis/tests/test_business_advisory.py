@@ -128,7 +128,9 @@ class BusinessAdvisoryTests(unittest.TestCase):
                 self.assertEqual(html.count('data-review-section="stalls"'), 2)
                 self.assertLess(html.index('逐店基础分析'), html.index('企业层面重点建议'))
                 self.assertIn('grid-template-columns:repeat(3,minmax(0,1fr))', html)
+                self.assertIn('.store-review-card[open]{grid-column:1/-1;min-width:0;}', html)
                 self.assertIn('@media(max-width:600px)', html)
+                self.assertIn('.store-review-body{padding:0 12px 12px;font-size:16px;}', html)
 
     def test_store_reviews_reject_duplicates_missing_sections_and_cross_store_evidence(self):
         facts, report, draft = self.draft()
