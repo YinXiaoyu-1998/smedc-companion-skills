@@ -14,6 +14,7 @@ from typing import Any
 
 from build_query_plan import MONTHLY_TREND_MONTHS, monthly_trend_window, subtract_months
 
+from revenue_trend import write_revenue_views
 from identity import organization_name_from_current_user_file, organization_name_from_metadata
 from report_common import (
     aggregate_rows,
@@ -25,6 +26,7 @@ from report_common import (
     daypart_comparison_rows,
     daypart_driver_rows,
     daypart_rows,
+    meal_period_rows,
     driver_rows,
     job_metadata,
     load_bundle,
@@ -123,6 +125,13 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
         for row in daypart_rows(rows_for(bundle, f"business_{period}_daypart_mix"), label)
     ]
     daypart_comparisons = daypart_comparison_rows(dayparts, PERIOD_LABELS)
+    meals = [row for period, label in PERIOD_LABELS.items()
+             for row in meal_period_rows(rows_for(bundle, f"business_{period}_daypart_mix"), label)]
+    meal_comparisons = [{key: value for key, value in row.items() if key != "时段"}
+                        for row in daypart_comparison_rows(meals, PERIOD_LABELS)]
+    trend_outputs = write_revenue_views(bundle, output_dir, "monthly")
+    write_csv(output_dir / "monthly_store_meal_period_comparison.csv", meal_comparisons,
+              list(meal_comparisons[0]) if meal_comparisons else ["门店名称", "餐段"])
     daypart_drivers = daypart_driver_rows(daypart_comparisons)
     comparisons = comparison_rows(current_store, previous_store, yoy_store)
     store_segments = classify_stores(comparisons, "本月")
@@ -151,6 +160,8 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
     write_csv(output_dir / "star_problem_stores.csv", store_segments, list(store_segments[0]) if store_segments else ["门店名称", "segment"])
 
     outputs = [
+        *trend_outputs,
+        "monthly_store_meal_period_comparison.csv",
         "monthly_store_metrics.csv",
         "monthly_store_channel_metrics.csv",
         "monthly_store_daypart_metrics.csv",

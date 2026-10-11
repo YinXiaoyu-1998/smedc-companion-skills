@@ -115,7 +115,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertTrue(all(entry["input"]["enterpriseName"] == "示例企业" for entry in extracts))
         self.assertEqual(
             [(entry["input"]["startDate"], entry["input"]["endDate"]) for entry in extracts if entry["input"]["dataset"] == "business"],
-            [("20240803", "20240831")] + [(f"{year}{month:02}01", f"{year}{month:02}{day}") for year, month, day in [(2024, m, 30 if m in (9, 11) else 31) for m in range(9, 13)] + [(2025, m, 28 if m == 2 else 30 if m in (4, 6, 9, 11) else 31) for m in range(1, 13)] + [(2026, m, 28 if m == 2 else 30 if m in (4, 6) else 31) for m in range(1, 8)]],
+            [("20240801", "20240831")] + [(f"{year}{month:02}01", f"{year}{month:02}{day}") for year, month, day in [(2024, m, 30 if m in (9, 11) else 31) for m in range(9, 13)] + [(2025, m, 28 if m == 2 else 30 if m in (4, 6, 9, 11) else 31) for m in range(1, 13)] + [(2026, m, 28 if m == 2 else 30 if m in (4, 6) else 31) for m in range(1, 8)]],
         )
 
         self.assertEqual(manifest["report"]["trendWindows"], {

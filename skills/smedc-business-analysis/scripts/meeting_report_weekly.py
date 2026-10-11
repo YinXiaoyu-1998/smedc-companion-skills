@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from build_query_plan import WEEKLY_TREND_WEEKS, weekly_trend_window
+from revenue_trend import read_revenue_views
 from identity import organization_name_from_metadata
 
 
@@ -651,6 +652,7 @@ def build_payload(input_dir: Path, company: str | None = None) -> dict[str, Any]
         "hourly_revenue_entities": aggregate_hourly_revenue_entities(dayparts),
         "trend": aggregate_trend(weekly, current_window_end),
         "trend_entities": build_trend_comparison_entities(trend_comparison) or build_trend_entities(weekly, current_window_end),
+        "trend_by_grain": read_revenue_views(input_dir / "weekly_revenue_trend_metrics.csv"),
         "trend_note": trend_note,
         "daypart_attribution": {
             "enabled": bool(summary["meta"].get("daypart_attribution", {}).get("enabled", True)) and bool(daypart_drivers),
@@ -761,6 +763,8 @@ HTML_TEMPLATE = r'''<!doctype html>
     .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .full-row { margin-top: 16px; }
+    .trend-selectors { display:flex; flex-wrap:wrap; gap:8px; }
+    .trend-readout { text-align:right; min-height:42px; font-size:12px; line-height:1.7; color:var(--ink); font-variant-numeric:tabular-nums; }
     .trend-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; font-size: 12px; color: var(--muted); }
     .trend-controls[hidden] { display: none; }
     .trend-controls label { display: flex; align-items: center; gap: 6px; }
@@ -965,9 +969,10 @@ HTML_TEMPLATE = r'''<!doctype html>
       </div>
       <div class="panel full-row">
         <div class="panel-head">
-          <div class="panel-title-row"><h3>最近一年收入趋势（52 周）</h3><select id="trendStoreSelect" class="mini-select" aria-label="选择门店趋势"></select></div>
+          <div class="panel-title-row"><h3 id="trendTitle">最近一年收入趋势（52 周）</h3><div class="trend-selectors"><select id="trendStoreSelect" class="mini-select" aria-label="选择门店趋势"></select><select id="trendGrainSelect" class="mini-select" aria-label="选择趋势时间单位"></select></div></div>
           <span class="label" id="trendMetricLabel">完整周，整体业务收入（万元）；实线=本年，虚线=同期</span>
         </div>
+        <div id="trendReadout" class="trend-readout" role="status" aria-live="off"></div>
         <div class="chart" id="trend"></div>
         <div class="trend-navigator" id="trendNavigator" aria-label="拖动两端调整时间范围，拖动选区移动时间段"></div>
         <div class="trend-controls" id="trendControls">
@@ -1137,6 +1142,7 @@ HTML_TEMPLATE = r'''<!doctype html>
     const colors = { teal:'#006d77', blue:'#2f5b9f', green:'#3a7d44', amber:'#b85c00', red:'#b23a48', violet:'#7557a6', orange:'#d96b3b', yellow:'#c89b18', yellowFill:'#f2c94c', maximum:'#2f80ed', maximumStroke:'#1c5fb8', minimum:'#e5484d', minimumStroke:'#b42318' };
     const segmentGroups = data.segment_groups || [];
     let selectedTrendKey = '__all__';
+    let selectedTrendGrain = data.meta.report_grain || 'week';
     let trendStart = 0, trendEnd = null;
     let selectedHourlyKey = '__all__';
     let selectedStallMixKey = '__all__';
@@ -1462,8 +1468,11 @@ HTML_TEMPLATE = r'''<!doctype html>
       el.innerHTML = '';
       el.appendChild(root);
     }
+    function currentTrendView() {
+      return (data.trend_by_grain || {})[selectedTrendGrain] || {entities:data.trend_entities || [{key:'__all__', label:'全体门店', rows:data.trend}], note:data.trend_note || ''};
+    }
     function currentTrendEntity() {
-      const entities = data.trend_entities || [{key:'__all__', label:'全体门店', rows:data.trend}];
+      const entities = currentTrendView().entities;
       return entities.find(item => item.key === selectedTrendKey) || entities[0] || {key:'__all__', label:'全体门店', rows:[]};
     }
     function setTrendRange(start, end) {
@@ -1475,9 +1484,10 @@ HTML_TEMPLATE = r'''<!doctype html>
     }
     function renderTrendControls() {
       const rows = currentTrendEntity().rows || [];
-      const isMonthly = data.meta.report_grain === 'month';
+      const presetOptions = {day:[[7,'最近 7 天'],[30,'最近 30 天'],[90,'最近 90 天'],[0,'全年']], week:[[2,'最近 2 周'],[5,'最近 5 周'],[16,'最近 16 周'],[0,'全年']], month:[[2,'最近 2 个月'],[6,'最近 6 个月'],[0,'全年']]};
       const presets = document.getElementById('trendPresets');
-      (isMonthly ? [[2, '最近 2 个月'], [0, '全年']] : [[2, '最近 2 周'], [5, '最近 5 周'], [16, '最近 16 周'], [0, '全年']]).forEach(([size, label]) => {
+      presets.replaceChildren();
+      presetOptions[selectedTrendGrain].forEach(([size, label]) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = label;
@@ -1490,6 +1500,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       });
       ['trendStartSelect', 'trendEndSelect'].forEach(id => {
         const select = document.getElementById(id);
+        select.replaceChildren();
         rows.forEach((row, index) => {
           const option = document.createElement('option');
           option.value = index;
@@ -1497,13 +1508,15 @@ HTML_TEMPLATE = r'''<!doctype html>
           select.appendChild(option);
         });
         select.disabled = !rows.length;
-        select.addEventListener('change', () => {
+        select.onchange = () => {
           const value = Number(select.value);
           if (id === 'trendStartSelect') setTrendRange(value, Math.max(value, trendEnd));
           else setTrendRange(Math.min(trendStart, value), value);
-        });
+        };
       });
       const navigator = document.getElementById('trendNavigator');
+      if (navigator.dataset.bound) return;
+      navigator.dataset.bound = 'true';
       let drag = null;
       const boundary = event => {
         const bounds = navigator.getBoundingClientRect();
@@ -1511,7 +1524,7 @@ HTML_TEMPLATE = r'''<!doctype html>
         return Math.max(0, Math.min(count, Math.round((event.clientX - bounds.left) / bounds.width * count)));
       };
       navigator.addEventListener('pointerdown', event => {
-        if (event.button !== 0 || !rows.length) return;
+        if (event.button !== 0 || !(currentTrendEntity().rows || []).length) return;
         const mode = event.target.getAttribute('data-drag') || 'select';
         drag = {mode, anchor:boundary(event), start:trendStart, end:trendEnd};
         navigator.setPointerCapture(event.pointerId);
@@ -1562,13 +1575,31 @@ HTML_TEMPLATE = r'''<!doctype html>
     }
     function renderTrendSelector() {
       const select = document.getElementById('trendStoreSelect');
-      const entities = data.trend_entities || [{key:'__all__', label:'全体门店', rows:data.trend}];
-      select.innerHTML = entities.map(item => `<option value="${item.key}">${cleanName(item.label)}</option>`).join('');
-      select.value = selectedTrendKey;
-      select.addEventListener('change', () => {
-        selectedTrendKey = select.value;
-        renderTrend();
+      const entities = currentTrendView().entities;
+      select.replaceChildren();
+      entities.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.key;
+        option.textContent = cleanName(item.label);
+        select.appendChild(option);
       });
+      selectedTrendKey = currentTrendEntity().key;
+      select.value = selectedTrendKey;
+      select.onchange = () => { selectedTrendKey = select.value; renderTrend(); };
+      const grainSelect = document.getElementById('trendGrainSelect');
+      grainSelect.replaceChildren();
+      [['day','日'],['week','周'],['month','月']].forEach(([grain, label]) => {
+        if (!(data.trend_by_grain || {})[grain] && grain !== data.meta.report_grain) return;
+        const option = document.createElement('option');
+        option.value = grain; option.textContent = label;
+        grainSelect.appendChild(option);
+      });
+      grainSelect.value = selectedTrendGrain;
+      grainSelect.onchange = () => {
+        selectedTrendGrain = grainSelect.value;
+        trendStart = 0; trendEnd = null;
+        renderTrendSelector(); renderTrend();
+      };
       renderTrendControls();
     }
     function renderTrend() {
@@ -1592,23 +1623,22 @@ HTML_TEMPLATE = r'''<!doctype html>
       const currentLabel = yearLabel('current_week_range', currentTrendYear);
       const priorLabel = yearLabel('prior_week_range', yoyTrendYear);
       const isAllStores = entity.key === '__all__';
-      document.getElementById('trendMetricLabel').textContent = `完整周，${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；实线=${currentLabel}，虚线=${priorLabel}同期`;
+      const units = {day:'天', week:'周', month:'个月'};
+      const basis = {day:'每日', week:'完整周', month:'完整自然月'}[selectedTrendGrain];
+      document.getElementById('trendTitle').textContent = `最近一年收入趋势（${allRows.length} ${units[selectedTrendGrain]}）`;
+      document.getElementById('trendMetricLabel').textContent = `${basis} · ${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；实线=${currentLabel}，虚线=${priorLabel}同期`;
+      document.getElementById('trendControls').hidden = false;
       const w = 1120, h = 360, left = 82, right = 84, top = 34, bottom = 78;
       const hasComparisonShape = rows.some(r => Object.prototype.hasOwnProperty.call(r, 'current_net_revenue') || Object.prototype.hasOwnProperty.call(r, 'prior_net_revenue'));
       const currentField = hasComparisonShape ? 'current_net_revenue' : 'net_revenue';
       const priorField = 'prior_net_revenue';
       const allValues = rows.flatMap(r => [Number(r[currentField] || 0), Number(r[priorField] || 0)]);
       const max = Math.max(...allValues, 1);
-      const yMax = Math.ceil(max / 500000) * 500000;
+      const magnitude = 10 ** Math.floor(Math.log10(max));
+      const step = magnitude / 2;
+      const yMax = Math.ceil(max / step) * step;
       const yScale = v => h - bottom - Number(v || 0) / yMax * (h-top-bottom);
       const root = svg('svg', {viewBox:`0 0 ${w} ${h}`});
-      const tip = document.createElement('div');
-      tip.className = 'chart-tooltip';
-      const showTrendTip = (event, pointRange, value) => {
-        tip.innerHTML = `${pointRange}<br>业务收入：${fmtWan(value)}`;
-        positionTooltip(tip, el, event);
-      };
-      const hideTrendTip = () => { tip.style.display = 'none'; };
       [0, .25, .5, .75, 1].forEach(t => {
         const value = yMax * t;
         const y = yScale(value);
@@ -1646,6 +1676,7 @@ HTML_TEMPLATE = r'''<!doctype html>
           ...(dash ? {'stroke-dasharray': dash} : {})
         })));
         points.forEach(([x,y,r,value], i) => {
+          if (points.length > 60 && i !== points.length - 1 && value !== minValue && value !== maxValue) return;
           const isMin = hasDistinctExtremes && value === minValue;
           const isMax = hasDistinctExtremes && value === maxValue;
           const point = svg('circle', {
@@ -1660,10 +1691,6 @@ HTML_TEMPLATE = r'''<!doctype html>
           const title = svg('title', {});
           title.textContent = `${pointRange} 业务收入：${fmtWan(value)}`;
           point.appendChild(title);
-          point.addEventListener('mousemove', event => showTrendTip(event, pointRange, value));
-          point.addEventListener('mouseleave', hideTrendTip);
-          point.addEventListener('focus', event => showTrendTip(event, pointRange, value));
-          point.addEventListener('blur', hideTrendTip);
           root.appendChild(point);
           if (i === points.length - 1) {
             const labelY = field === priorField ? y + 19 : y - 9;
@@ -1691,13 +1718,59 @@ HTML_TEMPLATE = r'''<!doctype html>
       root.appendChild(svg('text', {x:left, y:18, 'font-size':'12', fill:'#657386', 'font-weight':'700'})).textContent = '业务收入（万元）';
       el.innerHTML = '';
       el.appendChild(root);
-      el.appendChild(tip);
+      const guide = svg('line', {x1:left, x2:left, y1:top, y2:h-bottom, stroke:'#657386', 'stroke-width':1, 'stroke-dasharray':'4 4', visibility:'hidden', 'pointer-events':'none', 'data-trend-guide':'true'});
+      root.appendChild(guide);
+      const markers = [currentField, priorField].map((field, series) => {
+        const marker = svg('circle', {r:6, fill:series ? 'white' : colors.yellowFill, stroke:colors.yellow, 'stroke-width':3, visibility:'hidden', 'pointer-events':'none', 'data-trend-marker':field});
+        root.appendChild(marker); return marker;
+      });
+      const readout = document.getElementById('trendReadout');
+      let activeIndex = rows.length - 1;
+      const valueText = value => value === null || value === undefined || value === '' ? '暂无记录' : fmtYuan(value);
+      const showIndex = (index, visible = true) => {
+        activeIndex = Math.max(0, Math.min(rows.length - 1, index));
+        const row = rows[activeIndex];
+        const x = rows.length === 1 ? (w+left-right)/2 : left + activeIndex / (rows.length - 1) * (w-left-right);
+        guide.setAttribute('x1', x); guide.setAttribute('x2', x);
+        guide.setAttribute('visibility', visible ? 'visible' : 'hidden');
+        [currentField, priorField].forEach((field, series) => {
+          const value = row[field];
+          const present = value !== null && value !== undefined && value !== '';
+          markers[series].setAttribute('cx', x);
+          markers[series].setAttribute('cy', yScale(value));
+          markers[series].setAttribute('visibility', visible && present ? 'visible' : 'hidden');
+        });
+        readout.replaceChildren();
+        [[row.current_week_range || row.week_label, row[currentField], '本期'], [row.prior_week_range, row[priorField], '同期']].forEach(([range, value, label]) => {
+          const line = document.createElement('div');
+          const dateLabel = range && range.slice(0,10) === range.slice(11) ? range.slice(0,10) : range;
+          line.textContent = `${label} ${dateLabel || '无对应日期'} · 业务收入：${valueText(value)}`;
+          readout.appendChild(line);
+        });
+      };
+      const overlay = svg('rect', {x:left, y:top, width:w-left-right, height:h-top-bottom, fill:'transparent', tabindex:0, role:'img', 'aria-label':'收入趋势，左右方向键逐期查看，Home 和 End 跳到首尾', 'data-trend-overlay':'true', style:'cursor:crosshair;touch-action:pan-y'});
+      overlay.addEventListener('pointermove', event => {
+        const bounds = root.getBoundingClientRect();
+        const matrix = root.getScreenCTM?.();
+        const x = matrix ? (event.clientX - matrix.e) / matrix.a : (event.clientX - bounds.left) / bounds.width * w;
+        showIndex(Math.round((x-left) / (w-left-right) * (rows.length - 1)));
+      });
+      overlay.addEventListener('pointerleave', () => showIndex(rows.length - 1, false));
+      overlay.addEventListener('focus', () => showIndex(activeIndex));
+      overlay.addEventListener('blur', () => showIndex(rows.length - 1, false));
+      overlay.addEventListener('keydown', event => {
+        const next = {ArrowLeft:activeIndex-1, ArrowRight:activeIndex+1, Home:0, End:rows.length-1}[event.key];
+        if (next === undefined) return;
+        event.preventDefault(); showIndex(next);
+      });
+      root.appendChild(overlay);
+      showIndex(rows.length - 1, false);
       document.getElementById('trendStartSelect').value = trendStart;
       document.getElementById('trendEndSelect').value = trendEnd;
       const start = rows[0].current_week_range || rows[0].week_label;
       const end = rows[rows.length - 1].current_week_range || rows[rows.length - 1].week_label;
       const label = start.includes('-') && start.length === 21 ? `${start.slice(0, 10)} 至 ${end.slice(11)}` : `${start} 至 ${end}`;
-      document.getElementById('trendRangeLabel').textContent = `当前显示：${label}（${rows.length} ${data.meta.report_grain === 'month' ? '个月' : '周'}） · ${data.trend_note || ''}`;
+      document.getElementById('trendRangeLabel').textContent = `当前显示：${label}（${rows.length} ${units[selectedTrendGrain]}） · ${currentTrendView().note}`;
       document.querySelectorAll('#trendPresets button').forEach(button => {
         const size = Number(button.dataset.size) || allRows.length;
         button.disabled = !allRows.length;

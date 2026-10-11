@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from revenue_trend import read_revenue_views
 from identity import organization_name_from_metadata
 from meeting_report_weekly import (
     HTML_TEMPLATE as WEEKLY_HTML_TEMPLATE,
@@ -217,6 +218,7 @@ def build_payload(input_dir: Path, company: str | None = None) -> dict[str, Any]
         "dayparts": aggregate_dayparts([row for row in dayparts if row.get("period") in {"本月", "上月"}]),
         "trend": [],
         "trend_entities": build_trend_comparison_entities(trend_comparison),
+        "trend_by_grain": read_revenue_views(input_dir / "monthly_revenue_trend_metrics.csv"),
         "trend_note": "完整自然月口径；最近一年（12 个月），实线=本期，虚线=同期。",
         "daypart_attribution": {
             "enabled": bool(summary["meta"].get("daypart_attribution", {}).get("enabled", True)) and bool(daypart_drivers),
