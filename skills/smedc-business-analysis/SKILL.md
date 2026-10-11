@@ -1,11 +1,13 @@
 ---
 name: smedc-business-analysis
-description: Use when generating tenant-neutral SMEDC diagnosis, weekly, or monthly operating reports from structured business datasets.
+description: Use when generating tenant-neutral SMEDC diagnosis, weekly, or monthly operating reports with evidence-backed, agent-authored operating advice from structured business datasets.
 ---
 
 # SMEDC Business Analysis
 
-Generate operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured data. The employee-owned agent performs the MCP calls through the user's authenticated launcher session; the local scripts validate saved SMEDC envelopes, aggregate launcher-managed partition extracts, and render self-contained HTML.
+Generate operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured data. The employee-owned agent performs the MCP calls through the user's authenticated launcher session; the local scripts validate saved SMEDC envelopes, aggregate launcher-managed partition extracts, and render self-contained HTML. After rendering the factual draft, the agent reads the report and its facts, develops business judgments, and embeds evidence-backed advisory feedback in the same HTML. Running the existing report scripts alone does not complete this workflow.
+
+**Audience and completion rule — all report types:** Diagnosis, weekly, monthly, and partial reports are read directly by restaurant owners. Turn relevant analysis checks into useful business judgments or concrete recommendations: what may explain the pattern, what to check or try, and how the result changes the next action. Do this before deciding what prose to omit. Keep useful checks; removing warning words alone is not a substantive revision. Apply the same rule to agent-authored advice and shared report-template copy. The detailed writing criteria are in [the operating advisory guide](references/business_advisory.zh.md).
 
 **Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.8.2`, and the MCP entry is `smedc`.
 
@@ -39,6 +41,8 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
 - Do not request, reveal, copy, or persist presigned URLs. Let `download_structured_partitions` consume them inside the launcher and return a launcher-managed local directory.
 - Do not ingest user-provided local CSV, XLSX, or workbook files as a compatibility report source.
 - Do not add monthly profit or profit-rate reporting.
+- Advisory analysis uses the same saved SMEDC facts and the current employee-owned agent. Do not send report data to a third-party analysis service, install consulting skills, or add an API/model credential dependency for this step.
+- Recommendations do not authorize price changes, menu removals, campaign spending, staff changes, or messages to other people.
 
 ## Workflow
 
@@ -59,6 +63,7 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
    query-results/
    bundle.json
    facts/
+   advisory.json
    report.html
    ```
 
@@ -115,7 +120,7 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
      --output runs/RUN_ID/bundle.json
    ```
 
-11. Run the report runner for the requested report type, passing the saved current-user response:
+11. Run the report runner for the requested report type to produce the factual draft, passing the saved current-user response:
 
    ```bash
    python3 scripts/run_business_report.py --bundle runs/RUN_ID/bundle.json --current-user runs/RUN_ID/current_user.json --output-dir runs/RUN_ID/facts --report runs/RUN_ID/report.html
@@ -124,6 +129,26 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
    ```
 
    For weekly or monthly reports only, append `--company "展示标题公司名"` when the user explicitly wants a different company name in the rendered title. This is a nonblank presentation-only override: still require and validate `--current-user`, keep `organizationName` in report metadata, and never use the override for authorization, enterprise/data selection, query planning, jobs, or partitions. Diagnosis reports do not accept this override.
+
+12. Read [the operating advisory guide](references/business_advisory.zh.md) and the generated report, its summary, and the relevant complete fact tables. The existing fixed-text insights, store labels, and opportunity scenarios are navigation aids, not the agent's conclusions or verified causes. Compare across sections before selecting the important problems and opportunities; do not merely paraphrase charts or apply a new set of fixed thresholds.
+
+13. Prepare the advisory envelope, using the actual report type:
+
+   ```bash
+   python3 scripts/attach_business_advisory.py prepare --report-type weekly --facts-dir runs/RUN_ID/facts --output runs/RUN_ID/advisory.json
+   ```
+
+   The file initially has no findings. The agent must author `findings` and any useful `management_questions` according to the guide, preserving the generated context. Write directly to the restaurant owner: lead with the business judgment, likely causes, and useful next action. Each finding needs verified numeric evidence, a cause hypothesis, and a concrete action with an owner role, scope, review time, primary metric, guardrail, and stop/adjust condition. Consider competing explanations and limitations internally; include them only when they change the owner's decision. `alternative` and `caveat` are optional. Express uncertainty naturally with “可能” or “优先核实”; omit defensive disclaimers and lists of unavailable data or unsupported conclusions. Select only supported modules; normally focus on 3–5 material findings and at most three immediate actions, without padding sparse reports. An empty current period must have no advisory findings. If no supported finding is possible, retain the factual report without padding it with advice.
+
+14. Embed the agent-authored feedback in the factual HTML:
+
+   ```bash
+   python3 scripts/attach_business_advisory.py attach --report-type weekly --facts-dir runs/RUN_ID/facts --advisory runs/RUN_ID/advisory.json --report runs/RUN_ID/report.html
+   ```
+
+   This helper checks context, unchanged saved facts, cited cells, and action completeness; it does not generate advice or prove the interpretation. Correct validation errors before handoff. Do not change fact tables to make a recommendation pass. The HTML displays business-language evidence; file paths, row numbers, and the facts fingerprint remain in `advisory.json`. Reattaching replaces the previous feedback. Rerendering the factual report removes feedback, so attach again after any rerender; changed facts require a fresh envelope and reconsidered judgments.
+
+15. Review the final report with the guide's owner-facing acceptance criteria. For every relevant check, confirm that its business value survived as a judgment or action, with an observable check and a next decision; a softer sentence or deleted “不能” is not enough. Recommendations must address the actual observed pattern and explain why the proposed action comes first. Check calculations and units, distinguish accounting drivers from causes, and keep recommendations consistent across sections. Keep useful qualified explanations, turn decision-relevant unknowns into practical checks, and omit unrelated unavailable-data commentary. Inspect the HTML when visual tools are available to confirm the feedback is readable and original interactions still work. Ordinary handoff leads with the completed HTML and briefly names the priority action. Mention omitted business sections only when needed to explain the delivered scope. If advisory work remains unfinished, say so explicitly; do not describe the factual draft as a completed advisory report.
 
 Every runner cleans launcher extracts in a `finally` block. For a shared bundle it releases that report in the persisted consumer ledger; only the last consumer deletes the shared directory. An unavailable or malformed shared ledger never falls back to unconditional deletion.
 
@@ -170,14 +195,15 @@ The self-contained HTML starts with the full year. Employees can drag either edg
 Data gaps are normal. Always build the best available partial or empty report, including when every query returns no rows.
 
 - Hide charts, tables, navigation items, or analysis modules with no supporting facts.
-- In the HTML and user-facing summary, describe omissions in concise business language, for example “缺少历史营业数据，趋势图未展示。”
+- Apply the same rule to advisory modules. Missing dish data does not prevent business advice; missing comparison data prevents claims about changes. Do not fill advisory sections with generic advice to make the report look complete.
+- Explain omitted sections only when needed to understand the report's actual scope, using a short business-language note. Do not add a list of unavailable business data or conclusions that were never part of the report. Apply the owner-facing recommendation rules to every supported advisory finding in partial reports as well.
 - Never expose coverage tables, source file names, document/import IDs, query job IDs, internal dataset names, transport error codes, or raw MCP errors in the report.
 - Do not fabricate zeros, fill gaps from old workbooks, or describe missing optional dish/catalog modules as service failures.
 - Preserve failed or missing saved row-query MCP payloads as `QUERY_RESPONSE_ERROR` or `QUERY_RESPONSE_MISSING` notices during bundle assembly. Partition download failures stop materialization and require recovery; they never yield successful empty aggregates.
 
 ## Provenance and Cleanup
 
-Ordinary handoff should lead with the HTML report and briefly name any omitted business sections. Keep technical provenance in the run directory: current user, registry, coverage, manifest, aggregate query results, bundle, facts, summaries, and report. Launcher partition CSVs are temporary source data, not durable evidence.
+Ordinary handoff should lead with the HTML report and its priority recommendation. Mention an omitted section only when needed to explain the delivered scope. Keep technical provenance in the run directory: current user, registry, coverage, manifest, aggregate query results, bundle, facts, summaries, agent-authored advisory, and report. Launcher partition CSVs are temporary source data, not durable evidence. Advisory attachment uses durable facts and never requires another partition download or changes extract cleanup.
 
 If any step fails after download but before a bundle reaches a report runner, immediately run:
 

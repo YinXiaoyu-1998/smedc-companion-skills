@@ -650,11 +650,11 @@ HTML_TEMPLATE = r'''<!doctype html>
             <div class="section-kicker">06 Opportunity Pool</div>
             <h2>机会池：先用数据找抓手，再用业务访谈验证根因</h2>
           </div>
-          <p class="section-note">这里是机械测算，不是承诺收益。适合用来决定下一轮经营专题。</p>
+          <p class="section-note">按各项测算假设比较改善方向，优先选择影响较大、容易验证的一项开展试点。</p>
         </div>
         <div class="matrix" id="opportunityGrid"></div>
         <div class="callout" style="margin-top:18px;">
-          机会池为经营情景测算，各项可能重叠，不能相加视为承诺收益。用门店访谈和实际运营验证原因。
+          各项情景可能涉及同一批订单或门店，建议分别试点、分别复盘，按实际效果决定下一轮扩展方向。
         </div>
       </section>
 

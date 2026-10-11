@@ -1077,7 +1077,7 @@ HTML_TEMPLATE = r'''<!doctype html>
     <section class="section" id="drivers">
       <div class="section-head">
         <div><div class="kicker">07 Drivers</div><h2>问题归因：客流/订单量与客单价谁在拖动收入</h2></div>
-        <p class="note">归因为近似拆解，用于周会定位复盘方向，不替代门店现场判断。</p>
+        <p class="note">先看订单量与单均各自贡献，再结合具体门店、餐段和出品情况，选择优先改善的环节。</p>
       </div>
       <div class="panel">
         <div class="panel-head"><h3>问题门店环比归因</h3><span class="label">按全体门店看量贡献 vs 价贡献</span></div>
