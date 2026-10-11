@@ -685,6 +685,14 @@ def daypart_rows(rows: list[dict[str, Any]], period_label: str) -> list[dict[str
     return sorted(facts, key=lambda item: (item["门店名称"], -(item.get("net_revenue") or 0), item["餐段"], item["时段"]))
 
 
+def meal_period_rows(rows: list[dict[str, Any]], period_label: str) -> list[dict[str, Any]]:
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        groups[(store_name(row.get("store_name")), str(row.get("meal_period") or "未知餐段"))].append(row)
+    return [{"门店名称": store, "period": period_label, "餐段": meal, "时段": "",
+             **metric_row(aggregate_rows(sources))} for (store, meal), sources in sorted(groups.items())]
+
+
 def daypart_comparison_rows(rows: list[dict[str, Any]], period_labels: dict[str, str]) -> list[dict[str, Any]]:
     period_keys = {label: key for key, label in period_labels.items()}
     by_key = {

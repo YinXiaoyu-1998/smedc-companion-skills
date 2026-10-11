@@ -82,6 +82,7 @@ class ProfileMonthlyDataTests(unittest.TestCase):
                 "monthly_store_channel_metrics.csv",
                 "monthly_store_daypart_metrics.csv",
                 "monthly_store_daypart_comparison.csv",
+                "monthly_store_meal_period_comparison.csv",
                 "monthly_store_daypart_driver_summary.csv",
                 "monthly_store_stall_metrics.csv",
                 "monthly_store_stall_comparison.csv",

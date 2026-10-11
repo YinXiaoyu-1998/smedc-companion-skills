@@ -130,6 +130,13 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
     ]
     daypart_rows.sort(key=lambda item: (-(item.get("net_revenue") or 0), item["餐段"], item["时段"]))
 
+    meal_groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows_for(bundle, "business_current_efficiency"):
+        meal_groups[(store_name(row.get("store_name")), str(row.get("meal_period") or "未知餐段"))].append(row)
+    store_meal_rows = [{"门店名称": store, "餐段": meal, **diagnosis_metric_row(aggregate_rows(group))}
+                       for (store, meal), group in sorted(meal_groups.items())]
+    write_csv(output_dir / "store_meal_period_summary.csv", store_meal_rows, ["门店名称", "餐段"] + COMMON_FIELDS)
+
     member_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows_for(bundle, "business_current_member_mix"):
         label = "会员" if str(row.get("is_member")) == "1" else "非会员" if str(row.get("is_member")) == "0" else "未知"
@@ -202,6 +209,7 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
             "member_summary.csv",
             "payment_summary.csv",
             "store_daypart_summary.csv",
+            "store_meal_period_summary.csv",
             "analysis_summary.json",
         ],
     }
