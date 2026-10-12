@@ -976,6 +976,22 @@ def build_plan(
             daily_trend=report_type == "weekly",
         )
 
+        # One daily income series supplies all calendar views; overlapping extracts
+        # are merged by the existing partition planner.
+        month_frame = monthly_trend_window(windows["current"].end)
+        daily_start = windows["current"].end - timedelta(days=364)
+        history_window = DateWindow("daily_history", min(
+            weekly_trend_window(windows["current"].end).start,
+            weekly_trend_window(windows["yoy"].end).start,
+            same_date_previous_year(daily_start),
+            same_date_previous_year(month_frame.start),
+        ), windows["current"].end)
+        add_business_window(
+            "business_daily_store_trend", trend_module, history_window,
+            [business_store, require_field(config, registry, "business.date", "group").canonical],
+            "business_daily_store_trend", notice_partial=True, daily_trend=True,
+        )
+
         for window_name in WINDOW_NAMES:
             add_business(
                 f"business_{window_name}_channel_platform_mix",

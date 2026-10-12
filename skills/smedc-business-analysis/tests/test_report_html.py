@@ -222,23 +222,79 @@ const document = {
         self.assertIn("全体门店（2家）", labels)
         self.assertIn("中位数 3万", labels)
 
-    def test_shared_trend_tooltip_keeps_dates_and_revenue_without_year_heading(self) -> None:
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed to execute the embedded chart")
+    def test_shared_trend_tracks_x_at_any_height_and_switches_grains(self) -> None:
         for grain in ("weekly", "monthly"):
             with self.subTest(grain=grain):
                 _, html, _ = self.render_from_profile(
                     f"profile_{grain}_data.py", f"generate_{grain}_report_html.py",
                     f"{grain}_bundle.json", f"{grain}_meeting_summary.json",
                 )
-                trend = html.split("function renderTrend() {", 1)[1].split("function ", 1)[0]
-                self.assertIn("const showTrendTip = (event, pointRange, value)", trend)
-                self.assertIn("tip.innerHTML = `${pointRange}<br>业务收入：${fmtWan(value)}`;", trend)
-                self.assertNotIn("<strong>", trend)
-                self.assertIn("title.textContent = `${pointRange} 业务收入：${fmtWan(value)}`;", html)
-                self.assertIn("showTrendTip(event, pointRange, value)", html)
-                self.assertIn(".textContent = currentLabel;", html)
-                self.assertIn(".textContent = `${priorLabel}同期`;", html)
-                self.assertIn("`${first}–${last}`", html)
-                self.assertNotIn("${seriesLabel}", html.split("function renderTrend() {", 1)[1].split("function render", 1)[0])
+                functions = "function currentTrendView()" + html.split("function currentTrendView()", 1)[1].split("function renderMixBars()", 1)[0]
+                script = r"""
+const assert = require('node:assert/strict');
+class Element {
+  constructor(tag='div') { this.tag=tag; this.children=[]; this.attrs={}; this.dataset={}; this.listeners={}; this.style={}; }
+  appendChild(node) { this.children.push(node); return node; }
+  replaceChildren(...nodes) { this.children=nodes; }
+  setAttribute(key,value) { this.attrs[key]=String(value); }
+  getAttribute(key) { return this.attrs[key]; }
+  addEventListener(key,fn) { (this.listeners[key] ||= []).push(fn); }
+  getBoundingClientRect() { return {left:200,width:1000}; }
+  getScreenCTM() { return {a:.5,e:200}; }
+  fire(key,event={}) { (this.listeners[key]||[]).forEach(fn=>fn(event)); }
+}
+const elements = {};
+const document = {
+ getElementById(id) { return elements[id] ||= new Element(); },
+ createElement(tag) { return new Element(tag); },
+ querySelectorAll() { return []; }
+};
+function svg(tag,attrs) { const n=new Element(tag); Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v)); return n; }
+const rows = [0,1,2].map(i=>({week_label:`D${i}`,current_week_range:`2026-07-0${i+1}-2026-07-0${i+1}`,prior_week_range:`2025-07-0${i+1}-2025-07-0${i+1}`,current_net_revenue:i===1?0:100+i,prior_net_revenue:i===1?null:50+i}));
+const view = {note:'calendar',entities:[{key:'__all__',label:'全体门店',rows},{key:'x',label:'<门店>',rows}]};
+const data = {meta:{report_grain:'week'},trend_by_grain:{day:view,week:view,month:{...view,entities:[{key:'__all__',label:'全体门店',rows:rows.slice(0,2)}]}}};
+let selectedTrendKey='__all__', selectedTrendGrain='week', trendStart=0, trendEnd=null;
+const colors={yellow:'#aa0',yellowFill:'#ff0',minimum:'#f00',minimumStroke:'#a00',maximum:'#00f',maximumStroke:'#00a'};
+const currentTrendYear='2026',yoyTrendYear='2025',cleanName=String,fmtWan=v=>`${v/10000}万`,fmtYuan=v=>`${v}元`;
+"""
+                script += functions + r"""
+renderTrendSelector(); renderTrend();
+assert.equal(elements.trendGrainSelect.children.length,3);
+const root=elements.trend.children[0];
+const overlay=root.children.find(n=>n.attrs['data-trend-overlay']);
+const guide=root.children.find(n=>n.attrs['data-trend-guide']);
+const markers=root.children.filter(n=>n.attrs['data-trend-marker']);
+// SVG scales to 560px and starts at screen x=200; x=480 is the middle date.
+overlay.fire('pointermove',{clientX:480,clientY:-1000});
+assert.equal(guide.attrs.x1,'559');
+assert.equal(guide.attrs['stroke-dasharray'],'4 4');
+assert.equal(guide.attrs.visibility,'visible');
+assert.match(elements.trendReadout.children[0].textContent,/2026-07-02.*0元/);
+assert.match(elements.trendReadout.children[1].textContent,/2025-07-02.*暂无记录/);
+assert.equal(markers[0].attrs.visibility,'visible');
+assert.equal(markers[1].attrs.visibility,'hidden');
+const text=elements.trendReadout.children[0].textContent;
+overlay.fire('pointermove',{clientX:480,clientY:9999});
+assert.equal(elements.trendReadout.children[0].textContent,text);
+overlay.fire('keydown',{key:'End',preventDefault(){}});
+assert.match(elements.trendReadout.children[0].textContent,/102元/);
+assert.match(elements.trendReadout.children[1].textContent,/52元/);
+overlay.fire('pointerleave'); assert.equal(guide.attrs.visibility,'hidden');
+setTrendRange(1,2);
+elements.trendStoreSelect.value='x';elements.trendStoreSelect.onchange();
+assert.equal(trendStart,1);assert.equal(trendEnd,2);
+elements.trendGrainSelect.value='month';elements.trendGrainSelect.onchange();
+assert.equal(selectedTrendGrain,'month');assert.equal(trendStart,0);assert.equal(trendEnd,1);
+assert.equal(elements.trendStartSelect.children.length,2);
+assert.equal(elements.trendNavigator.listeners.pointerdown.length,1);
+elements.trendGrainSelect.value='day';elements.trendGrainSelect.onchange();
+assert.equal(elements.trendStartSelect.children.length,3);
+assert.equal(elements.trendPresets.children[0].textContent,'最近 7 天');
+assert.equal(elements.trendNavigator.listeners.pointerdown.length,1);
+"""
+                result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_diagnosis_renderer_rejects_company_override(self) -> None:
         output_dir = self.profile_to_directory("profile_business_data.py", "diagnosis_bundle.json")
