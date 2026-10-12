@@ -474,8 +474,31 @@ def store_name(value: Any) -> str:
     return text or "未知门店"
 
 
-def store_bucket(value: Any) -> str:
-    return "未分组"
+def load_store_groups(path: Path | None) -> dict[str, str] | None:
+    if path is None:
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or type(payload.get("schemaVersion")) is not int or payload["schemaVersion"] != 1:
+        raise ValueError("store groups require schemaVersion 1")
+    groups = payload.get("groups")
+    if not isinstance(groups, dict) or not groups or set(groups) - {"大店", "小店"}:
+        raise ValueError("store groups must contain 大店 and/or 小店 lists")
+    assignments = {}
+    for bucket, names in groups.items():
+        if not isinstance(names, list):
+            raise ValueError("store groups must contain store-name lists")
+        for name in names:
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("store groups require nonblank full store names")
+            name = name.strip()
+            if name in assignments:
+                raise ValueError("store groups cannot assign a store more than once")
+            assignments[name] = bucket
+    return assignments
+
+
+def store_bucket(value: Any, store_groups: dict[str, str] | None = None) -> str:
+    return (store_groups or {}).get(store_name(value), "未分组")
 
 
 def store_metric_rows(rows: list[dict[str, Any]], label_fields: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -497,14 +520,14 @@ def diff(current: dict[str, Any] | None, baseline: dict[str, Any] | None, field:
     return rounded(delta, 4 if field.endswith("rate") else 2), rounded(div(delta, baseline_value), 4)
 
 
-def comparison_rows(current_rows: list[dict[str, Any]], previous_rows: list[dict[str, Any]], yoy_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def comparison_rows(current_rows: list[dict[str, Any]], previous_rows: list[dict[str, Any]], yoy_rows: list[dict[str, Any]], store_groups: dict[str, str] | None = None) -> list[dict[str, Any]]:
     current = {row["门店名称"]: row for row in store_metric_rows(current_rows)}
     previous = {row["门店名称"]: row for row in store_metric_rows(previous_rows)}
     yoy = {row["门店名称"]: row for row in store_metric_rows(yoy_rows)}
     stores = sorted(set(current) | set(previous) | set(yoy))
     rows: list[dict[str, Any]] = []
     for store in stores:
-        row: dict[str, Any] = {"门店名称": store, "store_size_bucket": store_bucket(store)}
+        row: dict[str, Any] = {"门店名称": store, "store_size_bucket": store_bucket(store, store_groups)}
         for prefix, source in (("current", current.get(store)), ("previous", previous.get(store)), ("yoy", yoy.get(store))):
             for field in METRIC_FIELDS:
                 row[f"{prefix}_{field}"] = source.get(field) if source else None
@@ -563,7 +586,8 @@ def classify_stores(comparisons: list[dict[str, Any]], period_name: str) -> list
             }[(high_revenue, growing)]
             relation = "不低于" if high_revenue else "低于"
             direction = "非负" if growing else "为负"
-            reason = f"{period_name}业务收入{relation}全体门店中位数，且环比增长率{direction}"
+            peer_label = "全体门店中位数" if bucket == "未分组" else f"{bucket}组中位数"
+            reason = f"{period_name}业务收入{relation}{peer_label}，且环比增长率{direction}"
         warnings: list[str] = []
         if wow is not None and float(wow) <= -0.08:
             warnings.append("环比下滑超过 8%")
@@ -1118,10 +1142,12 @@ def stall_and_product_outputs(
     }
 
 
-def parse_bundle_cli(description: str) -> argparse.Namespace:
+def parse_bundle_cli(description: str, *, with_store_groups: bool = False) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--bundle", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    if with_store_groups:
+        parser.add_argument("--store-groups", type=Path, help="Explicit full-name 大店/小店 JSON configuration.")
     parser.add_argument(
         "--current-user",
         type=Path,

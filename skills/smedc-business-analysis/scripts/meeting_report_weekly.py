@@ -349,7 +349,7 @@ def median(values: list[float]) -> float:
     return (clean[mid - 1] + clean[mid]) / 2
 
 
-STORE_SIZE_ORDER = ["未分组"]
+STORE_SIZE_ORDER = ["大店", "小店", "未分组"]
 REVENUE_BASIS_NOTE = "业务收入=营业分组表「订单营业收入」；不使用「营业额(元)」。"
 
 

@@ -11,7 +11,7 @@ from pathlib import Path
 from generate_weekly_report_html import render
 from identity import organization_name_from_current_user_file
 from profile_weekly_data import profile
-from report_common import cleanup_partition_extracts
+from report_common import cleanup_partition_extracts, load_store_groups
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--company")
+    parser.add_argument("--store-groups", type=Path, help="Explicit full-name 大店/小店 JSON configuration.")
     return parser.parse_args()
 
 
@@ -32,7 +33,7 @@ def main() -> int:
     args = parse_args()
     try:
         organization_name = organization_name_from_current_user_file(args.current_user) if args.current_user else None
-        summary = profile(args.bundle, args.output_dir, organization_name)
+        summary = profile(args.bundle, args.output_dir, organization_name, load_store_groups(args.store_groups))
         result = render(args.output_dir, args.report, args.company)
         result["notices"] = summary.get("data_gaps", [])
     except Exception as exc:
