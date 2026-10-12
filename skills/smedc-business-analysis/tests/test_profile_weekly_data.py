@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -20,7 +21,7 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 class ProfileWeeklyDataTests(unittest.TestCase):
     maxDiff = None
 
-    def run_profile(self, bundle_data: dict | None = None) -> tuple[Path, dict]:
+    def run_profile(self, bundle_data: dict | None = None, store_groups: dict | None = None) -> tuple[Path, dict]:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         output_dir = Path(tmp.name)
@@ -28,8 +29,13 @@ class ProfileWeeklyDataTests(unittest.TestCase):
         if bundle_data is not None:
             bundle_path = output_dir / "bundle.json"
             bundle_path.write_text(json.dumps(bundle_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        command = [sys.executable, str(SCRIPT), "--bundle", str(bundle_path), "--output-dir", str(output_dir)]
+        if store_groups is not None:
+            groups_path = output_dir / "store-groups.json"
+            groups_path.write_text(json.dumps(store_groups, ensure_ascii=False), encoding="utf-8")
+            command.extend(["--store-groups", str(groups_path)])
         completed = subprocess.run(
-            [sys.executable, str(SCRIPT), "--bundle", str(bundle_path), "--output-dir", str(output_dir)],
+            command,
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -40,6 +46,52 @@ class ProfileWeeklyDataTests(unittest.TestCase):
                 f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
             )
         return output_dir, json.loads((output_dir / "weekly_meeting_summary.json").read_text(encoding="utf-8"))
+
+    def test_explicit_sizes_use_separate_peer_medians_without_changing_revenue(self) -> None:
+        output_dir, summary = self.run_profile(store_groups={
+            "schemaVersion": 1, "groups": {"大店": ["示例一店"], "小店": ["示例二店"]},
+        })
+        rows = {r["门店名称"]: r for r in read_csv(output_dir / "weekly_store_comparison.csv")}
+        self.assertEqual(rows["示例一店"]["store_size_bucket"], "大店")
+        self.assertEqual(rows["示例二店"]["store_size_bucket"], "小店")
+        self.assertEqual(rows["示例一店"]["current_net_revenue"], "10000.0")
+        segments = {r["门店名称"]: r for r in summary["store_segments"]}
+        self.assertEqual(segments["示例一店"]["revenue_threshold"], 10000)
+        self.assertEqual(segments["示例二店"]["revenue_threshold"], float(rows["示例二店"]["current_net_revenue"]))
+        self.assertIn("大店组中位数", segments["示例一店"]["reason"])
+        self.assertEqual(summary["meta"]["store_groups"], {"示例一店": "大店", "示例二店": "小店"})
+        report = output_dir / "grouped.html"
+        rendered = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "generate_weekly_report_html.py"), "--input-dir", str(output_dir), "--report", str(report)],
+            capture_output=True, text=True, cwd=ROOT,
+        )
+        self.assertEqual(rendered.returncode, 0, rendered.stderr)
+        payload = json.loads(re.search(r'<script type="application/json" id="report-data">(.*?)</script>', report.read_text(encoding="utf-8"), re.DOTALL).group(1))
+        self.assertEqual([(g["key"], g["store_count"]) for g in payload["segment_groups"]], [("大店", 1), ("小店", 1)])
+
+    def test_unlisted_store_remains_ungrouped_and_is_not_filtered_out(self) -> None:
+        output_dir, _ = self.run_profile(store_groups={"schemaVersion": 1, "groups": {"大店": ["示例一店"]}})
+        rows = {r["门店名称"]: r for r in read_csv(output_dir / "weekly_store_comparison.csv")}
+        self.assertEqual(set(rows), {"示例一店", "示例二店"})
+        self.assertEqual(rows["示例二店"]["store_size_bucket"], "未分组")
+
+    def test_invalid_or_conflicting_size_configuration_fails_before_writing_facts(self) -> None:
+        for groups in [
+            {"schemaVersion": 1, "groups": {"大店": ["示例一店"], "小店": ["示例一店"]}},
+            {"schemaVersion": 1, "groups": {"大店": [""]}},
+            {"schemaVersion": 1, "groups": {"中店": ["示例一店"]}},
+        ]:
+            with self.subTest(groups=groups), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp);config = directory / "groups.json"
+                config.write_text(json.dumps(groups, ensure_ascii=False), encoding="utf-8")
+                output = directory / "facts"
+                completed = subprocess.run(
+                    [sys.executable, str(SCRIPT), "--bundle", str(FIXTURE), "--output-dir", str(output), "--store-groups", str(config)],
+                    capture_output=True, text=True, cwd=ROOT,
+                )
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn("store groups", completed.stderr)
+                self.assertFalse(output.exists())
 
     def test_derives_weekly_meeting_facts_from_grouped_bundle(self) -> None:
         output_dir, summary = self.run_profile()

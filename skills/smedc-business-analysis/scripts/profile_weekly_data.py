@@ -28,6 +28,7 @@ from report_common import (
     driver_rows,
     job_metadata,
     load_bundle,
+    load_store_groups,
     parse_bundle_cli,
     report_gap_messages,
     rows_for,
@@ -90,7 +91,7 @@ def trend_rows(bundle: dict[str, Any]) -> list[dict[str, Any]]:
     return output
 
 
-def profile(bundle_path: Path, output_dir: Path, organization_name: str | None = None) -> dict[str, Any]:
+def profile(bundle_path: Path, output_dir: Path, organization_name: str | None = None, store_groups: dict[str, str] | None = None) -> dict[str, Any]:
     bundle = load_bundle(bundle_path, "weekly")
     report_organization_name = organization_name or organization_name_from_metadata(bundle)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -119,7 +120,7 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
     write_csv(output_dir / "weekly_store_meal_period_comparison.csv", meal_comparisons,
               list(meal_comparisons[0]) if meal_comparisons else ["门店名称", "餐段"])
     daypart_drivers = daypart_driver_rows(daypart_comparisons)
-    comparisons = comparison_rows(current_store, previous_store, yoy_store)
+    comparisons = comparison_rows(current_store, previous_store, yoy_store, store_groups)
     store_segments = classify_stores(comparisons, "本周")
     drivers = driver_rows(comparisons)
     stall_meta = stall_and_product_outputs(
@@ -203,15 +204,17 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
             store_name_contains=bundle["report"].get("storeNameContains", []),
         ),
     }
+    if store_groups is not None:
+        summary["meta"]["store_groups"] = store_groups
     write_json(output_dir / "weekly_meeting_summary.json", summary)
     return summary
 
 
 def main() -> int:
-    args = parse_bundle_cli(__doc__ or "")
+    args = parse_bundle_cli(__doc__ or "", with_store_groups=True)
     try:
         organization_name = organization_name_from_current_user_file(args.current_user) if args.current_user else None
-        summary = profile(args.bundle, args.output_dir, organization_name)
+        summary = profile(args.bundle, args.output_dir, organization_name, load_store_groups(args.store_groups))
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
