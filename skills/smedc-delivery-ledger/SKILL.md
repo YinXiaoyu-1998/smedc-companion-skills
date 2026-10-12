@@ -38,17 +38,22 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
   authenticity judgment, business analysis, or sibling runtime imports.
 - Do not overwrite or edit existing receipts. `RECEIPT_ID_CONFLICT` stays a conflict; explain it
   without changing receipt IDs, reshaping input, deleting old data, or treating it as an update.
-- After archive cutover, ledger detail and original ledger CSV/XLSX signing are disabled for all
-  roles. Only `count` (no field), `countDistinct(receipt_id)`, and `sum(purchase_amount)` are
-  supported, with filters/groups on `store_name` and `purchase_date`. Other datasets are unaffected.
+- Raw `delivery_ledger` detail, aggregates, source coverage and original CSV/XLSX signing are
+  disabled for all roles. Use `get_import_status` to confirm your upload and
+  `describe_ledger_pdf_coverage` for authorized PDF readiness; do not query raw ledger coverage
+  or try old aggregate selectors. Other datasets are unaffected.
 - Ordinary supplier-catalog updates do not trigger historical PDF refresh. Internal operator
   regeneration uses the then-current catalog; employee agents must not request historical refresh.
 
 ## Upload, Refresh And Download
 
-1. Confirm the authenticated session and discover `delivery_ledger` through
-   `list_structured_datasets`. For a requested upload, send each original complete receipt CSV/XLSX
-   using `upload_structured_dataset` with `dataset: "delivery_ledger"`, `enterpriseName`, file,
+1. Confirm the authenticated session and current admin role before reading files for upload.
+   Check that the connected host's `upload_structured_dataset` input contract supports
+   `delivery_ledger`. `list_structured_datasets` lists readable datasets, not upload permissions:
+   the ledger's absence there is expected and must not block an authorized upload. If the upload
+   tool/contract is absent or the backend denies the request, report that actual blocker.
+   Send each original complete receipt CSV/XLSX using `upload_structured_dataset` with
+   `dataset: "delivery_ledger"`, `enterpriseName`, file,
    stable `idempotencyKey`, and only an explicit user-specified `confidentialityLevel` (otherwise
    omit it). Prefer path upload. Do not send date bounds or snapshotDate, normalize receipt data,
    or convert photos into a table.
