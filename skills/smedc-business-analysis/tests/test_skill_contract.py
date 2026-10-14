@@ -40,6 +40,20 @@ class SkillContractTests(unittest.TestCase):
             with self.subTest(tool=tool_name):
                 self.assertIn(tool_name, self.skill_text)
 
+    def test_name_association_and_cost_card_analysis_stay_local(self) -> None:
+        self.assertIn("references/dish_name_association.zh.md", self.skill_text)
+        association = (ROOT / "references/dish_name_association.zh.md").read_text(encoding="utf-8")
+        self.assertLess(association.index("matched_product_name"), association.index("product_name`（菜品名称）"))
+        for contract in ["多个候选", "不把两列同时连接", "不在导入时重写名称"]:
+            self.assertIn(contract, association)
+        guide = (ROOT / "references/cost_cards.zh.md").read_text(encoding="utf-8")
+        for contract in ["download_cost_cards", "38", "finally", "Decimal", "sourceDocumentId",
+                         "importBatchId", "revision", "不混合两份", "例外", "单位", "候选"]:
+            with self.subTest(contract=contract):
+                self.assertIn(contract, guide)
+        self.assertIn("现有报表 runner", guide)
+        self.assertIn("不生成唯一最终配方", guide)
+
     def test_documented_python_entrypoints_exist(self) -> None:
         scripts = set(re.findall(r"python3 (scripts/[a-z_]+\.py)", self.skill_text))
         self.assertTrue(scripts)

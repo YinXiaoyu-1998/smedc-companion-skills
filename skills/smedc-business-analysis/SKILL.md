@@ -46,6 +46,14 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
 
 ## Workflow
 
+When associating dish sales with a dish catalog or authorized cost cards, read
+[dish-name association rules](references/dish_name_association.zh.md): prefer
+`matched_product_name`, then use `product_name` only when the first is empty or unmatched.
+Keep multiple candidates ambiguous. For requested recipe/item/store analysis, read
+[cost-card local CSV analysis](references/cost_cards.zh.md). Cost cards require a separately
+verified release and tenant configuration; this candidate guidance does not change the approved
+launcher pin, report runner outputs or ordinary business/dishes reporting workflow.
+
 1. Use `smedc-mcp` to install or verify `smedc-mcp-launcher@0.8.2`, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
 
    If the same request first uploads a `business` or `dishes` source through the prerequisite skill, poll the returned `partitionImportJobId` with `get_partition_import_status` until `published`. Treat `failed` as terminal and report the service error.
