@@ -9,7 +9,8 @@
 1. 通过基础 Skill 核对当前账号及授权。`cost_cards` 是企业集团级类别，需 enabled、
    当前类别密级和明确 grant。配方“适用门店”是业务文字，不是读取权限；管理员可管理但
    不一定可读。来源原件另有读取权，原件归档不使有效卡消失。
-2. 用 `query_structured_dataset(dataset="cost_cards", mode="detail")` 按目录找卡、翻页。
+2. 用 `query_structured_dataset({"dataset":"cost_cards"})` 按目录找卡、翻页。
+   服务自动选择 detail 模式，`mode` 不是请求参数。
    可按企业、来源、SPU／SKU、菜名、规格、分类、售价等公开标量筛选，不能向服务端发送
    物品、配方、单位、门店明细筛选或聚合。售价筛选／输出是精确十进制字符串或 null，
    revision 是字符串。名称 contains 是字面子串，不做同义词或模糊身份推断。
