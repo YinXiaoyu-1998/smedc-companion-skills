@@ -27,7 +27,14 @@ class LedgerSkillContractTests(unittest.TestCase):
         for path in documents:
             with self.subTest(path=path):
                 text = path.read_text(encoding="utf-8")
-                pins = re.findall(r"smedc-mcp-launcher@([^\s`]+)", text)
+                # Shared READMEs also describe independently pinned analysis workflows.
+                pin_scope = text
+                if path.name in {"README.md", "README.zh.md"}:
+                    pin_scope = next(line for line in text.splitlines()
+                                     if "delivery-ledger skill" in line and "smedc-mcp-launcher@" in line)
+                pins = re.findall(r"smedc-mcp-launcher@([^\s`]+)", pin_scope)
+                if path.suffix == ".md":
+                    self.assertTrue(pins)
                 self.assertTrue(set(pins) <= {"0.8.2"})
                 self.assertNotIn("python3 scripts/export_ledger", text)
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
