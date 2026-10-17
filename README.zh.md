@@ -11,10 +11,12 @@
 - `skills/download-meituan-dish-sales/`：按营业日期范围下载美团菜品销售原始 XLSX，用户要求时上传至 SMEDC `dishes`。
 - `skills/download-meituan-business-data/`：按营业日期范围下载美团营业数据原始 XLSX，用户要求时上传至 SMEDC `business`。
 - `skills/download-meituan-delivery-ledger/`：按收货日期筛选已收货单据，逐页下载 ZIP 并验证每单一份的原始 XLSX，供后续按需上传至 SMEDC `delivery_ledger`。
+- `skills/reply-meituan-reviews/`：读取美团与点评双渠道未回复评价，跳过无正文评价，生成五列 XLSX 供用户审阅，批准明确版本和范围后再发布。
+- `skills/review-responder/`：用户本地定制的中文餐饮店主回复技能，是 `reply-meituan-reviews` 的必需文案依赖，保留原技能署名。
 
 ## 安装
 
-需要访问 SMEDC 时，先安装核心前置 skill。仅从美团下载需要 Computer Use 和美团浏览器登录会话，无需 SMEDC 账号：
+需要访问 SMEDC 时，先安装核心前置 skill。仅从美团下载或处理评价需要浏览器能力和美团登录会话，无需 SMEDC 账号：
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -52,7 +54,16 @@ cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.age
 
 以上为首次安装示例。若目标目录已经存在，先比较版本并保留本地修改；不要直接复制进已有 skill 目录。
 
-在 Codex 中，这三个技能优先使用内置 Chromium 浏览器（`iab`）完成登录、导出和下载。只有用户指定本机浏览器，或内置浏览器缺少必需能力/会话时才回退，并在切换前说明原因；不会仅因本机 Chrome 已登录就切换。
+从同一 checkout 安装评价回复流程及其必需的定制文案 skill，分别复制各自 subtree：
+
+```bash
+cp -R /tmp/smedc-companion-skills/skills/review-responder ~/.agents/skills/review-responder
+cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/reply-meituan-reviews
+```
+
+除浏览器外，还需本仓库定制版 `review-responder`、公开信息检索及本地 XLSX 生成/检查能力。缺少依赖时先停止采集与起草，不擅自安装、覆盖或改用其他文案规则。默认覆盖两个渠道，记录客户名字、原评价、拟回复、总星级及小项分数、评价日期。只有用户批准明确的文件版本和行范围后才发布，起草阶段不发评论、不上传 SMEDC。该技能优先内置浏览器；未登录时先检查本机实际默认浏览器的现有会话，再决定是否请用户登录，不迁移凭据、不假定默认是 Chrome。文案 skill 只负责正文，表格审阅和获批发布由美团流程负责；本流程的无正文跳过规则优先于文案 skill 的无文字简短回复建议。
+
+在 Codex 中，三个下载技能优先使用内置 Chromium 浏览器（`iab`）完成登录、导出和下载。只有用户指定本机浏览器，或内置浏览器缺少必需能力/会话时才回退，并在切换前说明原因；不会仅因本机 Chrome 已登录就切换。
 
 下载 skills 默认保存到当前用户的 `~/Downloads`（不可用时使用 `~/Desktop`），使用通用 `meituan_...` 文件名并保留原始导出内容。三个技能统一使用 Chrome 下载事件与原生保存框处理 `ERR_BLOCKED_BY_CLIENT`；默认连续等待下载事件 45 秒，外层工具调用设为 60 秒，每个文件/批次核对结果后最多自动重试一次。菜品、营业已在本机 Chrome 验证；一批 92 张收货单也已在内置浏览器采用较长等待成功下载并验证。这些记录不保证所有导出都在 45 秒内完成。上传 SMEDC 需要用户提出上传要求、核心 `smedc-mcp` skill 和已登录的 admin 账号。美团凭据由用户在浏览器中自行输入。业务流程适用于具备相应能力的智能体；浏览器 API 示例针对提供 `cua_repl` / `tab.playwright` / `cua.getApp` 的环境。其他智能体需要等价的浏览器、下载及本地文件操作能力，并在自身环境验证下载行为。本仓库不捆绑浏览器自动化运行环境。
 
