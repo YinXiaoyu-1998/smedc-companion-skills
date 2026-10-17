@@ -12,6 +12,7 @@ This repository is organized as independently installable sibling skills under `
 - `skills/download-meituan-business-data/`: download original Meituan business XLSX reports for a business-date range; optionally upload to SMEDC `business` when requested.
 - `skills/download-meituan-delivery-ledger/`: export received store receipts by receipt date, download ZIP batches page by page, and validate one original XLSX per receipt for optional SMEDC `delivery_ledger` upload.
 - `skills/reply-meituan-reviews/`: read unanswered Meituan and Dianping reviews, skip reviews without written content, draft a five-column XLSX for approval, then publish only the approved version and scope.
+- `skills/review-responder/`: the user's customized Chinese restaurant-owner reply writer and required drafting dependency for `reply-meituan-reviews`; retains the original skill attribution.
 
 ## Installation
 
@@ -53,13 +54,14 @@ cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.age
 
 These are first-install examples. If a destination already exists, compare versions and preserve local changes before updating; do not blindly copy into an existing skill directory.
 
-Install the review-reply skill independently from the same checkout:
+Install the review workflow and its required customized writer from the same checkout, copying each skill subtree:
 
 ```bash
+cp -R /tmp/smedc-companion-skills/skills/review-responder ~/.agents/skills/review-responder
 cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/reply-meituan-reviews
 ```
 
-It requires public-information search and local XLSX authoring/checking capabilities in addition to browser access. Its writing guide is included; an already-installed `review-responder` can also be used, but is not silently installed or required to copy the subtree. By default it covers both channels and records customer name, original review, draft reply, total/subscores, and review date. Publication requires approval of a specific workbook version and rows. No SMEDC upload or live posting happens during draft creation. Its built-in-browser-first login flow checks the actual default local browser's existing session before asking the user to log in; it does not transfer credentials or assume Chrome is the default.
+It requires this repository's customized `review-responder`, public-information search, and local XLSX authoring/checking capabilities in addition to browser access. Missing dependencies stop collection and drafting; no writer is installed, replaced, or substituted silently. By default it covers both channels and records customer name, original review, draft reply, total/subscores, and review date. Publication requires approval of a specific workbook version and rows. No SMEDC upload or live posting happens during draft creation. Its built-in-browser-first login flow checks the actual default local browser's existing session before asking the user to log in; it does not transfer credentials or assume Chrome is the default. The writer drafts text only; the Meituan workflow owns spreadsheet review and approved publication, and overrides the writer's generic star-only reply guidance by skipping reviews without written content.
 
 In Codex, the three download skills prefer the built-in Chromium browser (`iab`), including login, export, and download. They use a local browser only when the user selects it or a required capability/session is unavailable in the built-in browser, and explain the reason before switching. A local Chrome login alone is not a reason to switch for those download skills.
 

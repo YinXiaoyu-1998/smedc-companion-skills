@@ -12,6 +12,7 @@
 - `skills/download-meituan-business-data/`：按营业日期范围下载美团营业数据原始 XLSX，用户要求时上传至 SMEDC `business`。
 - `skills/download-meituan-delivery-ledger/`：按收货日期筛选已收货单据，逐页下载 ZIP 并验证每单一份的原始 XLSX，供后续按需上传至 SMEDC `delivery_ledger`。
 - `skills/reply-meituan-reviews/`：读取美团与点评双渠道未回复评价，跳过无正文评价，生成五列 XLSX 供用户审阅，批准明确版本和范围后再发布。
+- `skills/review-responder/`：用户本地定制的中文餐饮店主回复技能，是 `reply-meituan-reviews` 的必需文案依赖，保留原技能署名。
 
 ## 安装
 
@@ -53,13 +54,14 @@ cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.age
 
 以上为首次安装示例。若目标目录已经存在，先比较版本并保留本地修改；不要直接复制进已有 skill 目录。
 
-从同一 checkout 独立安装评价回复 skill：
+从同一 checkout 安装评价回复流程及其必需的定制文案 skill，分别复制各自 subtree：
 
 ```bash
+cp -R /tmp/smedc-companion-skills/skills/review-responder ~/.agents/skills/review-responder
 cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/reply-meituan-reviews
 ```
 
-除浏览器外，还需公开信息检索及本地 XLSX 生成/检查能力。技能自带文案规则，已安装的 `review-responder` 也可结合使用，但不会自动安装，也不是复制本 subtree 的前置项。默认覆盖两个渠道，记录客户名字、原评价、拟回复、总星级及小项分数、评价日期。只有用户批准明确的文件版本和行范围后才发布，起草阶段不发评论、不上传 SMEDC。该技能优先内置浏览器；未登录时先检查本机实际默认浏览器的现有会话，再决定是否请用户登录，不迁移凭据、不假定默认是 Chrome。
+除浏览器外，还需本仓库定制版 `review-responder`、公开信息检索及本地 XLSX 生成/检查能力。缺少依赖时先停止采集与起草，不擅自安装、覆盖或改用其他文案规则。默认覆盖两个渠道，记录客户名字、原评价、拟回复、总星级及小项分数、评价日期。只有用户批准明确的文件版本和行范围后才发布，起草阶段不发评论、不上传 SMEDC。该技能优先内置浏览器；未登录时先检查本机实际默认浏览器的现有会话，再决定是否请用户登录，不迁移凭据、不假定默认是 Chrome。文案 skill 只负责正文，表格审阅和获批发布由美团流程负责；本流程的无正文跳过规则优先于文案 skill 的无文字简短回复建议。
 
 在 Codex 中，三个下载技能优先使用内置 Chromium 浏览器（`iab`）完成登录、导出和下载。只有用户指定本机浏览器，或内置浏览器缺少必需能力/会话时才回退，并在切换前说明原因；不会仅因本机 Chrome 已登录就切换。
 
