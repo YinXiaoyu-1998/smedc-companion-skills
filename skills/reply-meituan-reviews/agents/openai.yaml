@@ -1,4 +1,4 @@
 interface:
   display_name: "美团评价回复"
-  short_description: "双渠道起草评价回复，记录星级和日期，表达一般改善意愿，批准后再发布"
-  default_prompt: "使用 $reply-meituan-reviews，读取指定门店美团和点评两个渠道近30天未回复评价，跳过无正文评价，生成含评分和日期的五列 XLSX 供我审阅，批准后再发布。"
+  short_description: "双渠道生成评价审阅表，无正文也入表但留空回复，批准后仅发布有效回复"
+  default_prompt: "使用 $reply-meituan-reviews，读取指定门店美团和点评两个渠道近30天未回复评价，全部列入含评分和日期的五列评价审阅表，无正文条目的拟回复留空，批准后仅发布有正文且拟回复非空的条目。"
