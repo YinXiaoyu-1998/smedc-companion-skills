@@ -13,6 +13,10 @@ description: 采集美团经营宝的美团与点评顾客评价到五列 XLSX �
 
 **必需前置：本仓库提供的中文餐饮定制版 [review-responder](../review-responder/SKILL.md)。** 采集前确认该技能及其 [references/playbook.md](../review-responder/references/playbook.md) 可读取，起草时必须应用这两个文件。缺失时说明依赖及本仓库安装方式，停止采集和起草，不降级为其他文案规则，不擅自安装或覆盖已有同名技能；用户已明确授权安装时可继续完成安装。本技能对无正文仍入表但不生成/发布回复、一般改善意愿和五列 XLSX 交付的要求优先。`review-responder` 只负责回复正文，审阅表组织及批准后发布由本技能执行。本流程无需 SMEDC 账号、launcher 或额外模型/API 凭据，也不捆绑浏览器或表格运行环境。
 
+### DeepSeek Harness（dsh）适配
+
+**在 DeepSeek Harness 中运行时，先读 [references/dsh-compat.md](references/dsh-compat.md)。** 该文件只补充 dsh 环境的落地写法——工具映射、iframe 页面取数、点击安全红线、同名 POI 校验、表格生成与交付自检——不改变本技能的流程、筛选规则、审核边界或发布授权；使用 Codex 等其他运行环境时可忽略。
+
 ## 输入与边界
 
 - 门店：用户指定优先；仅有一个明确选中的门店时可沿用并告知。多门店范围不明确时询问，不硬编码企业、分店或门店数量。
