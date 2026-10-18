@@ -1,80 +1,57 @@
-# DeepSeek Harness（dsh）适配说明
+# DeepSeek Harness（dsh）适配
 
-> **本文档专门针对 DeepSeek Harness（dsh）运行环境。**
-> 它只记录 dsh + 浏览器工具下的**落地写法与已知坑**，不改变 `SKILL.md` 的任何流程、筛选规则、审核边界或发布授权要求。
-> 使用 Codex / Claude Code / 其他运行环境时可以直接忽略本文；本文与 `SKILL.md` 冲突时，一律以 `SKILL.md` 为准。
+仅在 dsh 中读取。以下是历史会话的工具/页面经验，先核对当前工具文档和实时页面；业务范围、映射、日期、计数、八列交付及审核边界以 [SKILL.md](../SKILL.md) 为准。
 
-## 0. 能力前提
+## 工具与 iframe
 
-dsh 没有 Codex 的 `iab`、`cua_repl`、`tab.playwright`。可用的浏览器能力来自以下任意一种，语义等价：
-
-| SKILL.md 中的 Codex 接口 | dsh 等价能力 |
+| 能力 | dsh 可用实现示例 |
 | --- | --- |
-| `iab`（内置浏览器标签） | BrowserSkill 插件的 `bsk_session` / `bsk_tabs`（Agent Window，复用已登录会话） |
-| `tab.playwright` | `bsk_page` / `bsk_interact` |
-| `cua_repl` 执行脚本 | `bsk_inspect`（evaluate 类动作），或 `bsk` CLI |
-| 语义树 / 无障碍树 | `bsk_inspect`（observe / snapshot） |
-| 截图 | `bsk_page` 的 screenshot 动作 |
+| 浏览器会话及标签 | BrowserSkill 的 `bsk_session` / `bsk_tabs` |
+| 页面及操作 | `bsk_page` / `bsk_interact` |
+| DOM 读取、语义树 | `bsk_inspect`，或支持等价操作的 `bsk` CLI |
+| 截图 | `bsk_page` 的 screenshot |
 
-没装插件时直接用 `bsk` CLI（`bsk session start` / `navigate` / `evaluate` / `session stop`），与本表等价；两者共用同一个 daemon。
+不假定上述名称一定存在；只用当前已安装并有文档的能力，缺少时说明阻塞。CLI 的具体子命令先查当前帮助。
 
-## 1. 美团经营宝是 iframe 页面（最关键）
-
-- 入口页 `/meishi/?cate=6103#...` 的正文位于**同源 iframe** `#iframeContainer`，内容地址是 `https://ecom.meituan.com/emis/evaluation/poi`。
-- 后果一：`observe` / `snapshot` 在这个页面上会 **30s RPC 超时**（页面过重），重试也无法改善，不要反复试。
-- 后果二：CSS 选择器与 `@eN` ref **不跨帧**，在主文档里查不到门店选择器、评价卡片。
-- 后果三：直接打开 iframe 地址会禁用门店切换（页面提示"门店选择失败：页面不要脱离框架使用"），只能读当前门店。
-- 可行配方：用 evaluate 取同源 frame 的 `contentDocument`，在内部查询与点击。
+历史页面正文位于同源 iframe `#iframeContainer`；门店选择弹窗可能渲染在父文档。CSS/语义 ref 通常不跨帧。先确认 frame，再用工具支持的帧定位；允许 evaluate 时可读取同源文档：
 
 ```js
-const d = document.querySelector('#iframeContainer').contentDocument;
-// 读：d.querySelectorAll(...)    点：el.click()
+const frame = document.querySelector('#iframeContainer');
+const d = frame?.contentDocument;
+// 只有 d 可访问时，才在其内定位当前页面元素。
 ```
 
-## 2. 定位配方（实测可用）
+重页面曾导致 snapshot/observe 超时，遇到同样问题改用有界 DOM 读取或截图，不反复重试。直接打开 iframe 内容地址曾出现“页面不要脱离框架使用”，导致不能切店；发生时回入口在框架内切店。
 
-| 目标 | 定位方式 |
+## 定位与加载
+
+以实时文字、角色及卡片归属优先；下列选择器只是历史线索，先验证其语义、唯一性及可见状态，失效时重新观察，不盲点。
+
+| 目标 | 历史线索及核对方式 |
 | --- | --- |
-| 渠道页签 | `button.tabs_tabItem_yRYSi`，按文字前缀"美团评价"/"点评评价"区分 |
-| 筛选组 | 先按行首文字（"是否回复"/"评价时间"/"评价星级"…）找到行，再在行内按"未回复"/"全部"精确匹配 |
-| 门店选择触发器 | `.index-module_container_Oy7Uq`（点击后弹窗渲染在**父文档**，不在 iframe 内） |
-| 门店弹窗 | 父文档中的表格行，按门店名精确匹配后点 radio，再点"确定" |
-| 评价卡片 | `.index-module_container_yXIo8` |
-| 客户名 / 时间 | `[class*=username]` / `[class*=time]` |
-| 总星级 | `[class*=starsContainer] img`，按 src 含 `full`/`half`/`empty` 累加 |
-| 正文 | `[class*=content_nM2ZO]`（去掉末尾"投诉 / 回复 / 展开 / 收起"残留） |
-| 分页 | `.mtd-pagination-pager li[title="N"] button` |
+| 渠道 | 按“美团评价”/“点评评价”文字确认当前选中页签 |
+| 筛选 | 先按“是否回复”/“评价时间”/“评价星级”等行标题定位，再在所属行内匹配选项 |
+| 门店弹窗 | 父文档表格行，核对完整名称及可见地址/POI 后选择，再点“确定” |
+| 客户/时间 | `[class*=username]` / `[class*=time]`，限定当前评价卡片 |
+| 总星级 | `[class*=starsContainer] img`；确认 full/half/empty 含义后读取，截图核对 |
+| 正文 | 限定卡片正文区域；排除操作控件与跟帖，不用全文末尾删词，以免误删原评价 |
+| 分页 | `.mtd-pagination-pager li[title="N"] button`，核对当前页及下一页内容 |
 
-读数注意：切换渠道后筛选会**重置**，每次都要重新设"未回复 + 全部"再记总数；"共 N 条评价"在页面上会出现多次（另一渠道的缓存值），以当前列表上方那个为准。
+切店后回读选择器文字及可用 POI 标识。同名分店或同一实体店多 POI 时，不以简称判断；无法唯一确定先问用户，原始标识只保留在本次工作记录。
 
-## 3. 点击安全红线（在 SKILL.md 的"不要点广告 / 开通 / 开始体验"之外补充）
+切换渠道后重新确认本次筛选；只有默认任务才设“未回复”。计数可能短暂归零或显示另一渠道缓存，等当前列表加载完成并核对卡片数、分页和总数后再记录。无法确认结果稳定时标为待核对。
 
-- 只点击**白名单控件**：页签、筛选按钮、分页、门店选项与"确定"、弹窗关闭"×"。
-- 严禁点击：`投诉`（会真的发起投诉）、`举报`、`去报名`、`开始体验`、任何营销位。
-- 使用坐标点击前，先把目标元素的祖先链过一遍；**若祖先容器文字含"投诉 / 回复 / 发送"则放弃该坐标**。一次误触就会在卡片上留下"投诉失败 / 投诉成功"痕迹。
-- 第二阶段发布同理：只点目标卡片内的"回复"，填入获批正文后点一次"发送"，其余一律不碰。
+## 精确日期范围
 
-## 4. 同名门店风险
+日期输入框历史线索：`.period-filter_calendarWrapper_pcM1F input`，可能 readonly；点开后在 `.mtd-singleRangePicker-pop` 中选择起止日期。
 
-同一家实体店可能存在多条 POI，例如：
+- 两个 `.mtd-date-calendar` 面板，先用实时位置/标题区分左右；月份标题如 `2026年09月`，比较时归一化。
+- 逐月切换到目标月份，历史有效日期控件为内层 `.mtd-date-panel-data`；先核对所属月份及日号，避免误选相邻月份同日。
+- 先起始日再结束日，回读输入值确认精确区间后才采集。
+- 日期补年及待核对处理只遵循主技能，不以本次运行年份替代评价年份。
 
-- `麦家鲜羊肉（武圣路店）` — POI 1024500978936273
-- `麦家小馆鲜羊肉烧烤·海鲜·精酿·西北名吃（武圣路店）` — POI 1024080006230699
+## 点击边界与 XLSX
 
-用户说"武圣路店"时可能指其中任意一条。**切店后必须回读门店选择器文字确认**；把实际使用的 POI ID 记进交付说明；两条都符合且用户未指明时先问。
+采集阶段只操作页签、筛选、分页、长评展开/收起、门店选择及弹窗关闭。禁止投诉、举报、报名、营销位及回复/发送；坐标点击前核对实际命中控件及所属卡片，混杂操作区无法辨认时放弃坐标。发布阶段只对获批目标使用回复及发送控件。
 
-## 5. 表格生成
-
-dsh 没有 Codex 的 Spreadsheets 技能，用 `office-xlsx` 技能或直接 openpyxl：
-
-- 日期写入真 `datetime`，单元格格式 `yyyy-mm-dd hh:mm`（不要写文本）。
-- 换行用 `Alignment(wrap_text=True)`，显式设置列宽，`freeze_panes='A2'`，并加 `auto_filter`。
-- 生成后重开文件校验：五列顺序、行数 = 去重记录数、日期是 datetime、非回复列无空值。
-
-## 6. 交付前自检
-
-1. 两个渠道都设过"未回复 + 全部"，并各自记录总数；
-2. 每页读完、分页翻到底、长评已展开；
-3. 总评来自星标显示而非小项均值；日期已补年份；
-4. 文件能打开、行数对得上、无占位文本；
-5. 全程未点"回复 / 发送"。
+用当前可用表格技能或 openpyxl 生成主技能规定的八列单表。已确认日期存 datetime 并设置 `yyyy-mm-dd hh:mm`；待核对日期保留文本，空原评价和空拟回复是合法值。设置换行、列宽、冻结及筛选，重开文件按主技能计数对账并检查视觉效果。适配说明不另设一套交付校验规则。
