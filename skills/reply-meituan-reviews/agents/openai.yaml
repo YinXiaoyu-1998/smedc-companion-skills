@@ -1,4 +1,4 @@
 interface:
   display_name: "美团评价回复"
   short_description: "双渠道九列审阅表，保留已有回复、标记本次新稿，仅为未回复有正文评价起草，审核后发布"
-  default_prompt: "使用 $reply-meituan-reviews，优先导出指定门店美团和点评近30天筛选结果的全量 Excel（默认未回复，用户要求时包含已回复），页面逐页读取作兜底，导出可用时只需总评分；保留 feedback ID 和全部商家回复，按本次映射及日期规则另生成九列审阅表，批准后仅发布来源核验有效的新稿。"
+  default_prompt: "使用 $reply-meituan-reviews，优先导出指定门店美团和点评近30天筛选结果的全量 Excel（默认未回复，用户要求时包含已回复），页面逐页读取作兜底，导出可用时只需总评分；保留 feedback ID 和全部商家回复，按本次映射及日期规则另生成九列审阅表；若指定 notificationEmail，汇总通知本轮有效新稿，批准后仅发布来源核验有效的新稿。"
