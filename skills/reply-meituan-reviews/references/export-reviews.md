@@ -41,7 +41,7 @@ finally:
 | 评价ID | 原始文本另存；`feedbackId = "feedback-" + 评价ID`，连字符必需，保存到本地记录及表格行映射，不给九列加列 |
 | 用户昵称 | 客户名字，保留原显示文本；不合并同名客户 |
 | 评价 | 客户原评价；空值/已确认系统无正文提示按主技能写真正空值 |
-| 评分 | 总星级；可靠解析为有限数值，仅记录实际取得的评分，不补小项或零值 |
+| 评分 | 总评分的有限数值，如 `4.5`；不保存标签、展示单位或数字字符串，不补小项或零值 |
 | 门店 | 来源全名，用本次任务的映射确定标准门店；POI 使用切店上下文 |
 | 评价时间 | 保留原始时间及实际精度，核验范围/时区后统一为 `YYYY-MM-DDTHH:mm:ss+08:00`；不得截去导出真实秒数 |
 | 评价展示平台 | “美团”→“美团评价”，“点评”→“点评评价”；须与当前渠道一致 |
@@ -51,6 +51,35 @@ finally:
 “评价来源”可能是“消费后评价”“打卡后评价”等类型，不能作为美团/点评渠道。省份、城市及写评用户身份可用于范围校验，但不能推断企业归属。
 
 评价 ID 保留精确字符串，不先转浮点数、科学计数法或截断。若读取器得到数字，只在可证明整数值及精度完整时转十进制文本；ID 缺失、精度已丢失或身份冲突时保留原行并用页面核验，不编造 ID。去重键至少含来源门店/POI、渠道和 `feedbackId`；不同来源门店映射到相同标准名时仍保留各自记录。
+
+## 评分归一化
+
+先分离已确认的维度标签与值，再将每个值解析为有限数字。`4.5星`、`4 分`、`5心` 分别保存为 `4.5`、`4`、`5`；JSON 使用 `{"总评": 4.5, "口味": 4, "服务": 5}`，维度名称仍保留为键。原生数值无需附加单位，不能把布尔值当作评分，不能平均小项、补零、改变量纲或四舍五入来凑平台范围。
+
+只接受完整匹配的单个数值与已知展示单位；`4.5/5`、`4–5星`、百分比或未知文字须核对，不能靠删除所有非数字字符强行转换。下面的标准库示例仅解析评分值，调用前已分离维度标签；新单位须先确认来源含义再扩展：
+
+```python
+import math
+import re
+
+def numeric_score(value):
+    if isinstance(value, bool):
+        raise ValueError("Boolean is not a score")
+    if isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str):
+        match = re.fullmatch(r"\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:星|分|心)?\s*", value)
+        if not match:
+            raise ValueError("Ambiguous score")
+        number = float(match[1])
+    else:
+        raise ValueError("Missing or unsupported score")
+    if not math.isfinite(number):
+        raise ValueError("Non-finite score")
+    return int(number) if number.is_integer() else number
+```
+
+九列审阅表第四列只存总评分的原生数字，小项留在本地结构化记录及后续获授权同步中；总分未确认则第四列为空并说明原因。不能把多维 JSON 或带单位的拼接文本放进这一单元格。清理仅针对评分值，不对客户正文、商家回复、维度名称或整个 JSON 文本全局删除“星”“分”“心”。
 
 ## 多段商家回复合为一条 string
 
