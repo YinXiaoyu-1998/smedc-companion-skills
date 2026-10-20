@@ -1,6 +1,5 @@
 """Check distributed archive guidance and removal of obsolete runtime entrypoints."""
 
-import re
 import unittest
 from pathlib import Path
 
@@ -21,26 +20,18 @@ class LedgerSkillContractTests(unittest.TestCase):
                      "ledger-pages.json"):
             self.assertEqual(list(SKILL_ROOT.rglob(name)), [])
 
-    def test_published_workflow_uses_verified_launcher_pin(self):
+    def test_launcher_pin_is_owned_by_core_skill(self):
         documents = [SKILL_ROOT / "SKILL.md", SKILL_ROOT / "agents/openai.yaml",
                      REPOSITORY_ROOT / "README.md", REPOSITORY_ROOT / "README.zh.md"]
         for path in documents:
             with self.subTest(path=path):
                 text = path.read_text(encoding="utf-8")
-                # Shared READMEs also describe independently pinned analysis workflows.
-                pin_scope = text
-                if path.name in {"README.md", "README.zh.md"}:
-                    pin_scope = next(line for line in text.splitlines()
-                                     if "delivery-ledger skill" in line and "smedc-mcp-launcher@" in line)
-                pins = re.findall(r"smedc-mcp-launcher@([^\s`]+)", pin_scope)
-                if path.suffix == ".md":
-                    self.assertTrue(pins)
-                self.assertTrue(set(pins) <= {"0.11.0"})
+                self.assertNotRegex(text, r"smedc-mcp-launcher@[^\s`]+")
                 self.assertNotIn("python3 scripts/export_ledger", text)
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("smedc-mcp-launcher@0.11.0", text)
+        self.assertIn("approved exact pin from the current core Skill", text)
         self.assertIn("independently verified", text)
-        self.assertNotIn("once published", text)
+        self.assertIn("service archive delivery enabled", text)
 
     def test_interface_invokes_archive_skill_without_retired_exports(self):
         text = (SKILL_ROOT / "agents/openai.yaml").read_text(encoding="utf-8")

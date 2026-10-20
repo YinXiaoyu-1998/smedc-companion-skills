@@ -7,6 +7,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RepositoryInstallGuidanceTests(unittest.TestCase):
+    def test_companions_do_not_publish_independent_launcher_install_pins(self) -> None:
+        documents = list((ROOT / "skills").rglob("*.md"))
+        documents += list((ROOT / "skills").rglob("*.yaml"))
+        documents += [ROOT / "README.md", ROOT / "README.zh.md"]
+        for path in documents:
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertNotRegex(path.read_text(encoding="utf-8"),
+                                    r"smedc-mcp-launcher@[^\s`]+|launcher[/\\]+versions[/\\]+\d")
+
     def test_readmes_install_only_the_core_skill_subtree(self) -> None:
         source = "https://github.com/YinXiaoyu-1998/smedc-mcp-skill.git"
         destination = "~/.agents/skills/smedc-mcp"

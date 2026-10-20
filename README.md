@@ -1,22 +1,45 @@
-# smedc-companion-skills
+# SMEDC Companion Skills
 
-Companion agent skills for SMEDC, the Small and Medium Enterprises Data Center.
-
-This repository is organized as independently installable sibling skills under `skills/`. Each skill owns its own `SKILL.md`, metadata, scripts, config, tests, and development requirements. The repository root owns packaging documentation and cross-skill validation.
+Independently installable workflows for SMEDC (Small and Medium Enterprises Data Center).
+Each `skills/<name>/` subtree owns its guidance, references, scripts, configuration and tests.
+[中文说明](README.zh.md).
 
 ## Skills
 
-- `skills/smedc-business-analysis/`: tenant-neutral operating diagnosis, weekly meeting, and monthly meeting reports from SMEDC structured business datasets.
-- `skills/smedc-delivery-ledger/`: original receipt upload, receipt-linked photo operations, and automatic daily PDF update/readiness/ZIP download coordination after archive rollout. Local XLSX/CSV exports and monthly maintenance have been removed.
-- `skills/download-meituan-dish-sales/`: download original Meituan dish-sales XLSX reports for a business-date range; optionally upload to SMEDC `dishes` when requested.
-- `skills/download-meituan-business-data/`: download original Meituan business XLSX reports for a business-date range; optionally upload to SMEDC `business` when requested.
-- `skills/download-meituan-delivery-ledger/`: export received store receipts by receipt date, download ZIP batches page by page, and validate one original XLSX per receipt for optional SMEDC `delivery_ledger` upload.
-- `skills/reply-meituan-reviews/`: collect Meituan and Dianping reviews in a single-sheet, nine-column XLSX; optionally include answered reviews with their existing merchant replies, draft only for unanswered written reviews, and publish only approved new drafts.
-- `skills/review-responder/`: the user's customized Chinese restaurant-owner reply writer and required drafting dependency for `reply-meituan-reviews`; retains the original skill attribution.
+| Skill | Purpose and prerequisites |
+| --- | --- |
+| [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | Operating diagnosis, weekly and monthly HTML reports from authorized SMEDC data; requires the core Skill and an authenticated session. |
+| [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | Original receipt uploads, linked quarantine photos and service-generated daily PDF/ZIP delivery; requires the core Skill and enabled archive delivery. No local ledger generation. |
+| [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | Export original business XLSX files. |
+| [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | Export original dish-sales XLSX files. |
+| [download-meituan-delivery-ledger](skills/download-meituan-delivery-ledger/SKILL.md) | Export receipt ZIP batches and validate one original XLSX per receipt. |
+| [reply-meituan-reviews](skills/reply-meituan-reviews/SKILL.md) | Collect reviews into a nine-column workbook, preserve existing replies, draft unanswered written reviews and publish only explicitly approved drafts. Requires this repository's customized reply writer. |
+| [review-responder](skills/review-responder/SKILL.md) | Customized Chinese restaurant-owner reply writing; original attribution is retained in the Skill. |
 
-## Installation
+Meituan-only workflows require browser capabilities and a user-completed Meituan login, not an
+SMEDC account. SMEDC uploads additionally require an explicit upload request, the core Skill and
+an authenticated admin. Browser selection, export handling and reply approval rules live in the
+linked Skills, not in a second copy here.
 
-For SMEDC access, install the prerequisite core skill first. Meituan-only downloads and review replies require browser capabilities and a Meituan login; they do not require an SMEDC account:
+## Version Ownership
+
+The [official core Skill](https://github.com/YinXiaoyu-1998/smedc-mcp-skill/blob/main/skills/smedc-mcp/SKILL.md)
+owns the approved exact launcher installation pin and update/login procedure. Companions use that
+pin with MCP entry `smedc`; they do not select npm `latest`, override it from service metadata, or
+maintain independent installation versions. Package publication, service rollout and tenant
+configuration are separate checks.
+
+Skill revisions are identified by the source Git commit and subtree, not the launcher version.
+Updating this repository does not update the core Skill, launcher or installed local copies.
+Missing prerequisites stop data access; install or upgrade only within the user's authorized scope.
+
+## Installation And Updates
+
+Use `~/.agents/skills` (Windows: `%USERPROFILE%\.agents\skills`). The following are **first-install
+examples only**; run only the commands for requested skills. All target skill directories must be
+absent. Use fresh checkout paths if the temporary directories already exist.
+
+For SMEDC access, install only the core subtree:
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -24,68 +47,41 @@ git clone https://github.com/YinXiaoyu-1998/smedc-mcp-skill.git /tmp/smedc-mcp-s
 cp -R /tmp/smedc-mcp-skill/skills/smedc-mcp ~/.agents/skills/smedc-mcp
 ```
 
-Install the business-analysis skill by copying only its subtree:
+Clone the companion repository once, then copy only requested subtrees:
 
 ```bash
-mkdir -p ~/.agents/skills
 git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smedc-companion-skills
 cp -R /tmp/smedc-companion-skills/skills/smedc-business-analysis ~/.agents/skills/smedc-business-analysis
-```
-
-Install the delivery-ledger skill the same way, copying only its subtree:
-
-```bash
-mkdir -p ~/.agents/skills
-git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smedc-companion-skills
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
-```
-
-The business-analysis skill requires an authenticated `smedc-mcp` session using `smedc-mcp-launcher@0.11.0` and MCP entry `smedc`. If that prerequisite is missing, the skill must stop before report data access and ask for explicit authorization before installing it. It never installs another companion skill automatically.
-
-The delivery-ledger skill uses the same authenticated core prerequisite for original uploads and photo operations. Its PDF workflow uses the published and independently verified `smedc-mcp-launcher@0.11.0` core pin and also requires service archive delivery enabled. It polls actual import application, explains that PDFs update automatically and availability is confirmed by their status, then checks coverage before preparing existing PDFs and requesting a fresh ZIP link. Employee agents cannot trigger PDF generation through MCP or HTTP. Retired local `export_ledger.py`, `export_ledger_csv.py`, and monthly maintenance are removed; no local PDF/XLSX/CSV generation or `openpyxl` dependency remains. If archive delivery is not enabled, report it as unavailable and wait for the service rollout. It never installs another companion automatically.
-
-To install the three Meituan download skills, reuse the companion repository checkout above (or clone it first), then copy their subtrees:
-
-```bash
-cp -R /tmp/smedc-companion-skills/skills/download-meituan-dish-sales ~/.agents/skills/download-meituan-dish-sales
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
+cp -R /tmp/smedc-companion-skills/skills/download-meituan-dish-sales ~/.agents/skills/download-meituan-dish-sales
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.agents/skills/download-meituan-delivery-ledger
-```
-
-These are first-install examples. If a destination already exists, compare versions and preserve local changes before updating; do not blindly copy into an existing skill directory.
-
-Install the review workflow and its required customized writer from the same checkout, copying each skill subtree:
-
-```bash
 cp -R /tmp/smedc-companion-skills/skills/review-responder ~/.agents/skills/review-responder
 cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/reply-meituan-reviews
 ```
 
-The review workflow requires this repository's customized `review-responder`, browser access, public-information search, and local XLSX authoring/checking. It produces one nine-column sheet: customer, original review, draft, ratings, date, store, enterprise, channel, and reply status. It uses the verified page store name when no optional name mapping is supplied; when a mapping is supplied, it defines the active store scope. Page stores that match neither a source nor target name are treated as closed and skipped without collecting or investigating their reviews; they are excluded from incomplete-work counts. Ambiguous matches still require clarification. Unique in-scope collected reviews equal workbook rows, with skipped stores counted separately. Missing years are resolved only from reliable details or a unique date within the confirmed query range; uncertain dates remain explicitly pending. When answered reviews are requested, the third column preserves their complete existing merchant replies without rewriting them, even for star-only reviews. System no-review placeholders become truly empty original-review cells; their raw display text stays only in local collection records. Only unanswered written reviews receive new drafts; unanswered star-only reviews stay blank. The ninth column distinguishes existing replies, newly generated drafts awaiting approval, unanswered star-only reviews, and records needing verification. Existing replies and new drafts are counted separately and tracked in local records. Posting requires approval of a specific workbook version and rows, and excludes existing replies, uncertain status, and empty reviews/drafts. Later tasks can use the resulting artifacts through their own tools; no external data-service integration is part of this skill. It prefers the built-in browser, checks the actual default local browser's session when necessary, and never transfers credentials. Missing drafting dependencies stop collection; none are silently installed or replaced.
-
-In Codex, the three download skills prefer the built-in Chromium browser (`iab`), including login, export, and download. They use a local browser only when the user selects it or a required capability/session is unavailable in the built-in browser, and explain the reason before switching. A local Chrome login alone is not a reason to switch for those download skills.
-
-The download skills default to the current user's `~/Downloads` (fallback `~/Desktop`) and generic `meituan_...` filenames. They preserve original exports and share the Chrome download-event/native Save handling for `ERR_BLOCKED_BY_CLIENT`. Download capture defaults to one continuous 45-second wait inside a 60-second tool call, with at most one checked retry per file/batch. Dish-sales and business downloads were verified in local Chrome; a 92-receipt batch was also downloaded and validated in the built-in browser with the longer wait. These observations do not guarantee all exports finish within 45 seconds. SMEDC uploads require a user request, the core `smedc-mcp` skill, and an authenticated admin. Meituan credentials are entered by the user in the browser. The workflows are agent-neutral; the browser API examples target environments exposing `cua_repl` / `tab.playwright` / `cua.getApp`. Other agents need equivalent browser, download, and local-file capabilities, with download behavior verified in their own environment. No browser automation runtime is bundled here.
+For an existing installation, fetch the default branch and record its commit; compare the complete
+requested subtree with the installed copy and preserve local customizations. Stage and validate the
+replacement, keep recovery copies outside all Skill discovery roots, then replace the complete
+subtree. Do not overlay it, leave obsolete files, or create backup Skills inside the discovery root.
+Verify file contents and the host's loaded copy before removing recovery copies and reporting
+success. Report pending host reloads. Install no unrequested companions or dependencies silently.
+The core Skill has its own [replacement procedure](https://github.com/YinXiaoyu-1998/smedc-mcp-skill/blob/main/skills/smedc-mcp/references/update-skill.md).
 
 ## Development
 
-Run all repository checks:
-
 ```bash
+python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
 python3 scripts/validate_all_skills.py
 ```
 
-Run individual skill checks directly:
+Focused checks:
 
 ```bash
 python3 -m unittest discover -s skills/smedc-business-analysis/tests -v
-python3 /Users/xiaoyuyin/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/smedc-business-analysis
 python3 -m unittest discover -s skills/smedc-delivery-ledger/tests -v
-python3 /Users/xiaoyuyin/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/smedc-delivery-ledger
 ```
 
-Delivery-ledger contract tests use Python standard library. Business-analysis tests use PyYAML only to validate `agents/openai.yaml`; install their development dependencies when needed:
-
-```bash
-python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
-```
+Delivery-ledger tests use the Python standard library; business-analysis metadata tests also use
+PyYAML. Runtime instructions and data-cleanup requirements belong to each Skill. Keep temporary
+reports, downloaded data and execution transcripts outside this repository.

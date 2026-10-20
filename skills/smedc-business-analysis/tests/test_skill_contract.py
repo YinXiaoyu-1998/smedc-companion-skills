@@ -21,10 +21,10 @@ class SkillContractTests(unittest.TestCase):
         self.assertIsInstance(metadata["description"], str)
         self.assertTrue(metadata["description"].strip())
 
-    def test_launcher_pin_and_prerequisite_repository(self) -> None:
+    def test_launcher_pin_is_owned_by_core_skill(self) -> None:
         pins = re.findall(r"smedc-mcp-launcher@([^\s`\"']+)", self.skill_text)
-        self.assertTrue(pins)
-        self.assertEqual(set(pins), {"0.11.0"})
+        self.assertEqual(pins, [])
+        self.assertIn("approved exact pin from the current core Skill", self.skill_text)
         self.assertIn("https://github.com/YinXiaoyu-1998/smedc-mcp-skill", self.skill_text)
 
     def test_skill_documents_required_smedc_mcp_tools(self) -> None:
