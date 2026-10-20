@@ -9,15 +9,15 @@ Generate operating diagnosis, weekly meeting, and monthly meeting reports from S
 
 **Audience and completion rule — all report types:** Diagnosis, weekly, monthly, and partial reports are read directly by restaurant owners. Turn relevant analysis checks into useful business judgments or concrete recommendations: what may explain the pattern, what to check or try, and how the result changes the next action. Do this before deciding what prose to omit. Keep useful checks; removing warning words alone is not a substantive revision. Apply the same rule to agent-authored advice and shared report-template copy. Complete two layers: every current-period store gets meal-period, dish, and stall baseline analysis; only then select enterprise priorities. The 3–5 finding guideline limits enterprise findings, never store coverage. Each store appears in its own initially collapsed card, three columns on desktop; an expanded card spans the full report content width at every breakpoint, with readable mobile text and compact padding. Data-unavailable sections get a brief truthful scope note, not invented analysis. The detailed writing criteria are in [the operating advisory guide](references/business_advisory.zh.md).
 
-**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. The official launcher package is `smedc-mcp-launcher@0.11.0`, and the MCP entry is `smedc`.
+**Required prerequisite:** Use `smedc-mcp` for official SMEDC install, update, repair, login, and MCP session setup. Use the approved exact pin from the current core Skill, with MCP entry `smedc`. This companion does not maintain a separate installation version; never choose npm `latest` or derive a pin from service metadata.
 
-**Release gate:** Launcher **0.11.0 is published and independently verified** and is the approved exact pin. Generated plans use filtered range downloads, which require Launcher 0.8.0 or newer and the matching filtered range service deployment. Verify the connected service before executing a generated plan.
+**Release gate:** The core Skill owns the published and independently verified launcher pin. If its local copy is stale, follow its official update procedure within the employee-authorized scope before an authorized launcher upgrade. Generated plans use filtered range downloads, which require Launcher 0.8.0 or newer and the matching filtered range service deployment. Verify the connected service before executing a generated plan.
 
 If `smedc-mcp` is not installed, do not begin report data access. Explain that it is required, identify the official source at <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and offer to install it only if the employee explicitly authorizes that installation. Never install it silently. Never install or import `smedc-delivery-ledger` automatically.
 
 ## Optional bundle download mode
 
-Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after Launcher **0.11.0 is published and independently verified** and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered. The approved exact pin is the published and independently verified 0.11.0.
+Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after the core-approved launcher is connected and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered.
 
 Bundle extracts alone emit these steps:
 
@@ -51,10 +51,9 @@ When associating dish sales with a dish catalog or authorized cost cards, read
 `matched_product_name`, then use `product_name` only when the first is empty or unmatched.
 Keep multiple candidates ambiguous. For requested recipe/item/store analysis, read
 [cost-card local CSV analysis](references/cost_cards.zh.md). Cost cards require a separately
-verified service rollout and tenant configuration; launcher 0.11.0 is published and independently
-verified. This guidance does not change report runner outputs or the ordinary business/dishes workflow.
+verified service rollout and tenant configuration, in addition to the core-approved launcher. This guidance does not change report runner outputs or the ordinary business/dishes workflow.
 
-1. Use `smedc-mcp` to install or verify `smedc-mcp-launcher@0.11.0`, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
+1. Use `smedc-mcp` to install or verify its approved exact launcher pin, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
 
    If the same request first uploads a `business` or `dishes` source through the prerequisite skill, poll the returned `partitionImportJobId` with `get_partition_import_status` until `published`. Treat `failed` as terminal and report the service error.
 
