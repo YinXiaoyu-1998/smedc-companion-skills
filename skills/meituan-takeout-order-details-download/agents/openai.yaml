@@ -1,0 +1,3 @@
+interface:
+  display_name: "美团平台外卖订单明细下载"
+  short_description: "按日期和门店导出平台外卖订单明细，处理直接保存和异步下载清单"

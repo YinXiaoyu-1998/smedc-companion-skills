@@ -13,6 +13,8 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | Export original business XLSX files. |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | Export original dish-sales XLSX files. |
 | [download-meituan-delivery-ledger](skills/download-meituan-delivery-ledger/SKILL.md) | Export receipt ZIP batches and validate one original XLSX per receipt. |
+| [meituan-order-details-download](skills/meituan-order-details-download/SKILL.md) | Export original in-store order XLSX files by date basis, store and order status; supports asynchronous downloads and time-range splitting. |
+| [meituan-takeout-order-details-download](skills/meituan-takeout-order-details-download/SKILL.md) | Export original platform takeout order XLSX files by date basis, store and order filters; supports direct and asynchronous downloads. |
 | [reply-meituan-reviews](skills/reply-meituan-reviews/SKILL.md) | Collect reviews into a nine-column workbook, preserve existing replies, draft unanswered written reviews and publish only explicitly approved drafts. Requires this repository's customized reply writer. |
 | [review-responder](skills/review-responder/SKILL.md) | Customized Chinese restaurant-owner reply writing; original attribution is retained in the Skill. |
 
@@ -56,6 +58,8 @@ cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-dish-sales ~/.agents/skills/download-meituan-dish-sales
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.agents/skills/download-meituan-delivery-ledger
+cp -R /tmp/smedc-companion-skills/skills/meituan-order-details-download ~/.agents/skills/meituan-order-details-download
+cp -R /tmp/smedc-companion-skills/skills/meituan-takeout-order-details-download ~/.agents/skills/meituan-takeout-order-details-download
 cp -R /tmp/smedc-companion-skills/skills/review-responder ~/.agents/skills/review-responder
 cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/reply-meituan-reviews
 ```

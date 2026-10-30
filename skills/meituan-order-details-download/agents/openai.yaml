@@ -1,0 +1,4 @@
+interface:
+  display_name: "美团店内订单明细下载"
+  short_description: "从美团管家按日期、门店和订单状态下载原始订单明细，并处理系统保存框"
+  default_prompt: "使用 $meituan-order-details-download 下载指定日期和门店范围的店内订单明细，完成保存并核验原始 Excel。"
