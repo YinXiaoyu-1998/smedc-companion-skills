@@ -12,6 +12,8 @@
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | 导出原始营业 XLSX。 |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | 导出原始菜品销售 XLSX。 |
 | [download-meituan-delivery-ledger](skills/download-meituan-delivery-ledger/SKILL.md) | 分批导出收货单 ZIP，验证每单一份原始 XLSX。 |
+| [meituan-order-details-download](skills/meituan-order-details-download/SKILL.md) | 按日期口径、门店和订单状态导出店内订单明细原始 XLSX，处理异步下载及超量分段。 |
+| [meituan-takeout-order-details-download](skills/meituan-takeout-order-details-download/SKILL.md) | 按日期口径、门店和订单条件导出平台外卖订单明细原始 XLSX，处理直接下载与异步下载清单。 |
 | [reply-meituan-reviews](skills/reply-meituan-reviews/SKILL.md) | 采集九列评价表，保留已有回复，只为未回复且有正文的评价起草；仅发布明确获批的新稿，需要本仓库的定制回复文案 Skill。 |
 | [review-responder](skills/review-responder/SKILL.md) | 定制中文餐饮商家回复文案；原始归属信息保留在 Skill 内。 |
 
@@ -52,6 +54,8 @@ cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-dish-sales ~/.agents/skills/download-meituan-dish-sales
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.agents/skills/download-meituan-delivery-ledger
+cp -R /tmp/smedc-companion-skills/skills/meituan-order-details-download ~/.agents/skills/meituan-order-details-download
+cp -R /tmp/smedc-companion-skills/skills/meituan-takeout-order-details-download ~/.agents/skills/meituan-takeout-order-details-download
 cp -R /tmp/smedc-companion-skills/skills/review-responder ~/.agents/skills/review-responder
 cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/reply-meituan-reviews
 ```
