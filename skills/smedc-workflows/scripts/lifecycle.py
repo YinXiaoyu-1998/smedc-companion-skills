@@ -184,3 +184,63 @@ def save_chunk(value):
             finally:
                 os.close(directory_fd)
     return {"saved": bool(value.get("final")), "nextOffset": offset + len(content)}
+
+
+def prepare_workspace(value):
+    import re
+    import tempfile
+
+    raw = Path(value["path"]).expanduser()
+    if not raw.is_absolute():
+        raise ValueError("Absolute proposed workspace required")
+    root = raw.resolve()
+    if root in {
+        Path("/"),
+        Path.home().resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+        (Path.home() / "Downloads").resolve(),
+    }:
+        raise ValueError("Choose a dedicated workflow workspace, not a shared root")
+    if not all(
+        re.fullmatch("[A-Za-z0-9_-]{1,64}", value[key])
+        for key in ["workflowId", "installationId"]
+    ):
+        raise ValueError("Stable workflow and installation IDs required")
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if root.stat().st_uid != os.getuid():
+        raise ValueError("Workspace must belong to current user")
+    marker = root / ".smedc-workspace.json"
+    identity = {
+        "schemaVersion": 1,
+        "workflowId": value["workflowId"],
+        "installationId": value["installationId"],
+    }
+    if marker.exists():
+        if load(marker) != identity:
+            raise ValueError("Workspace belongs to another workflow/installation")
+    elif any(item.name != ".DS_Store" for item in root.iterdir()):
+        raise ValueError(
+            "Choose an empty dedicated folder; existing files are preserved"
+        )
+    else:
+        atomic(marker, identity)
+    fd, probe = tempfile.mkstemp(prefix=".write-check-", dir=root)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(b"workspace-check")
+            stream.flush()
+            os.fsync(stream.fileno())
+    finally:
+        Path(probe).unlink(missing_ok=True)
+    return {
+        "workspaceRoot": str(root),
+        "statePath": str(root / "state.json"),
+        "runsDirectory": str(root / "runs"),
+        "builderDirectory": str(root / "builder"),
+        "check": {
+            "capability": "workspace",
+            "status": "ready",
+            "nextStep": "",
+            "checkedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        },
+    }

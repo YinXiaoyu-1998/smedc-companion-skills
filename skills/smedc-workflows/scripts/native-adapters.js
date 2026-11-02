@@ -134,6 +134,42 @@
         );
     return value;
   }
+  function localError(code, message, result) {
+    const details = redactJournal(result);
+    const reason = String(details.output ?? "").trim();
+    const error = new Error(
+      message +
+        " (exit " +
+        String(result.exit_code) +
+        ")" +
+        (reason ? ": " + reason.slice(0, 2000) : ""),
+    );
+    return Object.assign(error, {
+      code,
+      exitCode: result.exit_code,
+      toolResult: details,
+    });
+  }
+  async function prepareWorkspace(input) {
+    if (!options.localScript || typeof tools.exec_command !== "function")
+      throw new Error("Local helper unavailable");
+    const result = await runLocalCommand({
+      cmd:
+        quote(pythonExecutable) +
+        " " +
+        quote(options.localScript) +
+        " prepare-workspace --json " +
+        quote(JSON.stringify(input)),
+      max_output_tokens: 1500,
+    });
+    if (result.exit_code !== 0)
+      throw localError(
+        "WORKSPACE_PREFLIGHT_FAILED",
+        "Workspace preflight failed",
+        result,
+      );
+    return JSON.parse(result.output);
+  }
   async function saveLocal(path, value) {
     if (!options.localScript || typeof tools.exec_command !== "function")
       throw new Error("Local helper unavailable");
@@ -173,9 +209,11 @@
         max_output_tokens: 300,
       });
       if (result.exit_code !== 0)
-        throw Object.assign(new Error("Local checkpoint persistence failed"), {
-          toolResult: redactJournal(result),
-        });
+        throw localError(
+          "LOCAL_CHECKPOINT_PERSISTENCE_FAILED",
+          "Local checkpoint persistence failed",
+          result,
+        );
       offset += utf8(part).length;
       start = end;
     }
@@ -423,6 +461,9 @@
       throw new Error("Host state/schedule readback differs");
     journal.hostSnapshot = {
       ...journal.hostSnapshot,
+      cron: actual.rrule,
+      model: actual.model,
+      reasoningEffort: actual.reasoning_effort ?? actual.reasoningEffort,
       state,
       verifiedAt: now(),
     };
@@ -457,11 +498,29 @@
     if (
       actual.status !== "PAUSED" ||
       actual.id !== journal.hostSnapshot.taskId ||
-      actual.kind !== "cron"
+      actual.kind !== "cron" ||
+      (actual.execution_environment ?? actual.executionEnvironment) !== "local"
     )
       throw new Error(
         "Actual PAUSED host readback required before any central activation",
       );
+    journal.hostSnapshot = {
+      ...journal.hostSnapshot,
+      cron: actual.rrule,
+      model: actual.model,
+      reasoningEffort: actual.reasoning_effort ?? actual.reasoningEffort,
+      state: "paused",
+      verifiedAt: now(),
+    };
+    await mcp("manage_workflow_installation", {
+      workflowId: input.workflowId,
+      operation: {
+        kind: "record_host",
+        installationId: input.installationId,
+        hostSnapshot: journal.hostSnapshot,
+      },
+    });
+    await save(journal);
     const status = await mcp("get_workflow_status", {
       workflowId: input.workflowId,
       limit: 100,
@@ -1025,8 +1084,18 @@
         "needs_login: Gmail sender differs from configured account",
       );
     const action = await claim(session, intent);
-    if (!action.permitted)
-      return { state: action.state, reconcile: true, action };
+    if (!action.permitted) {
+      const partialOverlap =
+        action.claimedItems !== undefined &&
+        action.requestedItems !== undefined &&
+        action.claimedItems < action.requestedItems;
+      return {
+        state: partialOverlap ? "unknown" : action.state,
+        reconcile: true,
+        partialOverlap,
+        action,
+      };
+    }
     // Recheck current control immediately before the external action, after durable intent.
     await check(session, intent);
     let sent;
@@ -1631,6 +1700,7 @@
   return {
     unwrap,
     saveLocal,
+    prepareWorkspace,
     readHost: readHostDefinition,
     install,
     setHostState,

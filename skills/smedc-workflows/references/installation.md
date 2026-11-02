@@ -57,3 +57,5 @@
 显式包更新使用现有本机 journal/taskId；先暂停并实际 readHost 回读当前日程／模型，把这些原值带给 native.install 的 update=true，只改已审阅的新版本 prompt，更新同一任务后回读。普通安装／运行不自动更新；不得用默认日程覆盖用户在 Codex 修改的时间。
 
 最终启用统一调用 native.activate。它先验证明确旧任务暂停／退役（或无旧任务）的证据与实际新宿主 PAUSED 状态，再确认当前指定安装和 control.active 权限、记录 assignment 准备检查、set_state enabled，最后原生启用和回读。control.active 本身只是运行许可；只有满足新服务的完整就绪／指定／启用条件且选择店内订单的每日任务才切换来源要求。周报、评价和普通草案不会触发该切换；切换前不得擅自调用 set_state enabled。
+
+代理先调用 native.prepareWorkspace({path,workflowId,installationId})，得到真实写入探针通过的 workspaceRoot/statePath/runsDirectory/builderDirectory；返回值均为规范物理路径。用户选择的 /tmp 等系统别名或文件夹别名先在此明确解析，随后所有状态、锁、原件与清理仍使用严格规范路径保护，不放宽 saveLocal 的符号链接限制。已有非空无归属目录、共享根目录或其他安装的目录会阻塞，代理应选择专属子目录，不让用户手工修路径。

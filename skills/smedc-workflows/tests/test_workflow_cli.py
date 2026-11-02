@@ -670,19 +670,99 @@ class WorkflowCliTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("readback", result.stderr)
 
-    def test_cleanup_removes_only_the_confirmed_unchanged_original_and_persists_its_result(self):
+    def test_cleanup_removes_only_the_confirmed_unchanged_original_and_persists_its_result(
+        self,
+    ):
         import hashlib
-        from datetime import datetime,timezone,timedelta
+        from datetime import datetime, timezone, timedelta
+
         with tempfile.TemporaryDirectory() as temporary:
-            root=Path(temporary).resolve();run=root/'run';run.mkdir()
-            original=run/'source.xlsx';original.write_bytes(b'synthetic original')
-            other=run/'keep.xlsx';other.write_bytes(b'not selected')
-            lock=root/'lock.json';lock.write_text(json.dumps({'runId':'r'}))
-            checksum=hashlib.sha256(original.read_bytes()).hexdigest()
-            result_path=root/'cleanup-result.json'
-            request={'runRoot':str(run),'runId':'r','workflowId':'w','lockOwnerPath':str(lock),'resultPath':str(result_path),'files':[{'path':str(original),'sha256':checksum,'actionId':'a'}],'centralProof':{'workflowId':'w','runId':'r','expiresAt':(datetime.now(timezone.utc)+timedelta(seconds=30)).isoformat(),'actions':[{'actionId':'a','runId':'r','state':'confirmed','identity':{'kind':'upload','sourceHash':checksum},'receipt':{'state':'confirmed','evidence':'service_status','jobId':'published-job'}}]}}
-            result,summary=self.run_cli('cleanup',request)
-            self.assertEqual(result.returncode,0,result.stderr)
-            self.assertFalse(original.exists());self.assertTrue(other.exists());self.assertTrue(lock.exists())
-            self.assertEqual(summary['deleted'],[str(original)])
-            self.assertEqual(json.loads(result_path.read_text())['status'],'succeeded')
+            root = Path(temporary).resolve()
+            run = root / "run"
+            run.mkdir()
+            original = run / "source.xlsx"
+            original.write_bytes(b"synthetic original")
+            other = run / "keep.xlsx"
+            other.write_bytes(b"not selected")
+            lock = root / "lock.json"
+            lock.write_text(json.dumps({"runId": "r"}))
+            checksum = hashlib.sha256(original.read_bytes()).hexdigest()
+            result_path = root / "cleanup-result.json"
+            request = {
+                "runRoot": str(run),
+                "runId": "r",
+                "workflowId": "w",
+                "lockOwnerPath": str(lock),
+                "resultPath": str(result_path),
+                "files": [{"path": str(original), "sha256": checksum, "actionId": "a"}],
+                "centralProof": {
+                    "workflowId": "w",
+                    "runId": "r",
+                    "expiresAt": (
+                        datetime.now(timezone.utc) + timedelta(seconds=30)
+                    ).isoformat(),
+                    "actions": [
+                        {
+                            "actionId": "a",
+                            "runId": "r",
+                            "state": "confirmed",
+                            "identity": {"kind": "upload", "sourceHash": checksum},
+                            "receipt": {
+                                "state": "confirmed",
+                                "evidence": "service_status",
+                                "jobId": "published-job",
+                            },
+                        }
+                    ],
+                },
+            }
+            result, summary = self.run_cli("cleanup", request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(original.exists())
+            self.assertTrue(other.exists())
+            self.assertTrue(lock.exists())
+            self.assertEqual(summary["deleted"], [str(original)])
+            self.assertEqual(json.loads(result_path.read_text())["status"], "succeeded")
+
+    def test_workspace_preflight_returns_canonical_owned_paths_before_strict_state_writes(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            actual = root / "owned"
+            actual.mkdir()
+            alias = root / "alias"
+            alias.symlink_to(actual, target_is_directory=True)
+            result, value = self.run_cli(
+                "prepare-workspace",
+                {
+                    "path": str(alias),
+                    "workflowId": "demo-workflow",
+                    "installationId": "demo-installation",
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(value["workspaceRoot"], str(actual))
+            self.assertEqual(value["statePath"], str(actual / "state.json"))
+            self.assertEqual(value["check"]["status"], "ready")
+            saved, _ = self.run_cli(
+                "save-chunk",
+                {
+                    "path": value["statePath"],
+                    "uploadId": "canonical-check",
+                    "offset": 0,
+                    "text": "{}",
+                    "final": True,
+                    "checksumSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                },
+            )
+            self.assertEqual(saved.returncode, 0, saved.stderr)
+            rejected, _ = self.run_cli(
+                "prepare-workspace",
+                {
+                    "path": str(actual),
+                    "workflowId": "other-workflow",
+                    "installationId": "other-installation",
+                },
+            )
+            self.assertNotEqual(rejected.returncode, 0)

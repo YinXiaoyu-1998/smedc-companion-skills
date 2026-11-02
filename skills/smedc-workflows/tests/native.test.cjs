@@ -923,7 +923,127 @@ test("the concrete exec bridge roundtrips shell metacharacters as JSON data with
     await native.saveLocal(target, expected);
     assert.deepEqual(JSON.parse(fs.readFileSync(target, "utf8")), expected);
     assert.equal(fs.existsSync(sentinel), false);
+    const alias = path.join(run, "alias");
+    fs.symlinkSync(run, alias, "dir");
+    await assert.rejects(
+      native.saveLocal(path.join(alias, "rejected.json"), expected),
+      (error) =>
+        error.code === "LOCAL_CHECKPOINT_PERSISTENCE_FAILED" &&
+        error.exitCode === 2 &&
+        error.message.includes("Canonical state path required") &&
+        error.toolResult.output.includes("Canonical state path required"),
+    );
+    assert.equal(fs.existsSync(path.join(run, "rejected.json")), false);
   } finally {
     fs.rmSync(run, { recursive: true, force: true });
   }
+});
+
+test("a partially claimed notification batch is not reported wholly confirmed or sent again", async () => {
+  const crypto = require("node:crypto"),
+    body = "<p>Two synthetic new drafts</p>",
+    artifactHash = crypto.createHash("sha256").update(body).digest("hex");
+  let sends = 0;
+  const tools = {
+    mcp__smedc__manage_workflow_run: async () => ({}),
+    mcp__codex_apps__gmail_get_profile: async () => ({
+      emailAddress: "sender@example.test",
+    }),
+    mcp__smedc__record_workflow_action: async () => ({
+      actions: [
+        {
+          actionId: "notification",
+          state: "confirmed",
+          permitted: false,
+          claimedItems: 1,
+          requestedItems: 2,
+          identityHash: "a".repeat(64),
+        },
+      ],
+    }),
+    mcp__codex_apps__gmail_send_email: async () => {
+      sends++;
+    },
+  };
+  const native = factory()(tools, { saveOutcome: async () => {} });
+  const result = await native.sendEmail(
+    {
+      workflowId: "w",
+      installationId: "i",
+      runId: "r",
+      assignmentEpoch: 1,
+      controlVersion: 1,
+    },
+    {
+      actionId: "notification",
+      artifactHash,
+      correlationMarker: "marker",
+      identity: {
+        kind: "email",
+        purpose: "review_drafts",
+        sender: "sender@example.test",
+        recipients: ["owner@example.test"],
+      },
+    },
+    {
+      subject: "Drafts",
+      artifactHash,
+      payload: { mime_type: "text/html", body: { content: body } },
+    },
+  );
+  assert.equal(result.state, "unknown");
+  assert.equal(result.partialOverlap, true);
+  assert.equal(sends, 0);
+});
+
+test("host readback records a user changed schedule instead of restoring a stale snapshot", async () => {
+  let recorded;
+  const actual = {
+    id: "task",
+    kind: "cron",
+    status: "PAUSED",
+    execution_environment: "local",
+    name: "Example",
+    prompt: "Use workflow",
+    target: { type: "projectless" },
+    rrule: "RRULE:FREQ=DAILY;BYHOUR=9;BYMINUTE=15",
+    model: "gpt-6.1-sol",
+    reasoning_effort: "high",
+    notification_policy: "failed_runs_only",
+  };
+  const tools = {
+    exec_command: async () => ({
+      exit_code: 0,
+      output: JSON.stringify(actual),
+    }),
+    mcp__codex_app__automation_update: async () => ({ automationId: "task" }),
+    mcp__smedc__manage_workflow_installation: async ({ operation }) => {
+      recorded = operation.hostSnapshot;
+      return { version: 2 };
+    },
+  };
+  const journal = {
+    workflowId: "w",
+    taskId: "task",
+    hostSnapshot: {
+      host: "codex",
+      platform: "macos",
+      taskId: "task",
+      projectRef: "projectless",
+      cron: "old-schedule",
+      timezone: "Asia/Shanghai",
+      model: "old-model",
+      reasoningEffort: "low",
+      state: "paused",
+    },
+  };
+  await factory()(tools, { localScript: "/isolated/workflow.py" }).setHostState(
+    { workflowId: "w", installationId: "i" },
+    journal,
+    "paused",
+    async () => {},
+  );
+  assert.equal(recorded.cron, actual.rrule);
+  assert.equal(recorded.model, actual.model);
+  assert.equal(recorded.reasoningEffort, "high");
 });

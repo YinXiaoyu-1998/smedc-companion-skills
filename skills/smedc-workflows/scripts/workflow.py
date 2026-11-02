@@ -162,6 +162,7 @@ def main():
             "save-chunk",
             "review-sync-proof",
             "review-sync-intent",
+            "prepare-workspace",
         ],
     )
     source = parser.add_mutually_exclusive_group(required=True)
@@ -171,7 +172,11 @@ def main():
     args = parser.parse_args()
     try:
         value = json.loads(args.json) if args.json is not None else load(args.input)
-        if args.operation == "review-sync-intent":
+        if args.operation == "prepare-workspace":
+            from lifecycle import prepare_workspace
+
+            result = prepare_workspace(value)
+        elif args.operation == "review-sync-intent":
             from review_sync_proof import intent
 
             result = intent(value)
