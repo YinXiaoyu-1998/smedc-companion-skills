@@ -8,6 +8,7 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 
 | Skill | Purpose and prerequisites |
 | --- | --- |
+| [smedc-workflows](skills/smedc-workflows/SKILL.md) | Independently select daily ingestion, review operations or weekly reports; versioned Codex/Gmail adapters, readiness, bounded migration and recovery. Requires compatible released service/launcher; installation does not enable tasks. |
 | [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | Operating diagnosis, weekly and monthly HTML reports from authorized SMEDC data; requires the core Skill and an authenticated session. |
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | Original receipt uploads, linked quarantine photos and service-generated daily PDF/ZIP delivery; requires the core Skill and enabled archive delivery. No local ledger generation. |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | Export original business XLSX files. |
@@ -53,6 +54,7 @@ Clone the companion repository once, then copy only requested subtrees:
 
 ```bash
 git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smedc-companion-skills
+cp -R /tmp/smedc-companion-skills/skills/smedc-workflows ~/.agents/skills/smedc-workflows
 cp -R /tmp/smedc-companion-skills/skills/smedc-business-analysis ~/.agents/skills/smedc-business-analysis
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
@@ -75,7 +77,7 @@ The core Skill has its own [replacement procedure](https://github.com/YinXiaoyu-
 ## Development
 
 ```bash
-python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
+python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt -r skills/reply-meituan-reviews/requirements-dev.txt -r skills/smedc-workflows/requirements-dev.txt
 python3 scripts/validate_all_skills.py
 ```
 

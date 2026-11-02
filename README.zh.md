@@ -7,6 +7,7 @@
 
 | Skill | 用途与前置条件 |
 | --- | --- |
+| [smedc-workflows](skills/smedc-workflows/SKILL.md) | 分别选择每日入库、评价或自然周周报；包含版本化 Codex／Gmail 适配、准备检查、完整分批迁移与恢复。需要兼容服务与 launcher 已发布；安装不会启用任务。 |
 | [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | 基于受权 SMEDC 数据生成经营诊断、周报和月报 HTML；需要核心 Skill 和已认证会话。 |
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | 原始收货单上传、关联检疫照片、服务端每日 PDF／ZIP 交付；需要核心 Skill 及归档交付启用，不在本地生成台账。 |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | 导出原始营业 XLSX。 |
@@ -49,6 +50,7 @@ cp -R /tmp/smedc-mcp-skill/skills/smedc-mcp ~/.agents/skills/smedc-mcp
 
 ```bash
 git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smedc-companion-skills
+cp -R /tmp/smedc-companion-skills/skills/smedc-workflows ~/.agents/skills/smedc-workflows
 cp -R /tmp/smedc-companion-skills/skills/smedc-business-analysis ~/.agents/skills/smedc-business-analysis
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
@@ -69,7 +71,7 @@ cp -R /tmp/smedc-companion-skills/skills/reply-meituan-reviews ~/.agents/skills/
 ## 开发
 
 ```bash
-python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt
+python3 -m pip install -r skills/smedc-business-analysis/requirements-dev.txt -r skills/reply-meituan-reviews/requirements-dev.txt -r skills/smedc-workflows/requirements-dev.txt
 python3 scripts/validate_all_skills.py
 ```
 

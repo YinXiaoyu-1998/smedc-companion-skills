@@ -20,6 +20,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         empty_dish_catalog: bool = False,
         current_user: Path | None = FIXTURES / "current_user_response.json",
         store_name_contains: list[str] | None = None,
+        store_names: list[str] | None = None,
         download_mode: str | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], dict]:
         completed, output = self.run_plan_command(
@@ -27,6 +28,7 @@ class BuildQueryPlanTests(unittest.TestCase):
             empty_dish_catalog=empty_dish_catalog,
             current_user=current_user,
             store_name_contains=store_name_contains,
+            store_names=store_names,
             download_mode=download_mode,
         )
         return completed, json.loads(output.read_text(encoding="utf-8")) if output.exists() else {}
@@ -38,6 +40,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         empty_dish_catalog: bool = False,
         current_user: Path | None = FIXTURES / "current_user_response.json",
         store_name_contains: list[str] | None = None,
+        store_names: list[str] | None = None,
         download_mode: str | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], Path]:
         temporary = tempfile.TemporaryDirectory()
@@ -85,6 +88,8 @@ class BuildQueryPlanTests(unittest.TestCase):
             command[6:6] = ["--current-user", str(current_user)]
         if store_name_contains is not None:
             command.extend(["--store-name-contains", *store_name_contains])
+        if store_names is not None:
+            command.extend(["--store-names",*store_names])
         if download_mode is not None:
             command.extend(["--download-mode", download_mode])
         completed = subprocess.run(
@@ -94,6 +99,16 @@ class BuildQueryPlanTests(unittest.TestCase):
             capture_output=True,
         )
         return completed, output
+
+    def test_exact_store_selection_splits_more_than_twenty_names_without_losing_scope(self):
+        names=["示例一店",*[f"合成门店{n:02}" for n in range(2,22)]]
+        completed,plan=self.run_plan(store_names=names)
+        self.assertEqual(completed.returncode,0,completed.stderr)
+        self.assertEqual(plan['report']['storeNames'],names)
+        self.assertEqual(plan['report']['storeNameContains'],[])
+        selectors={tuple(item['input']['storeNameContains']) for item in plan['extracts']}
+        self.assertEqual({len(group) for group in selectors},{1,20})
+        self.assertEqual(set().union(*(set(group) for group in selectors)),set(names))
 
     def test_bundle_cli_is_optional_and_range_is_default(self) -> None:
         default, range_plan = self.run_plan()

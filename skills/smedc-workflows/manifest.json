@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "1.0.0",
+  "minimumServiceCapability": "enterprise-workflows-v1",
+  "minimumLauncherVersion": "0.16.0",
+  "launcherInstallationOwner": "smedc-mcp",
+  "hosts": {
+    "codex": {
+      "platform": "macos",
+      "schedule": "standalone-local-cron",
+      "timezone": "Asia/Shanghai",
+      "browser": "iab"
+    }
+  },
+  "mailAdapters": ["gmail"],
+  "configurationSchemaVersion": 1,
+  "inputs": [
+    "authenticated enterprise selector",
+    "immutable run snapshot",
+    "current control and assignment"
+  ],
+  "outputs": ["central minimal receipts", "local evidence", "final report"],
+  "workflows": {
+    "meituan-daily-ingestion": {
+      "dependencies": [
+        "download-meituan-business-data",
+        "download-meituan-dish-sales",
+        "meituan-order-details-download",
+        "meituan-takeout-order-details-download",
+        "download-meituan-delivery-ledger",
+        "smedc-delivery-ledger"
+      ],
+      "dependencyCompatibility": {
+        "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
+        "workflowPackageVersion": "1.0.0"
+      },
+      "window": "previous-complete-business-day",
+      "defaultSchedule": ["FREQ=DAILY;BYHOUR=3;BYMINUTE=45"],
+      "capabilities": [
+        "configuration",
+        "permissions",
+        "meituan_erp",
+        "download",
+        "workspace",
+        "dependencies",
+        "host_schedule",
+        "host_timezone",
+        "host_model",
+        "assignment",
+        "file_format"
+      ],
+      "authorizations": ["download", "upload"],
+      "orderScope": "settled_only",
+      "stages": [
+        "collect",
+        "validate_original",
+        "upload",
+        "verify_published",
+        "cleanup_confirmed_files"
+      ]
+    },
+    "meituan-review-operations": {
+      "dependencies": ["reply-meituan-reviews", "review-responder"],
+      "dependencyCompatibility": {
+        "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
+        "workflowPackageVersion": "1.0.0"
+      },
+      "window": "previous-day-and-today",
+      "defaultSchedule": [
+        "RRULE:FREQ=DAILY;BYHOUR=0,8,11,17,21;BYMINUTE=0,30;BYSECOND=0;BYSETPOS=1,4,5,7,9"
+      ],
+      "capabilities": [
+        "configuration",
+        "permissions",
+        "meituan_reviews",
+        "download",
+        "workspace",
+        "dependencies",
+        "host_schedule",
+        "host_timezone",
+        "host_model",
+        "assignment",
+        "file_format"
+      ],
+      "optionalCapabilities": ["email_identity", "sent_mail_lookup"],
+      "authorizations": [
+        "review_sync",
+        "review_publish",
+        "email:review_drafts"
+      ],
+      "publicationDefault": false,
+      "stages": [
+        "collect",
+        "verify_identity",
+        "draft",
+        "workbook",
+        "publish_authorized",
+        "sync_and_readback",
+        "notify_new_drafts",
+        "archive_complete_run",
+        "cleanup_complete_run"
+      ]
+    },
+    "weekly-business-report": {
+      "dependencies": ["smedc-business-analysis"],
+      "dependencyCompatibility": {
+        "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
+        "workflowPackageVersion": "1.0.0"
+      },
+      "window": "previous-natural-week",
+      "defaultSchedule": ["FREQ=WEEKLY;BYDAY=MO;BYHOUR=5;BYMINUTE=30"],
+      "capabilities": [
+        "configuration",
+        "permissions",
+        "download",
+        "workspace",
+        "dependencies",
+        "host_schedule",
+        "host_timezone",
+        "host_model",
+        "assignment"
+      ],
+      "optionalCapabilities": ["email_identity", "sent_mail_lookup"],
+      "authorizations": ["download", "email:weekly_report"],
+      "stages": [
+        "query_coverage",
+        "download_authorized",
+        "aggregate_exact_stores",
+        "report_and_advisory",
+        "verify_final",
+        "deliver_optional",
+        "retain_final_report"
+      ]
+    }
+  },
+  "executionPolicies": [
+    {
+      "id": "verified-review-operations",
+      "version": 1
+    }
+  ],
+  "capabilityVersion": "1.0.0",
+  "runtimeRequirements": {
+    "python": ">=3.11",
+    "node": ">=22",
+    "reviewPythonPackages": ["openpyxl>=3.1.5,<4"],
+    "reviewNodePackages": ["@oai/artifact-tool"],
+    "discovery": "invoking host load_workspace_dependencies"
+  }
+}

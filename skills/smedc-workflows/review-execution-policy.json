@@ -1,0 +1,55 @@
+{
+  "id": "verified-review-operations",
+  "version": 1,
+  "legacyPolicies": {
+    "unrecognizedReviewGraphicsPolicy": {
+      "scope": "customer_review_content",
+      "action": "omit_unrecognized_only",
+      "preserveReadableText": true,
+      "recordOmissions": true,
+      "treatAsError": false,
+      "blockSyncOrCleanup": false
+    },
+    "sourceAuthorityPolicy": {
+      "authority": "current_platform_observation_for_full_identity",
+      "identity": [
+        "authenticatedOrganization",
+        "enterpriseName",
+        "source",
+        "storeName",
+        "canonicalReviewedAt",
+        "exactReviewerName",
+        "exactFeedbackId"
+      ],
+      "feedbackIdRole": "platform_review_identifier",
+      "sourcePoiRole": "source_store_verification",
+      "sameFullIdentity": "upsert_or_unchanged",
+      "differentFullIdentity": "insert_and_preserve_independent_rows",
+      "missingObservedFields": "omit_or_preserve_same_identity_fields",
+      "observedFields": "use_verified_platform_values",
+      "readback": "unique_full_identity_all_observed_fields_and_independent_rows"
+    },
+    "issueTrackingPolicy": {
+      "schemaVersion": 2,
+      "businessItemsKey": "items",
+      "evidenceItemsKey": "evidenceItems",
+      "resolvedItemsKey": "resolvedItems",
+      "deduplicateBusinessBy": "full_identity_or_exact_coverage",
+      "counts": "business_and_evidence_separate",
+      "activeFrom": "state.issueTrackingSince",
+      "chatArchive": "verified_business_complete_and_finalization_complete",
+      "fileCleanup": "independent_policy_gate",
+      "scheduledScope": "actual_start_day_and_previous_day",
+      "reference": "references/review-execution-policy.md"
+    },
+    "errorRecordingPolicy": {
+      "reference": "references/review-execution-policy.md",
+      "logger": "scripts/audit_log.py",
+      "toolWrapper": "scripts/audited-tool.js",
+      "preDispatchCheckpointRequired": true,
+      "finishBeforeRecoveryRequired": true,
+      "fullErrorsWithCredentialRedaction": true,
+      "finishCheckRequired": true
+    }
+  }
+}

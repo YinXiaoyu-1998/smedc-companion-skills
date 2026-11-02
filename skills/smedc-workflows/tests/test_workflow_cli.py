@@ -1,0 +1,688 @@
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "workflow.py"
+
+
+class WorkflowCliTests(unittest.TestCase):
+    def run_cli(self, operation, value):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary).resolve() / "input.json"
+            source.write_text(json.dumps(value))
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), operation, "--input", str(source)],
+                capture_output=True,
+                text=True,
+            )
+            return result, json.loads(result.stdout) if result.returncode == 0 else {}
+
+    def test_window_is_frozen_and_resumption_does_not_cross_midnight(self):
+        result, value = self.run_cli(
+            "window",
+            {
+                "workflowType": "meituan-review-operations",
+                "now": "2026-11-02T00:05:00+08:00",
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            value["window"], {"startDate": "2026-11-01", "endDate": "2026-11-02"}
+        )
+        _, value = self.run_cli(
+            "window",
+            {
+                "workflowType": "meituan-review-operations",
+                "now": "2026-11-03T00:05:00+08:00",
+                "resume": value["window"],
+            },
+        )
+        self.assertEqual(
+            value["window"], {"startDate": "2026-11-01", "endDate": "2026-11-02"}
+        )
+
+    def test_migration_preserves_three_schedules_and_all_151_receipts_in_bounded_pages(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            fixture = json.loads(
+                (ROOT / "tests" / "fixtures" / "three-workflows.json").read_text()
+            )
+            workflows = []
+            sources = []
+            for n, kind in enumerate(
+                [
+                    "meituan-daily-ingestion",
+                    "meituan-review-operations",
+                    "weekly-business-report",
+                ]
+            ):
+                task = root / f"task-{n}.toml"
+                schedule = json.loads((ROOT / "manifest.json").read_text())[
+                    "workflows"
+                ][kind]["defaultSchedule"][0]
+                task.write_text(
+                    'id = "legacy-'
+                    + str(n)
+                    + '"\nkind = "cron"\nstatus = "PAUSED"\nrrule = '
+                    + json.dumps(schedule)
+                    + '\nmodel = "gpt-6.1-sol"\nreasoning_effort = "high"\nprompt = "Read the workflow"\n'
+                )
+                sources.append(
+                    {
+                        "id": f"task-{n}",
+                        "kind": "task",
+                        "path": str(task),
+                        "workflowId": f"workflow-{n}",
+                        "observedAt": "2026-11-02T00:00:00Z",
+                        "promptDecisions": [
+                            {"excerpt": "Read the workflow", "destination": "obsolete"}
+                        ],
+                    }
+                )
+                workflows.append(
+                    {
+                        "workflowId": f"workflow-{n}",
+                        "configuration": fixture["configurations"][n],
+                        "authorizations": fixture["authorizations"][n],
+                        "taskSource": f"task-{n}",
+                    }
+                )
+            from datetime import date, timedelta
+
+            receipts = []
+            for n in range(151):
+                start_date = date(2023, 1, 2) + timedelta(weeks=n)
+                receipts.append(
+                    {
+                        "dedup": f"legacy-key-{n}",
+                        "period": {
+                            "startDate": start_date.isoformat(),
+                            "endDate": (start_date + timedelta(days=6)).isoformat(),
+                        },
+                        "recipient": "owner@example.test",
+                        "sender": "sender@example.test",
+                        "provider_id": f"provider-{n}",
+                        "status": "sent_verified",
+                        "sent_at": (start_date + timedelta(days=7)).isoformat()
+                        + "T00:00:00Z",
+                        "artifact": "a" * 64,
+                        "marker": f"legacy-marker-{n}",
+                        "messageBody": "SYNTHETIC_PRIVATE_BODY",
+                    }
+                )
+            ledger = root / "ledger.json"
+            ledger.write_text(json.dumps({"actions": receipts}))
+            action_id = {"$actionId": {"$pointer": "/dedup"}}
+            receipt_template = {
+                "legacyKey": {"$pointer": "/dedup"},
+                "intent": {
+                    "actionId": action_id,
+                    "identity": {
+                        "kind": "email",
+                        "purpose": "weekly_report",
+                        "recipients": [{"$pointer": "/recipient"}],
+                        "sender": {"$pointer": "/sender"},
+                        "deliveryVersion": 1,
+                        "storeNames": ["Demo"],
+                        "window": {"$pointer": "/period"},
+                    },
+                    "artifactHash": {"$pointer": "/artifact"},
+                    "correlationMarker": {"$pointer": "/marker"},
+                },
+                "receipt": {
+                    "actionId": action_id,
+                    "state": {
+                        "$map": {
+                            "pointer": "/status",
+                            "values": {
+                                "sent_verified": "confirmed",
+                                "unknown": "unknown",
+                            },
+                        }
+                    },
+                    "evidence": {
+                        "$map": {
+                            "pointer": "/status",
+                            "values": {
+                                "sent_verified": "provider_readback",
+                                "unknown": "transport_unknown",
+                            },
+                        }
+                    },
+                    "receiptId": {"$pointer": "/provider_id"},
+                    "verifiedAt": {"$pointer": "/sent_at"},
+                },
+            }
+            sources.append(
+                {
+                    "id": "receipts",
+                    "kind": "receipts",
+                    "path": str(ledger),
+                    "workflowId": "workflow-2",
+                    "recordsPointer": "/actions",
+                    "recordTemplate": receipt_template,
+                }
+            )
+            groups = root / "groups.json"
+            groups.write_text(
+                json.dumps({"schemaVersion": 1, "groups": {"City Center": ["Demo"]}})
+            )
+            sources.append(
+                {
+                    "id": "groups",
+                    "kind": "groups",
+                    "path": str(groups),
+                    "fields": [
+                        {
+                            "source": "",
+                            "destination": "central",
+                            "target": "/workflows/2/configuration/groups",
+                            "transform": "named_groups",
+                        }
+                    ],
+                }
+            )
+            policies = json.loads((ROOT / "review-execution-policy.json").read_text())[
+                "legacyPolicies"
+            ]
+            settings = {
+                "replyWhitelist": ["Demo"],
+                "ignoredRecords": [
+                    {
+                        "poiId": "poi-demo-2",
+                        "source": "美团评价",
+                        "feedbackId": "ignored-demo",
+                    }
+                ],
+                **policies,
+            }
+            settings_file = root / "task-settings.json"
+            settings_file.write_text(json.dumps(settings))
+            fields = [
+                {
+                    "source": "/replyWhitelist",
+                    "destination": "central",
+                    "target": "/workflows/1/configuration/publication/storeNames",
+                },
+                {
+                    "source": "/ignoredRecords",
+                    "destination": "central",
+                    "target": "/workflows/1/configuration/ignoredReviewIdentities",
+                    "transform": "ignored_review_identities",
+                },
+                *[
+                    {
+                        "source": "/" + name,
+                        "destination": "central",
+                        "target": "/workflows/1/configuration/executionPolicy",
+                        "transform": "review_policy:" + name,
+                    }
+                    for name in policies
+                ],
+            ]
+            sources.append(
+                {
+                    "id": "review-settings",
+                    "kind": "settings",
+                    "path": str(settings_file),
+                    "sourceAccountRef": "review-demo",
+                    "fields": fields,
+                }
+            )
+            control = root / "control.json"
+            control.write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {
+                                "id": "open-demo",
+                                "storeNames": ["Demo"],
+                                "window": {
+                                    "startDate": "2026-10-01",
+                                    "endDate": "2026-10-01",
+                                },
+                                "body": "SYNTHETIC_PRIVATE_BODY",
+                            }
+                        ],
+                        "waivedItems": [{"id": "waived-demo"}],
+                        "resolvedItems": [{"id": "resolved-demo"}],
+                    }
+                )
+            )
+            recovery_lists = [
+                {
+                    "pointer": "/items",
+                    "template": {
+                        "itemId": {"$pointer": "/id"},
+                        "kind": "business",
+                        "disposition": "open",
+                        "stage": "collecting",
+                        "scope": {
+                            "kind": "dataset",
+                            "dataset": "business",
+                            "storeNames": {"$pointer": "/storeNames"},
+                            "window": {"$pointer": "/window"},
+                        },
+                        "evidenceRef": "control",
+                        "evidenceHash": {"$hash": {"$pointer": ""}},
+                    },
+                },
+                *[
+                    {
+                        "pointer": "/" + name,
+                        "template": {
+                            "itemId": {"$pointer": "/id"},
+                            "kind": "evidence",
+                            "disposition": disposition,
+                            "stage": "finished",
+                            "scope": {
+                                "kind": "unknown_scope",
+                                "reason": "missing_local_evidence",
+                            },
+                            "evidenceRef": "control",
+                            "evidenceHash": {"$hash": {"$pointer": ""}},
+                            "resolutionReason": "Retained explicit legacy disposition",
+                        },
+                    }
+                    for name, disposition in [
+                        ("waivedItems", "waived"),
+                        ("resolvedItems", "resolved"),
+                    ]
+                ],
+            ]
+            sources.append(
+                {
+                    "id": "control",
+                    "kind": "control",
+                    "path": str(control),
+                    "workflowId": "workflow-1",
+                    "recoveryLists": recovery_lists,
+                }
+            )
+            request = {
+                "sources": sources,
+                "integration": fixture["integration"],
+                "targetVersion": 0,
+                "workflows": workflows,
+            }
+            result, value = self.run_cli("migration", request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(value["recordCount"], 154)
+            self.assertEqual(value["chunkCount"], 2)
+            self.assertEqual(
+                len(value["manifest"]["workflows"][2]["completedActions"]), 100
+            )
+            self.assertEqual(len(value["pages"][0]["chunk"][0]["completedActions"]), 51)
+            self.assertNotIn("messageBody", json.dumps(value["manifest"]))
+            self.assertNotIn(
+                "SYNTHETIC_PRIVATE_BODY",
+                json.dumps([value["manifest"], value["pages"]]),
+            )
+            recovered = value["pages"][0]["chunk"][1]["recoveryItems"]
+            self.assertEqual(
+                [item["disposition"] for item in recovered],
+                ["open", "waived", "resolved"],
+            )
+            self.assertEqual(recovered[0]["scope"]["window"]["startDate"], "2026-10-01")
+            self.assertEqual(
+                value["manifest"]["workflows"][1]["hostSnapshot"]["model"],
+                "gpt-6.1-sol",
+            )
+            self.assertEqual(
+                value["manifest"]["workflows"][1]["configuration"],
+                fixture["configurations"][1],
+            )
+            self.assertEqual(
+                [w["authorizations"] for w in value["manifest"]["workflows"]],
+                fixture["authorizations"],
+            )
+            self.assertEqual(
+                value["manifest"]["workflows"][2]["configuration"]["groups"],
+                [{"name": "City Center", "storeNames": ["Demo"]}],
+            )
+            repeated, again = self.run_cli("migration", request)
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            self.assertEqual(again["manifest"], value["manifest"])
+            self.assertEqual(again["chunksDigest"], value["chunksDigest"])
+            settings["sourceAuthorityPolicy"]["observedFields"] = "unverified_values"
+            settings_file.write_text(json.dumps(settings))
+            rejected, _ = self.run_cli("migration", request)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("source_conflict", rejected.stderr)
+
+    def test_readiness_keeps_local_report_available_without_gmail_and_distinguishes_no_sample(
+        self,
+    ):
+        capabilities = [
+            "configuration",
+            "permissions",
+            "download",
+            "workspace",
+            "dependencies",
+            "host_schedule",
+            "host_timezone",
+            "host_model",
+            "assignment",
+        ]
+        checks = {name: {"status": "ready", "nextStep": ""} for name in capabilities}
+        checks["email_identity"] = {
+            "status": "needs_login",
+            "nextStep": "Connect Gmail",
+        }
+        result, value = self.run_cli(
+            "readiness",
+            {
+                "workflowType": "weekly-business-report",
+                "checks": checks,
+                "mailEnabled": True,
+                "checkedAt": "2026-11-02T00:00:00Z",
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(value["localReady"])
+        self.assertFalse(value["deliveryReady"])
+        self.assertEqual(value["firstRunVerification"], "not_run")
+
+    def test_installer_copies_only_selected_dependency_closure_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary).resolve() / "skills"
+            request = {
+                "selected": ["weekly-business-report"],
+                "sourceSkillsRoot": str(ROOT.parent),
+                "destinationRoot": str(destination),
+                "sourceRevision": "a" * 40,
+            }
+            result, value = self.run_cli("install", request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                set(value["installed"]), {"smedc-workflows", "smedc-business-analysis"}
+            )
+            self.assertFalse((destination / "reply-meituan-reviews").exists())
+            result, value = self.run_cli("install", request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(value["installed"], [])
+
+    def test_cleanup_refuses_unknown_receipt_and_preserves_the_original(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            run = root / "run"
+            run.mkdir()
+            original = run / "original.xlsx"
+            original.write_bytes(b"original")
+            lock = root / "lock.json"
+            lock.write_text(json.dumps({"runId": "r"}))
+            request = {
+                "runRoot": str(run),
+                "runId": "r",
+                "workflowId": "w",
+                "lockOwnerPath": str(lock),
+                "files": [{"path": str(original), "sha256": "x", "actionId": "a"}],
+                "centralProof": {
+                    "workflowId": "w",
+                    "runId": "r",
+                    "actions": [{"actionId": "a", "state": "unknown"}],
+                },
+            }
+            result, _ = self.run_cli("cleanup", request)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("confirmed", result.stderr)
+            self.assertTrue(original.exists())
+
+    def test_review_schedule_has_exactly_the_five_intended_daily_occurrences(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from dateutil.rrule import rrulestr
+
+        definition = json.loads((ROOT / "manifest.json").read_text())["workflows"][
+            "meituan-review-operations"
+        ]
+        schedule = rrulestr(
+            definition["defaultSchedule"][0],
+            dtstart=datetime(2026, 11, 2, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+        actual = [value.strftime("%H:%M") for value in schedule[:5]]
+        self.assertEqual(actual, ["00:00", "08:30", "11:00", "17:00", "21:00"])
+        self.assertEqual(schedule[5].strftime("%Y-%m-%d %H:%M"), "2026-11-03 00:00")
+
+    def test_frozen_review_task_restores_namespaced_exclusions_and_the_closed_preset(
+        self,
+    ):
+        source = {
+            "product": "meituan_reviews",
+            "channel": "meituan",
+            "accountRef": "demo-account",
+            "sourceStoreId": "demo-poi",
+            "sourceStoreName": "Demo source",
+        }
+        ignored = {
+            "source": source,
+            "feedbackId": "demo-feedback",
+            "reason": "Explicit known exclusion",
+            "purpose": "exclude_source_record",
+        }
+        value = {
+            "enterpriseName": "Demo enterprise",
+            "snapshot": {
+                "integration": {
+                    "storeMappings": [{"source": source, "storeName": "Demo"}]
+                },
+                "configuration": {
+                    "type": "meituan-review-operations",
+                    "channels": ["meituan"],
+                    "storeNames": ["Demo"],
+                    "publication": {"enabled": False, "storeNames": ["Demo"]},
+                    "executionPolicy": {
+                        "id": "verified-review-operations",
+                        "version": 1,
+                    },
+                    "ignoredReviewIdentities": [ignored],
+                },
+            },
+        }
+        result, task = self.run_cli("review-task", value)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(task["ignoredReviewIdentities"], [ignored])
+        self.assertEqual(
+            task["sourceIdentityMappings"][0]["source"]["accountRef"], "demo-account"
+        )
+        self.assertEqual(
+            task["unrecognizedReviewGraphicsPolicy"]["action"], "omit_unrecognized_only"
+        )
+        self.assertTrue(task["errorRecordingPolicy"]["preDispatchCheckpointRequired"])
+        value["snapshot"]["configuration"]["executionPolicy"]["version"] = 2
+        result, _ = self.run_cli("review-task", value)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unsupported", result.stderr)
+
+    def test_range_download_proof_verifies_exact_local_bytes_before_confirming(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = (
+                Path(temporary).resolve() / "smedc-partition-extracts" / "extract-demo"
+            )
+            directory.mkdir(parents=True)
+            csv = directory / "business_20261101_demo.csv"
+            csv.write_text("date,store,amount\n2026-11-01,Demo,10\n")
+            item = {
+                "fileName": csv.name,
+                "storeId": "demo",
+                "storeName": "Demo",
+                "businessDate": "2026-11-01",
+                "byteSize": csv.stat().st_size,
+                "rowCount": 1,
+                "checksumSha256": hashlib.sha256(csv.read_bytes()).hexdigest(),
+            }
+            metadata = {
+                "dataset": "business",
+                "enterpriseName": "Demo enterprise",
+                "startDate": "2026-11-01",
+                "endDate": "2026-11-01",
+                "partitionCount": 1,
+                "totalRowCount": 1,
+                "files": [item],
+            }
+            (directory / "manifest.json").write_text(json.dumps(metadata))
+            response = {
+                **metadata,
+                "localDirectory": str(directory),
+                "files": [csv.name],
+            }
+            intent = {
+                "actionId": "read-demo",
+                "identity": {
+                    "kind": "download",
+                    "dataset": "business",
+                    "storeNames": ["Demo"],
+                    "window": {"startDate": "2026-11-01", "endDate": "2026-11-01"},
+                },
+            }
+            request = {
+                "response": response,
+                "intent": intent,
+                "identityHash": "a" * 64,
+                "launcherVersion": "0.16.0",
+            }
+            result, receipt = self.run_cli("download-proof", request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(receipt["evidence"], "launcher_transfer")
+            self.assertEqual(receipt["launcherTransfer"]["totalRowCount"], "1")
+            self.assertEqual(
+                receipt["launcherTransfer"]["totalByteSize"], str(csv.stat().st_size)
+            )
+            csv.write_text("corrupt")
+            result, _ = self.run_cli("download-proof", request)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("checksum", result.stderr)
+
+    def test_chunked_local_state_write_is_repeatable_and_preserves_unicode(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "state.json"
+            text = json.dumps(
+                {"note": "synthetic 😀", "receipts": [1, 2, 3]}, ensure_ascii=False
+            )
+            request = {
+                "path": str(target),
+                "uploadId": "demo-upload",
+                "offset": 0,
+                "text": text,
+                "final": True,
+                "checksumSha256": hashlib.sha256(text.encode()).hexdigest(),
+            }
+            for _ in range(2):
+                result, _ = self.run_cli("save-chunk", request)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                json.loads(target.read_text()),
+                {"note": "synthetic 😀", "receipts": [1, 2, 3]},
+            )
+
+    def test_review_sync_proof_compares_every_observed_field_and_preserves_independent_rows(
+        self,
+    ):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            expected = {
+                "enterpriseName": "Demo enterprise",
+                "source": "美团评价",
+                "storeName": "Demo",
+                "feedbackId": "demo-feedback",
+                "reviewerName": "Anonymous",
+                "reviewedAt": "2026-11-01T12:00:00+08:00",
+                "content": "Synthetic review",
+                "merchantReply": None,
+                "replyStatus": "unreplied_with_content",
+                "scores": {"总评": 5},
+            }
+            independent = {
+                **expected,
+                "id": "independent-id",
+                "reviewerName": "Independent identity",
+            }
+            source = {
+                "product": "meituan_reviews",
+                "accountRef": "demo-account",
+                "channel": "meituan",
+                "sourceStoreId": "demo-poi",
+                "sourceStoreName": "Demo source",
+            }
+            plan = {
+                "entries": [
+                    {
+                        "payload": expected,
+                        "sourceIdentity": source,
+                        "existingId": "persisted-id",
+                        "independentRows": [independent],
+                    }
+                ]
+            }
+            plan_path = root / "plan.json"
+            plan_path.write_text(json.dumps(plan))
+            response_path = root / "readback.json"
+            response = {
+                "rows": [{**expected, "id": "persisted-id"}, independent],
+                "page": {"nextCursor": None},
+            }
+            response_path.write_text(json.dumps(response))
+            canonical = json.dumps(
+                [expected], ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            )
+            observed_hash = hashlib.sha256(canonical.encode()).hexdigest()
+            intent = {
+                "actionId": "sync-demo",
+                "identity": {
+                    "kind": "review_sync",
+                    "source": {
+                        "product": "meituan_reviews",
+                        "accountRef": "demo-account",
+                        "channel": "meituan",
+                        "sourceStoreId": "demo-poi",
+                        "sourceStoreName": "Demo source",
+                    },
+                    "storeNames": ["Demo"],
+                    "window": {"startDate": "2026-11-01", "endDate": "2026-11-01"},
+                    "observedFactsHash": observed_hash,
+                },
+            }
+            request = {
+                "intent": intent,
+                "identityHash": "a" * 64,
+                "planPath": str(plan_path),
+                "readbackPaths": [[str(response_path)]],
+            }
+            result, receipt = self.run_cli("review-sync-proof", request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(receipt["evidence"], "smedc_readback")
+            self.assertEqual(receipt["smedcReadback"]["recordIds"], ["persisted-id"])
+            response["rows"][0]["content"] = "Different persisted content"
+            response_path.write_text(json.dumps(response))
+            result, _ = self.run_cli("review-sync-proof", request)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("readback", result.stderr)
+
+    def test_cleanup_removes_only_the_confirmed_unchanged_original_and_persists_its_result(self):
+        import hashlib
+        from datetime import datetime,timezone,timedelta
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary).resolve();run=root/'run';run.mkdir()
+            original=run/'source.xlsx';original.write_bytes(b'synthetic original')
+            other=run/'keep.xlsx';other.write_bytes(b'not selected')
+            lock=root/'lock.json';lock.write_text(json.dumps({'runId':'r'}))
+            checksum=hashlib.sha256(original.read_bytes()).hexdigest()
+            result_path=root/'cleanup-result.json'
+            request={'runRoot':str(run),'runId':'r','workflowId':'w','lockOwnerPath':str(lock),'resultPath':str(result_path),'files':[{'path':str(original),'sha256':checksum,'actionId':'a'}],'centralProof':{'workflowId':'w','runId':'r','expiresAt':(datetime.now(timezone.utc)+timedelta(seconds=30)).isoformat(),'actions':[{'actionId':'a','runId':'r','state':'confirmed','identity':{'kind':'upload','sourceHash':checksum},'receipt':{'state':'confirmed','evidence':'service_status','jobId':'published-job'}}]}}
+            result,summary=self.run_cli('cleanup',request)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertFalse(original.exists());self.assertTrue(other.exists());self.assertTrue(lock.exists())
+            self.assertEqual(summary['deleted'],[str(original)])
+            self.assertEqual(json.loads(result_path.read_text())['status'],'succeeded')

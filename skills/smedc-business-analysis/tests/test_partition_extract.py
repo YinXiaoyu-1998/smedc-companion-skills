@@ -37,6 +37,19 @@ class PartitionExtractTests(unittest.TestCase):
     def aggregate_manifest(self, extracts):
         return {"report": {}, "extracts": extracts, "jobs": [{"id": "total", "tool": "local_partition_aggregate", "outputFile": "query-results/total.json", "input": {"dataset": "business", "filter": {"field": "business_date", "op": "between", "value": ["2024-02-01", "2024-02-02"]}, "groupBy": [], "aggregates": [{"op": "sum", "field": "order_revenue", "as": "revenue"}]}}]}
 
+    def test_exact_scope_excludes_longer_store_name_from_aggregation(self):
+        import partition_download_plan as planner
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            responses = root / "responses"
+            extract = planner.make_extract({"dataset": "business", "enterpriseName": "企业", "startDate": "20240201", "endDate": "20240201"})
+            self.save_download(root, responses, extract, [("2024-02-01", 10)], "exact")
+            manifest = self.aggregate_manifest([extract])
+            manifest["report"]["storeNames"] = ["示例一"]
+            loader.materialize(manifest, json.loads(REGISTRY.read_text()), responses)
+            rows = json.loads((responses / "query-results/total.json").read_text())["rows"]
+            self.assertEqual(rows, [])
+
     def test_null_id_overlapping_extracts_materialize_and_reject_conflicts(self):
         import partition_download_plan as planner
         with tempfile.TemporaryDirectory() as temporary:

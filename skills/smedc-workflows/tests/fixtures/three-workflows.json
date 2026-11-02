@@ -1,0 +1,195 @@
+{
+  "integration": {
+    "schemaVersion": 1,
+    "timezone": "Asia/Shanghai",
+    "sourceAccounts": [
+      {
+        "product": "meituan_erp",
+        "accountRef": "erp-demo",
+        "displayName": "Synthetic ERP",
+        "sourceEnterpriseName": "Demo enterprise"
+      },
+      {
+        "product": "meituan_reviews",
+        "accountRef": "review-demo",
+        "displayName": "Synthetic Reviews",
+        "sourceEnterpriseName": "Demo enterprise"
+      }
+    ],
+    "storeMappings": [
+      {
+        "source": {
+          "product": "meituan_erp",
+          "channel": "erp",
+          "accountRef": "erp-demo",
+          "sourceStoreId": "erp-demo-1",
+          "sourceStoreName": "Demo"
+        },
+        "storeName": "Demo"
+      },
+      {
+        "source": {
+          "product": "meituan_reviews",
+          "channel": "meituan",
+          "accountRef": "review-demo",
+          "sourceStoreId": "poi-demo-1",
+          "sourceStoreName": "Demo source A"
+        },
+        "storeName": "Demo"
+      },
+      {
+        "source": {
+          "product": "meituan_reviews",
+          "channel": "meituan",
+          "accountRef": "review-demo",
+          "sourceStoreId": "poi-demo-2",
+          "sourceStoreName": "Demo source B"
+        },
+        "storeName": "Demo"
+      },
+      {
+        "source": {
+          "product": "meituan_reviews",
+          "channel": "dianping",
+          "accountRef": "review-demo",
+          "sourceStoreId": "poi-demo-3",
+          "sourceStoreName": "Demo source C"
+        },
+        "storeName": "Demo"
+      }
+    ],
+    "exclusions": []
+  },
+  "configurations": [
+    {
+      "schemaVersion": 1,
+      "storeNames": ["Demo"],
+      "notificationPolicy": "action_required",
+      "type": "meituan-daily-ingestion",
+      "datasets": [
+        "business",
+        "dishes",
+        "in_store_orders",
+        "takeaway_orders",
+        "delivery_ledger"
+      ],
+      "orderScope": "settled_only",
+      "cleanupPolicy": "confirmed_files_only"
+    },
+    {
+      "schemaVersion": 1,
+      "storeNames": ["Demo"],
+      "notificationPolicy": "action_required",
+      "type": "meituan-review-operations",
+      "channels": ["meituan", "dianping"],
+      "publication": {
+        "enabled": true,
+        "storeNames": ["Demo"]
+      },
+      "brandFacts": "Synthetic brand facts",
+      "tone": "Reply using only verified facts",
+      "draftNotification": {
+        "enabled": true,
+        "recipients": ["owner@example.test"],
+        "allowedSender": "sender@example.test"
+      },
+      "cleanupPolicy": "complete_run_only",
+      "executionPolicy": {
+        "id": "verified-review-operations",
+        "version": 1
+      },
+      "ignoredReviewIdentities": [
+        {
+          "source": {
+            "product": "meituan_reviews",
+            "channel": "meituan",
+            "accountRef": "review-demo",
+            "sourceStoreId": "poi-demo-2",
+            "sourceStoreName": "Demo source B"
+          },
+          "feedbackId": "ignored-demo",
+          "reason": "Retained explicit legacy source exclusion; see migration evidence",
+          "purpose": "exclude_source_record"
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "storeNames": ["Demo"],
+      "notificationPolicy": "action_required",
+      "type": "weekly-business-report",
+      "groups": [
+        {
+          "name": "City Center",
+          "storeNames": ["Demo"]
+        }
+      ],
+      "delivery": {
+        "enabled": true,
+        "recipients": ["owner@example.test"],
+        "allowedSender": "sender@example.test"
+      },
+      "cleanupPolicy": "retain_final_report"
+    }
+  ],
+  "authorizations": [
+    [
+      {
+        "kind": "download",
+        "datasets": [
+          "business",
+          "dishes",
+          "in_store_orders",
+          "takeaway_orders"
+        ],
+        "storeNames": ["Demo"]
+      },
+      {
+        "kind": "upload",
+        "datasets": [
+          "business",
+          "dishes",
+          "in_store_orders",
+          "takeaway_orders",
+          "delivery_ledger"
+        ],
+        "storeNames": ["Demo"]
+      }
+    ],
+    [
+      {
+        "kind": "review_sync",
+        "channels": ["meituan", "dianping"],
+        "storeNames": ["Demo"]
+      },
+      {
+        "kind": "review_publish",
+        "channels": ["meituan", "dianping"],
+        "storeNames": ["Demo"]
+      },
+      {
+        "kind": "email",
+        "purpose": "review_drafts",
+        "storeNames": ["Demo"],
+        "recipients": ["owner@example.test"],
+        "allowedSender": "sender@example.test",
+        "deliveryVersion": 1
+      }
+    ],
+    [
+      {
+        "kind": "download",
+        "datasets": ["business", "dishes"],
+        "storeNames": ["Demo"]
+      },
+      {
+        "kind": "email",
+        "purpose": "weekly_report",
+        "storeNames": ["Demo"],
+        "recipients": ["owner@example.test"],
+        "allowedSender": "sender@example.test",
+        "deliveryVersion": 1
+      }
+    ]
+  ]
+}

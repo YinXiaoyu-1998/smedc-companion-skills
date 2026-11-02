@@ -1,0 +1,929 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const path = require("node:path");
+const filename = path.join(__dirname, "../scripts/native-adapters.js");
+const factory = () => {
+  const create = vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
+    setTimeout,
+    clearTimeout,
+  });
+  return (tools, options = {}) =>
+    create(tools, {
+      officialBinding: {
+        entryName: "smedc",
+        namespace: "mcp__smedc__",
+        serviceOrigin: "https://api.smedatacenter.xyz",
+      },
+      ...options,
+    });
+};
+const hostTask = {
+  id: "task-new",
+  kind: "cron",
+  projectId: "project-new",
+  executionEnvironment: "local",
+  status: "PAUSED",
+  rrule: "FREQ=DAILY;BYHOUR=3;BYMINUTE=45",
+  model: "gpt-6.1-sol",
+  reasoningEffort: "high",
+  notificationPolicy: "failed_runs_only",
+  prompt: "Use installed workflow",
+};
+test("install reads native host schedule and repeats without a duplicate task", async () => {
+  let creates = 0;
+  const journal = {};
+  const tools = {
+    mcp__codex_app__list_projects: async () => ({
+      projects: [{ id: "project-new", type: "local" }],
+    }),
+    mcp__codex_app__automation_update: async (input) => {
+      if (input.mode === "create") creates++;
+      return {
+        content: [
+          { type: "text", text: "Created automation in the app." },
+          {
+            type: "text",
+            text: JSON.stringify({
+              automationId: "task-new",
+              mode: input.mode,
+              status: "PAUSED",
+            }),
+          },
+        ],
+      };
+    },
+    exec_command: async () => ({
+      exit_code: 0,
+      output: JSON.stringify(hostTask),
+    }),
+  };
+  const native = factory()(tools, { localScript: "/isolated/workflow.py" });
+  const input = {
+    workflowId: "flow",
+    projectId: "project-new",
+    prompt: "Use installed workflow",
+    name: "Example",
+    rrule: hostTask.rrule,
+    model: hostTask.model,
+    reasoningEffort: "high",
+    timezone: "Asia/Shanghai",
+    platform: "macos",
+  };
+  await native.install(input, journal, async () => {});
+  await native.install(input, journal, async () => {});
+  assert.equal(creates, 1);
+  assert.equal(journal.hostSnapshot.state, "paused");
+});
+test("lost host create response is not retried on a repeated install", async () => {
+  let creates = 0;
+  const journal = {};
+  const native = factory()({
+    mcp__codex_app__list_projects: async () => ({ projects: [{ id: "p" }] }),
+    mcp__codex_app__automation_update: async () => {
+      creates++;
+      throw new Error("timeout");
+    },
+  });
+  const input = {
+    workflowId: "w",
+    projectId: "p",
+    platform: "macos",
+    timezone: "Asia/Shanghai",
+    model: "gpt-6.1-sol",
+    reasoningEffort: "high",
+    name: "Synthetic",
+    prompt: "Use installed workflow",
+    rrule: "FREQ=DAILY;BYHOUR=3;BYMINUTE=45",
+  };
+  await assert.rejects(native.install(input, journal, async () => {}));
+  await assert.rejects(
+    native.install(input, journal, async () => {}),
+    /unknown/,
+  );
+  assert.equal(creates, 1);
+});
+test("revoked live control blocks a native Gmail send", async () => {
+  let sends = 0;
+  const native = factory()({
+    mcp__codex_apps__gmail_get_profile: async () => ({
+      emailAddress: "sender@example.test",
+    }),
+    mcp__smedc__manage_workflow_run: async () => {
+      throw new Error("revoked");
+    },
+    mcp__codex_apps__gmail_send_email: async () => {
+      sends++;
+    },
+  });
+  await assert.rejects(
+    native.sendEmail(
+      {
+        workflowId: "w",
+        installationId: "i",
+        runId: "r",
+        assignmentEpoch: 1,
+        controlVersion: 1,
+      },
+      {
+        actionId: "a",
+        identity: {
+          kind: "email",
+          sender: "sender@example.test",
+          recipients: ["receiver@example.test"],
+        },
+        artifactHash: "hash",
+        correlationMarker: "marker",
+      },
+      {
+        artifactHash: "hash",
+        payload: { mime_type: "text/html", body: { content: "Final" } },
+      },
+    ),
+    /revoked/,
+  );
+  assert.equal(sends, 0);
+});
+test("readback confirms the exact sent artifact without a manual-resolution bypass", async () => {
+  const crypto = require("node:crypto");
+  const content = "<html>Final report</html>";
+  const hash = crypto.createHash("sha256").update(content).digest("hex");
+  let receipt;
+  const intent = {
+    actionId: "a",
+    identity: {
+      kind: "email",
+      purpose: "review_drafts",
+      sender: "sender@example.test",
+      recipients: ["receiver@example.test"],
+    },
+    artifactHash: hash,
+    correlationMarker: "marker",
+  };
+  const native = factory()(
+    {
+      mcp__codex_apps__gmail_get_profile: async () => ({
+        emailAddress: "sender@example.test",
+      }),
+      mcp__smedc__manage_workflow_run: async () => ({ ok: true }),
+      mcp__smedc__record_workflow_action: async (input) => {
+        if (input.operation.kind === "intent")
+          return {
+            actions: [
+              {
+                actionId: "a",
+                state: "intent",
+                permitted: true,
+                identityHash: "identity-hash",
+              },
+            ],
+          };
+        receipt = input.operation.receipts[0];
+        return { recorded: 1, receipts: [receipt] };
+      },
+      mcp__codex_apps__gmail_send_email: async () => ({ id: "provider-id" }),
+      mcp__codex_apps__gmail_read_email_thread: async () => ({
+        messages: [
+          {
+            id: "provider-id",
+            label_ids: ["SENT"],
+            payload: {
+              headers: [
+                { name: "From", value: "sender@example.test" },
+                { name: "To", value: "receiver@example.test" },
+                { name: "Subject", value: "Weekly [marker]" },
+              ],
+              mime_type: "text/html",
+              body: { content },
+            },
+          },
+        ],
+      }),
+    },
+    { saveOutcome: async () => {} },
+  );
+  const result = await native.sendEmail(
+    {
+      workflowId: "w",
+      installationId: "i",
+      runId: "r",
+      assignmentEpoch: 1,
+      controlVersion: 1,
+    },
+    intent,
+    {
+      artifactHash: hash,
+      subject: "Weekly",
+      payload: { mime_type: "text/html", body: { content } },
+    },
+  );
+  assert.equal(result.state, "confirmed");
+  assert.equal(receipt.evidence, "provider_readback");
+  assert.equal(receipt.providerReadback.providerReceiptId, "provider-id");
+});
+test("long native operation renews its lease and retains uncertain outcome after renewal failure", async () => {
+  let timer;
+  let renews = 0;
+  let finish;
+  const durable = [];
+  const clock = {
+    setTimeout: (fn) => {
+      timer = fn;
+      return 1;
+    },
+    clearTimeout: () => {
+      timer = undefined;
+    },
+  };
+  const native = factory()(
+    {
+      mcp__smedc__manage_workflow_run: async () => {
+        renews++;
+        if (renews === 2) throw new Error("revoked");
+        return {};
+      },
+    },
+    { timers: clock },
+  );
+  const session = {
+    workflowId: "w",
+    installationId: "i",
+    runId: "r",
+    assignmentEpoch: 1,
+    controlVersion: 1,
+    renewAfterSeconds: 30,
+  };
+  const operation = native.withLease(
+    session,
+    { stage: "download", effect: "external_write" },
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    async (event) => durable.push(event),
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  timer();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(renews, 1);
+  timer();
+  await new Promise((resolve) => setImmediate(resolve));
+  finish({ jobId: "original-job" });
+  await assert.rejects(operation, /lease/i);
+  assert.equal(durable.at(-1).state, "unknown");
+  assert.equal(durable.at(-1).result.jobId, "original-job");
+  await assert.rejects(native.check(session, { actionId: "next" }), /lease/i);
+});
+test("host activation is refused when the central assignment belongs to another installation", async () => {
+  let updates = 0;
+  const native = factory()({
+    mcp__smedc__get_enterprise_workflow: async () => ({
+      workflowId: "w",
+      controlState: "active",
+      assignedInstallationId: "another",
+      capability: {
+        id: "enterprise-workflows-v1",
+        version: "1.0.0",
+        configurationSchemaVersion: 1,
+        minimumLauncherVersion: "0.16.0",
+      },
+    }),
+    mcp__codex_app__automation_update: async () => {
+      updates++;
+    },
+  });
+  await assert.rejects(
+    native.setHostState(
+      {
+        workflowId: "w",
+        enterpriseKey: "demo",
+        workflowType: "weekly-business-report",
+        installationId: "mine",
+        handoff: {
+          kind: "legacy_paused",
+          acknowledged: true,
+          proofHash: "a".repeat(64),
+          confirmedAt: "2026-11-02T00:00:00Z",
+        },
+      },
+      { workflowId: "w", taskId: "task", hostSnapshot: {} },
+      "enabled",
+      async () => {},
+    ),
+    /assignment/i,
+  );
+  assert.equal(updates, 0);
+});
+test("an unknown send is reconciled after a fresh task context without sending again", async () => {
+  const crypto = require("node:crypto");
+  const content = "<p>New draft 😀</p>";
+  const hash = crypto.createHash("sha256").update(content).digest("hex");
+  let sends = 0,
+    state = "intent",
+    resolution;
+  const identity = {
+    kind: "email",
+    purpose: "review_drafts",
+    sender: "sender@example.test",
+    recipients: ["owner@example.test"],
+  };
+  const intent = {
+    actionId: "old-action",
+    identity,
+    artifactHash: hash,
+    correlationMarker: "stable-marker",
+  };
+  const tools = {
+    mcp__smedc__manage_workflow_run: async () => ({}),
+    mcp__smedc__record_workflow_action: async ({ operation }) => {
+      if (operation.kind === "intent")
+        return {
+          actions: [
+            {
+              actionId: intent.actionId,
+              state,
+              permitted: state === "intent",
+              identityHash: "a".repeat(64),
+            },
+          ],
+        };
+      if (operation.kind === "get")
+        return {
+          actions: [{ ...intent, state, identityHash: "a".repeat(64) }],
+        };
+      if (operation.kind === "resolve_unknown") {
+        resolution = operation.receipt;
+        return { recorded: 1 };
+      }
+      state = operation.receipts[0].state;
+      return { recorded: 1 };
+    },
+    mcp__codex_apps__gmail_get_profile: async () => ({
+      emailAddress: "sender@example.test",
+    }),
+    mcp__codex_apps__gmail_send_email: async () => {
+      sends++;
+      throw new Error("Response lost after provider dispatch");
+    },
+    mcp__codex_apps__gmail_search_email_ids: async () => ({
+      messages: [{ id: "original-provider-id" }],
+    }),
+    mcp__codex_apps__gmail_read_email_thread: async () => ({
+      messages: [
+        {
+          id: "original-provider-id",
+          label_ids: ["SENT"],
+          subject: "Drafts [stable-marker]",
+          from: "sender@example.test",
+          to: "owner@example.test",
+          payload: { body: { content } },
+        },
+      ],
+    }),
+  };
+  const session = {
+    workflowId: "w",
+    installationId: "replacement-installation",
+    runId: "replacement-run",
+    assignmentEpoch: 2,
+    controlVersion: 2,
+  };
+  const native = factory()(tools, { saveOutcome: async () => {} });
+  assert.equal(
+    (
+      await native.sendEmail(session, intent, {
+        artifactHash: hash,
+        subject: "Drafts",
+        payload: { body: { content } },
+      })
+    ).state,
+    "unknown",
+  );
+  assert.equal(
+    (
+      await native.sendEmail(session, intent, {
+        artifactHash: hash,
+        subject: "Drafts",
+        payload: { body: { content } },
+      })
+    ).reconcile,
+    true,
+  );
+  assert.equal(
+    (
+      await factory()(tools).reconcileEmail(session, intent, {
+        identityHash: "a".repeat(64),
+      })
+    ).state,
+    "confirmed",
+  );
+  assert.equal(sends, 1);
+  assert.equal(resolution.receiptId, "original-provider-id");
+});
+test("a fresh machine discovers all migration pages and restores original unknown metadata without old local state", async () => {
+  const crypto = require("node:crypto");
+  const hash = (value) =>
+    crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  const chunks = [
+    [
+      {
+        completedActions: [],
+        recoveryItems: [
+          {
+            disposition: "open",
+            itemId: "unfinished",
+            kind: "business",
+            scope: {
+              kind: "report",
+              storeNames: ["Demo"],
+              window: { endDate: "2025-10-26", startDate: "2025-10-20" },
+            },
+            stage: "delivering",
+          },
+        ],
+        unresolved: [],
+        workflowId: "weekly",
+      },
+    ],
+    [
+      {
+        completedActions: [],
+        recoveryItems: [
+          {
+            disposition: "waived",
+            itemId: "waived-evidence",
+            kind: "evidence",
+            resolutionReason: "Explicit legacy waiver",
+            scope: { kind: "unknown_scope", reason: "missing_local_evidence" },
+            stage: "finished",
+          },
+        ],
+        unresolved: [],
+        workflowId: "weekly",
+      },
+    ],
+  ];
+  // Literal objects are in canonical key order; independent crypto computes the expected chain.
+  const chunkHashes = chunks.map(hash);
+  let chain = "0".repeat(64);
+  chunks.forEach((_, i) => (chain = hash([chain, i, chunkHashes[i], 1])));
+  const summary = {
+    migrationId: "discovered-migration",
+    workflowIds: ["daily", "reviews", "weekly"],
+    stage: "imported",
+    sourceSnapshotHash: "a".repeat(64),
+    recordCount: 2,
+    chunkCount: 2,
+    chunksDigest: chain,
+    targetVersion: 1,
+    createdAt: "2026-10-01T00:00:00Z",
+  };
+  const archived = [];
+  let created = 0;
+  const current = {
+    workflowId: "weekly",
+    enterpriseKey: "demo-enterprise",
+    workflowType: "weekly-business-report",
+    version: 7,
+    integration: { version: 4 },
+    controlVersion: 3,
+    assignmentEpoch: 2,
+    assignedInstallationId: "old-managed",
+    configuration: { delivery: { recipients: ["new-owner@example.test"] } },
+    capability: {
+      id: "enterprise-workflows-v1",
+      version: "1.0.0",
+      configurationSchemaVersion: 1,
+      minimumLauncherVersion: "0.16.0",
+    },
+  };
+  const tools = {
+    mcp__smedc__get_enterprise_workflow: async () => current,
+    mcp__smedc__get_workflow_status: async () => ({
+      ...current,
+      pendingActions: [
+        { actionId: "unknown-mail", runId: "old-run", state: "unknown" },
+      ],
+      nextActionCursor: null,
+      migrations: [summary],
+      nextMigrationCursor: null,
+      installations: [
+        {
+          installationId: "old-managed",
+          hostSnapshot: {
+            cron: "current-confirmed-schedule",
+            model: "gpt-6.1-sol",
+            state: "paused",
+          },
+        },
+      ],
+    }),
+    mcp__smedc__record_workflow_action: async () => ({
+      actions: [
+        {
+          actionId: "unknown-mail",
+          state: "unknown",
+          identity: { kind: "email" },
+          identityHash: "b".repeat(64),
+          artifactHash: "c".repeat(64),
+          correlationMarker: "original-provider-marker",
+        },
+      ],
+    }),
+    mcp__smedc__manage_workflow_installation: async ({ operation }) => {
+      const i = operation.cursor ?? 0;
+      return {
+        ...summary,
+        manifest: {
+          workflows: [
+            {
+              workflowId: "weekly",
+              configuration: {
+                delivery: { recipients: ["obsolete-owner@example.test"] },
+              },
+              hostSnapshot: { cron: "historical-schedule" },
+            },
+          ],
+        },
+        chunks: [{ sequence: i, chunk: chunks[i], chunkHash: chunkHashes[i] }],
+        nextCursor: i === 0 ? 1 : null,
+      };
+    },
+    mcp__codex_app__automation_update: async () => {
+      created++;
+    },
+  };
+  let state;
+  const restored = await factory()(tools).restoreMachine(
+    {
+      enterpriseKey: "demo-enterprise",
+      workflowType: "weekly-business-report",
+    },
+    async (value) => {
+      state = value;
+    },
+    async (page) => {
+      archived.push(page);
+      return "local-page-" + archived.length;
+    },
+  );
+  assert.equal(restored.configurationVersion, 7);
+  assert.equal(restored.hostSnapshot.cron, "current-confirmed-schedule");
+  assert.equal(restored.pendingActionCount, 1);
+  assert.equal(restored.recoveryItemCounts.open, 1);
+  assert.equal(restored.recoveryItemCounts.waived, 1);
+  assert.equal(
+    archived.find((p) => p.kind === "pending_actions").actions[0]
+      .correlationMarker,
+    "original-provider-marker",
+  );
+  assert.equal(archived.filter((p) => p.kind === "migration_chunk").length, 2);
+  assert.equal(state.restorationComplete, true);
+  assert.equal(restored.readyForActivation, false);
+  assert.equal(created, 0);
+});
+
+test("the actual local audit bridge persists redacted full errors and preserves the tool result", async () => {
+  const os = require("node:os"),
+    cp = require("node:child_process");
+  const run = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "smedc-audit-")),
+  );
+  const logger = path.join(__dirname, "../scripts/audit_log.py");
+  const source = fs.readFileSync(
+    path.join(__dirname, "../scripts/audited-tool.js"),
+    "utf8",
+  );
+  const audit = vm.runInNewContext(source);
+  const original = {
+    isError: true,
+    content: [
+      { type: "text", text: "Synthetic full failure; Bearer SYNTHETIC_SECRET" },
+    ],
+  };
+  try {
+    const tools = {
+      exec_command: async ({ cmd }) => {
+        try {
+          return {
+            exit_code: 0,
+            output: cp.execFileSync("/bin/sh", ["-c", cmd], {
+              encoding: "utf8",
+            }),
+          };
+        } catch (error) {
+          return {
+            exit_code: error.status,
+            output: String(error.stdout) + String(error.stderr),
+          };
+        }
+      },
+    };
+    const result = await audit(
+      tools,
+      logger,
+      run,
+      { stage: "query", tool: "synthetic", effect: "read" },
+      async () => original,
+      "python3",
+    );
+    assert.equal(result, original);
+    const file = fs
+      .readdirSync(path.join(run, "call-audit"))
+      .find((name) => name.endsWith(".json"));
+    const persisted = JSON.parse(
+      fs.readFileSync(path.join(run, "call-audit", file), "utf8"),
+    );
+    assert.equal(persisted.status, "failed");
+    assert(!JSON.stringify(persisted).includes("SYNTHETIC_SECRET"));
+    assert(JSON.stringify(persisted).includes("Synthetic full failure"));
+  } finally {
+    fs.rmSync(run, { recursive: true, force: true });
+  }
+});
+test("a clear Gmail send receipt confirms observable attachment identity without invented MIME bytes, while unknown recovery stays unknown", async () => {
+  const crypto = require("node:crypto");
+  const html = "<html>Verified final report</html>";
+  const artifactHash = crypto.createHash("sha256").update(html).digest("hex");
+  let sends = 0,
+    confirmed = 0;
+  const identity = {
+    kind: "email",
+    purpose: "weekly_report",
+    sender: "sender@example.test",
+    recipients: ["owner@example.test"],
+    storeNames: ["Demo"],
+    window: { startDate: "2026-10-26", endDate: "2026-11-01" },
+    deliveryVersion: 1,
+  };
+  const intent = {
+    actionId: "clear-send",
+    identity,
+    artifactHash,
+    correlationMarker: "exact-marker",
+  };
+  const tools = {
+    mcp__smedc__manage_workflow_run: async () => ({}),
+    mcp__smedc__record_workflow_action: async ({ operation }) => {
+      if (operation.kind === "intent")
+        return {
+          actions: [
+            {
+              actionId: intent.actionId,
+              state: "intent",
+              permitted: true,
+              identityHash: "a".repeat(64),
+            },
+          ],
+        };
+      if (operation.kind === "get")
+        return {
+          actions: [
+            { ...intent, state: "unknown", identityHash: "a".repeat(64) },
+          ],
+        };
+      if (
+        operation.receipts?.[0].state === "confirmed" ||
+        operation.receipt?.state === "confirmed"
+      )
+        confirmed++;
+      return { recorded: 1 };
+    },
+    mcp__codex_apps__gmail_get_profile: async () => ({
+      email_address: "sender@example.test",
+    }),
+    mcp__codex_apps__gmail_send_email: async () => {
+      sends++;
+      return { id: "actual-send-id" };
+    },
+    mcp__codex_apps__gmail_read_email_thread: async () => ({
+      messages: [
+        {
+          message_id: "actual-send-id",
+          from: { email: "sender@example.test" },
+          to: [{ email: "owner@example.test" }],
+          cc: [],
+          bcc: [],
+          subject: "Weekly [exact-marker]",
+          attachments: [
+            {
+              filename: "final.html",
+              attachment_id: "actual-attachment-id",
+              size: Buffer.byteLength(html),
+              mime_type: "text/html",
+            },
+          ],
+        },
+      ],
+    }),
+    mcp__codex_apps__gmail_search_email_ids: async () => ({
+      message_ids: ["actual-send-id"],
+    }),
+  };
+  const session = {
+    workflowId: "w",
+    installationId: "i",
+    runId: "r",
+    assignmentEpoch: 1,
+    controlVersion: 1,
+  };
+  const native = factory()(tools, { saveOutcome: async () => {} });
+  const sent = await native.sendEmail(session, intent, {
+    artifactHash,
+    subject: "Weekly",
+    payload: {
+      mime_type: "multipart/mixed",
+      parts: [
+        { mime_type: "text/html", body: { content: "Report summary" } },
+        {
+          mime_type: "text/html",
+          filename: "final.html",
+          content_disposition: "attachment",
+          body: { content: html },
+        },
+      ],
+    },
+  });
+  assert.equal(sent.state, "confirmed");
+  assert.equal(sends, 1);
+  assert.equal(confirmed, 1);
+  const recovered = await native.reconcileEmail(session, intent, {
+    identityHash: "a".repeat(64),
+  });
+  assert.equal(recovered.state, "unknown");
+  assert.equal(sends, 1);
+  assert.equal(confirmed, 1);
+});
+test("package maintenance updates the same paused native task and preserves its schedule/model", async () => {
+  let actual,
+    creates = 0,
+    updates = 0;
+  const tools = {
+    mcp__codex_app__list_projects: async () => ({
+      projects: [{ id: "project-new", type: "local" }],
+    }),
+    mcp__codex_app__automation_update: async (input) => {
+      if (input.mode === "create") {
+        creates++;
+        actual = { ...hostTask, ...input, id: "task-new" };
+      }
+      if (input.mode === "update") {
+        updates++;
+        actual = { ...actual, ...input };
+      }
+      return { automationId: "task-new" };
+    },
+    exec_command: async () => ({
+      exit_code: 0,
+      output: JSON.stringify(actual),
+    }),
+  };
+  const native = factory()(tools, { localScript: "/isolated/workflow.py" }),
+    journal = {};
+  const input = {
+    workflowId: "flow",
+    name: "Example",
+    prompt: "Use installed workflow",
+    rrule: hostTask.rrule,
+    model: hostTask.model,
+    reasoningEffort: "high",
+    projectId: "project-new",
+    platform: "macos",
+    timezone: "Asia/Shanghai",
+  };
+  await native.install(input, journal, async () => {});
+  await native.install(
+    { ...input, prompt: "Use updated versioned workflow", update: true },
+    journal,
+    async () => {},
+  );
+  assert.equal(creates, 1);
+  assert.equal(updates, 1);
+  assert.equal(actual.prompt, "Use updated versioned workflow");
+  assert.equal(actual.rrule, hostTask.rrule);
+  assert.equal(actual.model, hostTask.model);
+  assert.equal(journal.taskId, "task-new");
+});
+test("activation cannot mutate central installation state while its real local host task is active", async () => {
+  let mutations = 0;
+  const tools = {
+    mcp__smedc__get_enterprise_workflow: async () => ({
+      workflowId: "w",
+      assignedInstallationId: "i",
+      controlState: "active",
+      capability: {
+        id: "enterprise-workflows-v1",
+        version: "1.0.0",
+        configurationSchemaVersion: 1,
+        minimumLauncherVersion: "0.16.0",
+      },
+    }),
+    exec_command: async () => ({
+      exit_code: 0,
+      output: JSON.stringify({ id: "task", kind: "cron", status: "ACTIVE" }),
+    }),
+    mcp__smedc__manage_workflow_installation: async () => {
+      mutations++;
+    },
+  };
+  const native = factory()(tools, { localScript: "/isolated/workflow.py" });
+  await assert.rejects(
+    native.activate(
+      {
+        workflowId: "w",
+        enterpriseKey: "demo",
+        workflowType: "meituan-daily-ingestion",
+        installationId: "i",
+        handoff: {
+          kind: "legacy_paused",
+          acknowledged: true,
+          proofHash: "a".repeat(64),
+          confirmedAt: "2026-11-02T00:00:00Z",
+        },
+      },
+      { workflowId: "w", taskId: "task", hostSnapshot: { taskId: "task" } },
+      async () => {},
+    ),
+    /PAUSED/,
+  );
+  assert.equal(mutations, 0);
+});
+
+test("the native bridge refuses missing official bindings and foreign server suffix matches", async () => {
+  let calls = 0;
+  const tools = {
+    mcp__smedc__get_enterprise_workflow: async () => {
+      calls++;
+    },
+    mcp__other__get_enterprise_workflow: async () => {
+      calls++;
+    },
+  };
+  await assert.rejects(
+    factory()(tools, { officialBinding: null }).getWorkflow({
+      enterpriseKey: "demo",
+      workflowType: "weekly-business-report",
+    }),
+    /core-verified/,
+  );
+  await assert.rejects(
+    factory()(tools, {
+      smedcTools: {
+        get_enterprise_workflow: "mcp__other__get_enterprise_workflow",
+      },
+    }).getWorkflow({
+      enterpriseKey: "demo",
+      workflowType: "weekly-business-report",
+    }),
+    /Nonofficial/,
+  );
+  assert.equal(calls, 0);
+});
+test("the concrete exec bridge roundtrips shell metacharacters as JSON data without executing them", async () => {
+  const os = require("node:os"),
+    cp = require("node:child_process");
+  const run = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), "smedc-shell-")),
+    ),
+    sentinel = path.join(run, "must-not-exist");
+  const text =
+    "Synthetic ' \" $(touch " +
+    sentinel +
+    ") `touch " +
+    sentinel +
+    "`\nStore 😀";
+  const expected = {
+    enterpriseName: text,
+    storeName: text,
+    sourceAccount: text,
+  };
+  try {
+    const tools = {
+      exec_command: async ({ cmd }) => {
+        try {
+          return {
+            exit_code: 0,
+            output: cp.execFileSync("/bin/sh", ["-c", cmd], {
+              encoding: "utf8",
+            }),
+          };
+        } catch (error) {
+          return {
+            exit_code: error.status,
+            output: String(error.stdout) + String(error.stderr),
+          };
+        }
+      },
+    };
+    const native = factory()(tools, {
+      localScript: path.join(__dirname, "../scripts/workflow.py"),
+    });
+    const target = path.join(run, "state's data.json");
+    await native.saveLocal(target, expected);
+    assert.deepEqual(JSON.parse(fs.readFileSync(target, "utf8")), expected);
+    assert.equal(fs.existsSync(sentinel), false);
+  } finally {
+    fs.rmSync(run, { recursive: true, force: true });
+  }
+});

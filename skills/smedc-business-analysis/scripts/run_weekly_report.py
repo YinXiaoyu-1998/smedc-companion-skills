@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--company")
-    parser.add_argument("--store-groups", type=Path, help="Explicit full-name 大店/小店 JSON configuration.")
+    parser.add_argument("--store-groups", type=Path, help="Optional named groups with exact full store names.")
     return parser.parse_args()
 
 
