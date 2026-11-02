@@ -499,6 +499,11 @@ def build(value):
             if not workflow:
                 raise ValueError("Control needs stable workflow identity")
             data = json.loads(content)
+            if not isinstance(data, dict):
+                raise ValueError(
+                    "Control source must be a JSON object; agent must prepare a "
+                    "provenance-verified private canonical projection; see references/migration.md"
+                )
             if data.get("active") is True or data.get("lockHeld") is True:
                 raise ValueError("Active source lock cannot be stolen")
             selected_lists = {

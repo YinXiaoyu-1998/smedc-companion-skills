@@ -45,6 +45,34 @@ class WorkflowCliTests(unittest.TestCase):
             value["window"], {"startDate": "2026-11-01", "endDate": "2026-11-02"}
         )
 
+    def test_migration_rejects_array_control_with_private_projection_guidance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            control = Path(temporary).resolve() / "control.json"
+            control.write_text(json.dumps([{"status": "SYNTHETIC_SOURCE_VALUE"}]))
+            result, _ = self.run_cli(
+                "migration",
+                {
+                    "integration": {},
+                    "targetVersion": 1,
+                    "workflows": [{"workflowId": "synthetic-workflow"}],
+                    "sources": [
+                        {
+                            "id": "synthetic-control",
+                            "kind": "control",
+                            "workflowId": "synthetic-workflow",
+                            "path": str(control),
+                        }
+                    ],
+                },
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Control source must be a JSON object", result.stderr)
+            self.assertIn(
+                "provenance-verified private canonical projection", result.stderr
+            )
+            self.assertNotIn("Traceback", result.stderr)
+            self.assertNotIn("SYNTHETIC_SOURCE_VALUE", result.stderr)
+
     def test_migration_preserves_three_schedules_and_all_151_receipts_in_bounded_pages(
         self,
     ):
