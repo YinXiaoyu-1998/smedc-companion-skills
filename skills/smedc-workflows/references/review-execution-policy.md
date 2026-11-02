@@ -51,3 +51,5 @@ const native = (0, eval)(load("workflowAdapterSource"))(audited, {
 `review-execution-policy.json` 声明当前精确语义。迁移器仅对四个已知 policy 字段逐项核对；引用路径只允许已知 logger／wrapper／reference 文件名，换机时生成本包的准确路径，不沿用旧机路径。任何新增字段、改变规则或不明引用返回 source_conflict，先核对再迁移。
 
 ignoredReviewIdentities 每项为 source（产品／账号／渠道／优先POI或准确全名）、feedbackId、reason、purpose=exclude_source_record；它是有意排除，永远不是完成动作或发布回执。旧 poiId/source/feedbackId 只有唯一匹配已确认来源账号与映射才可转换；歧义阻塞。新机直接从中央配置恢复，不依赖旧机器的私有台账路径。
+
+每个所选标准门店 × 所选评价渠道都须有显式来源映射；缺一渠道即阻止准备／启用／本轮 task 生成，不能静默省略。来源排除只适用于明确来源身份，不代表未知渠道已经停业或完成。未完成草案仍可保存，补齐映射或明确调整所选渠道后重检。

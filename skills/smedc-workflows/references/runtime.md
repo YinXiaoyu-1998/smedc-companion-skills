@@ -45,7 +45,7 @@ pythonExecutable 先从实际 load_workspace_dependencies 取得并检查版本�
 
 1. 读取当前官方身份、工作流／控制／指定安装。权限失败或配置不可读就停止本工作流新外部动作，不读取待上传原件。按 `workflow.py lock` 原子取得本机锁；既有锁不能因年龄被抢走。
 2. `workflow.py window` 输入 workflowType 和带时区 now：每日是前一完整营业日；评价是前一日＋当天；周报为上一自然周。存在未完成轮则传 resume 原窗口，跨午夜保持原日期。漏跑提示基于中央状态／已保存宿主计划，历史补数必须先取得明确范围和服务 prepare_backfill 预览，不自动扩大到数月。
-3. `native.openRun` 重新取当前配置后 start 或 resume，服务返回不可变 snapshot、runId、leaseExpiresAt 和续期间隔。原子保存完整 binding、snapshot、窗口、包版本和检查点。普通配置更新从下一轮生效，当前轮不混入新门店或邮箱。
+3. `native.openRun` 重新取当前配置后 start 或 resume，服务返回不可变 snapshot、runId、leaseExpiresAt 和续期间隔。原子保存完整 binding、snapshot、窗口、包版本和检查点。普通配置更新从下一轮生效，当前轮不混入新门店或邮箱。暂停后恢复或明确接管后，openRun 保留原 runId，重新读取当前指定安装、assignmentEpoch 和 controlVersion 交由服务验证；不复用旧绑定，也不另建新日期轮。移除门店、渠道、数据能力、收件人或发件人、停用发布／邮件及新增忽略身份属于即时收缩；服务累计限制未完成轮，再扩大设置也不会恢复该轮已撤回的范围。
 4. 在每个外部动作前 `native.claim(session,intent)`：renew、check_actions、持久 intent；仅 permitted=true 可执行新动作。即便已保存 intent，真正发起前再 `native.check` 核对停用、授权、epoch、租约与业务权限。长阶段按服务 renewAfterSeconds 续期，失败停止新动作。不要依赖一次启动检查。
 5. 原业务技能执行来源读取／导出、上传、评价与报告阶段。每一范围边界落盘，保留导出任务 ID 和来源完整筛选；故障只阻塞相关数据类／来源／邮件阶段。浏览器超时先读回原导出任务，不重复创建。
 6. 动作结果独立记录：accepted/queued/processing 不是完成；上传必须 published/applied，评价须核对准确来源身份及真实完整商家回复，邮件须已发送原件读回。`native.record` 只提交匹配 intent 的有限回执；外部请求结果不明记 unknown。正文或 artifact 重生成不换去重身份，通知按每评价×收件人保留声明，不能靠重分批次绕过去重。

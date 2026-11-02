@@ -1047,3 +1047,58 @@ test("host readback records a user changed schedule instead of restoring a stale
   assert.equal(recorded.model, actual.model);
   assert.equal(recorded.reasoningEffort, "high");
 });
+
+test("openRun rebinds the original run to current verified control and assignment", async () => {
+  const snapshot = {
+    workflowType: "meituan-daily-ingestion",
+    window: { startDate: "2026-10-01", endDate: "2026-10-01" },
+    configuration: { datasets: ["business"] },
+  };
+  const current = {
+    capability: {
+      id: "enterprise-workflows-v1",
+      version: "1.0.0",
+      configurationSchemaVersion: 1,
+      minimumLauncherVersion: "0.16.0",
+    },
+    workflowId: "flow",
+    controlState: "active",
+    assignedInstallationId: "mac-a",
+    assignmentEpoch: 1,
+    controlVersion: 5,
+  };
+  const persisted = {
+    workflowId: "flow",
+    runId: "original-run",
+    installationId: "mac-a",
+    assignmentEpoch: 1,
+    controlVersion: 2,
+    snapshot,
+  };
+  const native = factory()({
+    mcp__smedc__get_enterprise_workflow: async () => current,
+    mcp__smedc__manage_workflow_run: async ({ workflowId, operation }) => {
+      assert.equal(workflowId, "flow");
+      assert.equal(operation.kind, "resume");
+      assert.equal(operation.runId, "original-run");
+      assert.equal(operation.installationId, current.assignedInstallationId);
+      assert.equal(operation.assignmentEpoch, current.assignmentEpoch);
+      assert.equal(operation.controlVersion, current.controlVersion);
+      return { runId: "original-run", snapshot };
+    },
+  });
+  const input = {
+    enterpriseKey: "demo",
+    workflowType: snapshot.workflowType,
+    installationId: "mac-a",
+    resume: persisted,
+  };
+  const resumed = await native.openRun(input);
+  assert.deepEqual(resumed.snapshot, snapshot);
+  current.assignedInstallationId = "mac-b";
+  current.assignmentEpoch = 2;
+  const adopted = await native.openRun({ ...input, installationId: "mac-b" });
+  assert.equal(adopted.runId, "original-run");
+  assert.deepEqual(adopted.snapshot.window, snapshot.window);
+  await assert.rejects(native.openRun(input), /assigned elsewhere/);
+});
