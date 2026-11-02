@@ -495,6 +495,11 @@ class WorkflowCliTests(unittest.TestCase):
             task["unrecognizedReviewGraphicsPolicy"]["action"], "omit_unrecognized_only"
         )
         self.assertTrue(task["errorRecordingPolicy"]["preDispatchCheckpointRequired"])
+        value["snapshot"]["configuration"]["channels"] = ["meituan", "dianping"]
+        result, _ = self.run_cli("review-task", value)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("channel", result.stderr)
+        value["snapshot"]["configuration"]["channels"] = ["meituan"]
         value["snapshot"]["configuration"]["executionPolicy"]["version"] = 2
         result, _ = self.run_cli("review-task", value)
         self.assertNotEqual(result.returncode, 0)

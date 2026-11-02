@@ -98,8 +98,13 @@ def task(value):
         and m["source"]["channel"] in config["channels"]
         and m["storeName"] in config["storeNames"]
     ]
-    if set(config["storeNames"]) - {m["storeName"] for m in mappings}:
-        raise ValueError("Selected review store has no source mapping")
+    for store in config["storeNames"]:
+        for channel in config["channels"]:
+            if not any(
+                m["storeName"] == store and m["source"]["channel"] == channel
+                for m in mappings
+            ):
+                raise ValueError("Selected review store/channel has no source mapping")
     grouped = {}
     for mapping in mappings:
         grouped.setdefault(mapping["storeName"], []).append(

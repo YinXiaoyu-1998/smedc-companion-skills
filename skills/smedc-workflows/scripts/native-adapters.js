@@ -585,8 +585,19 @@
       current.assignedInstallationId !== input.installationId
     )
       throw new Error("Workflow paused or assigned elsewhere");
+    if (
+      input.resume?.workflowId &&
+      input.resume.workflowId !== current.workflowId
+    )
+      throw new Error("Resume workflow binding mismatch");
     const operation = input.resume
-      ? { kind: "resume", ...bind(input.resume) }
+      ? {
+          kind: "resume",
+          runId: input.resume.runId,
+          installationId: input.installationId,
+          assignmentEpoch: current.assignmentEpoch,
+          controlVersion: current.controlVersion,
+        }
       : {
           kind: "start",
           installationId: input.installationId,
@@ -608,7 +619,8 @@
     if (
       !run.snapshot ||
       run.snapshot.workflowType !== input.workflowType ||
-      !run.runId
+      !run.runId ||
+      (input.resume && run.runId !== input.resume.runId)
     )
       throw new Error("Run snapshot unavailable");
     return {
