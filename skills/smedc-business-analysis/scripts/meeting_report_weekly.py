@@ -294,11 +294,17 @@ def build_product_sales_per_10k_payload(
         }
         return {"enabled": False, "meta": unavailable_meta, "entities": []}
 
+    if not all("原始品项" in row and row.get("record_kind") in {"product", "fee"} for row in current_rows):
+        return {"enabled": False, "entities": [], "meta": {
+            **meta, "enabled": False,
+            "reason": "原始品项与收费分类尚未保留，请重新生成事实表后查看产品万元销量。",
+        }}
+
     stores = sorted({str(row.get("门店名称") or "") for row in current_rows if row.get("门店名称")})
     ordered_stores = [store for store in ["全体门店"] if store in stores] + [store for store in stores if store != "全体门店"]
     entities = []
     for store in ordered_stores:
-        store_rows = [row for row in current_rows if row.get("门店名称") == store and float(row.get("quantity") or 0) > 0]
+        store_rows = [row for row in current_rows if row.get("门店名称") == store and (float(row.get("quantity") or 0) > 0 or row.get("record_kind") == "fee")]
         store_rows.sort(key=lambda row: (-float(row.get(metric_field) or 0), str(row.get("产品名称") or "")))
         if not store_rows:
             continue
@@ -314,6 +320,9 @@ def build_product_sales_per_10k_payload(
             "rows": [
                 {
                     "name": str(row.get("产品名称") or "未知菜品"),
+                    "source_name": str(row.get("原始品项") or row.get("产品名称") or ""),
+                    "quantity_unit": "原品项单位",
+                    "record_kind": row["record_kind"],
                     "sales_class": str(row.get("销售分类") or "外卖"),
                     "stall": str(row.get("档口") or "未匹配"),
                     "quantity": round(float(row.get("quantity") or 0), 2),
@@ -1054,8 +1063,8 @@ HTML_TEMPLATE = r'''<!doctype html>
 
     <section class="section" id="product-sales-per-10k">
       <div class="section-head">
-        <div><div class="kicker">06 Product Sales per ¥10K</div><h2>产品万元销量：双口径预测与要货参考</h2></div>
-        <p class="note">菜品销量按订单分类拆分：店内销售归为“堂食”，其他值归为“外卖”；两类仍共用所选门店、当前统计区间的全渠道总分母。两个板块仅分母分别采用“订单营业收入”和“营业额(元)”。产品名优先采用“关联菜品名称”，为空时回退至“菜品名称”。</p>
+        <div><div class="kicker">06 Product Sales per ¥10K</div><h2>产品万元销量：同品动销与需求核查</h2></div>
+        <p class="note">菜品销量按订单分类拆分：店内销售归为“堂食”，其他值归为“外卖”；两类仍共用所选门店、当前统计区间的全渠道总分母。两个板块仅分母分别采用“订单营业收入”和“营业额(元)”。产品名优先采用“关联菜品名称”，原始品项分别保留。数量沿用原品项单位；来源未提供具体单位，不统一标为“份”，不跨规格换算。餐具和加工费等收费记录单列，不作实物备货依据。</p>
       </div>
       <div class="panel">
         <div class="panel-head">
@@ -1961,19 +1970,28 @@ HTML_TEMPLATE = r'''<!doctype html>
       }
       const query = String(input?.value || '').trim().toLocaleLowerCase('zh-CN');
       const allRows = entity?.rows || [];
-      const rows = query
+      const matchedRows = query
         ? allRows.filter(row => String(row.search_names || row.name || '').toLocaleLowerCase('zh-CN').includes(query))
-        : allRows.slice(0, 10);
+        : allRows;
+      const products = matchedRows.filter(row => row.record_kind !== 'fee');
+      const fees = matchedRows.filter(row => row.record_kind === 'fee');
+      const rows = query ? products : products.slice(0, 10);
+      const feeRows = query ? fees : fees.slice(0, 10);
       status.textContent = query
-        ? `找到 ${rows.length} 项 · 当前区间${panel.denominatorLabel} ${fmtWan(entity?.total_denominator || 0)}`
-        : `Top 10 · 当前区间${panel.denominatorLabel} ${fmtWan(entity?.total_denominator || 0)}`;
-      body.innerHTML = rows.length ? rows.map(row => `<tr>
-        <td>${row.name}</td>
-        <td>${row.sales_class}</td>
-        <td>${row.stall}</td>
-        <td>${fmtNum(row.quantity)} 份</td>
-        <td>${row.units_per_10k === null || row.units_per_10k === undefined ? '<b>N/A</b>' : `<b>${fmtNum(row.units_per_10k)}</b> 份/万元`}</td>
-      </tr>`).join('') : '<tr><td colspan="5">没有匹配的产品</td></tr>';
+        ? `找到 ${matchedRows.length} 项（收费记录单列） · 当前区间${panel.denominatorLabel} ${fmtWan(entity?.total_denominator || 0)}`
+        : `实物与饮品 Top 10 · 收费记录 ${fees.length} 项（展示前10项，可搜索） · 当前区间${panel.denominatorLabel} ${fmtWan(entity?.total_denominator || 0)}`;
+      const productLabel = row => htmlText(row.name) + (row.source_name && row.source_name !== row.name ? `<br><small>${htmlText(row.source_name)}</small>` : '');
+      body.innerHTML = rows.map(row => `<tr>
+        <td>${productLabel(row)}</td>
+        <td>${htmlText(row.sales_class)}</td>
+        <td>${htmlText(row.stall)}</td>
+        <td>${fmtNum(row.quantity)} 原品项单位</td>
+        <td>${row.units_per_10k === null || row.units_per_10k === undefined ? '<b>N/A</b>' : `<b>${fmtNum(row.units_per_10k)}</b> 原品项单位/万元`}</td>
+      </tr>`).join('');
+      if (feeRows.length) body.innerHTML += '<tr><th colspan="5" scope="colgroup">餐具与收费记录（单列，不作实物备货依据）</th></tr>' + feeRows.map(row => `<tr>
+        <td>${productLabel(row)}</td><td>${htmlText(row.sales_class)}</td><td>${htmlText(row.stall)}</td>
+        <td>${fmtNum(row.quantity)} 原品项单位</td><td>收费/选择记录</td></tr>`).join('');
+      if (!rows.length && !feeRows.length) body.innerHTML = '<tr><td colspan="5">没有匹配的产品</td></tr>';
     }
     function renderProductSalesPer10k() {
       const enabled = productSalesPer10kPanels.some(panel => data[panel.dataKey]?.enabled);
@@ -2110,7 +2128,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       root.innerHTML = `
         ${coverageNote}
         <div class="grid-3">
-          <div class="card"><div class="label">菜品行匹配率</div><div class="value">${fmtPct(match.match_rate)}</div><div class="foot">关联名称补齐 ${fmtNum(match.linked_name_rescued_rows)} / 未匹配 ${fmtNum(match.unmatched_rows)} / 重名 ${fmtNum(match.ambiguous_rows)}</div></div>
+          <div class="card"><div class="label">菜品行匹配率</div><div class="value">${fmtPct(match.match_rate)}</div><div class="foot">关联名称匹配 ${fmtNum(match.linked_name_matched_rows)} / 原名回退 ${fmtNum(match.primary_name_fallback_rows)} / 未匹配 ${fmtNum(match.unmatched_rows)} / 重名 ${fmtNum(match.ambiguous_rows)}</div></div>
           <div class="card"><div class="label">菜品库规模</div><div class="value">${fmtNum(match.catalog_rows)}</div><div class="foot">基础分类档口 ${fmtNum(match.catalog_stall_count)} 个</div></div>
           <div class="card"><div class="label">归因口径</div><div class="value">环比 + 同比</div><div class="foot">按菜品收入变化排序</div></div>
         </div>

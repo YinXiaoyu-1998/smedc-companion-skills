@@ -192,6 +192,64 @@ class ReportHtmlTests(unittest.TestCase):
         self.assertNotRegex(html, forbidden)
         self.assertEqual(summary["meta"]["report_grain"], "month")
 
+    def test_old_product_facts_require_regeneration_instead_of_inventing_source_items(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from meeting_report_weekly import build_product_sales_per_10k_payload
+        result = build_product_sales_per_10k_payload([
+            {"period_key": "current", "门店名称": "示例店", "产品名称": "合并旧品项",
+             "销售分类": "堂食", "quantity": 12, "order_revenue": 10000, "units_per_10k": 12}
+        ], {"enabled": True})
+        self.assertFalse(result["enabled"])
+        self.assertIn("重新生成", result["meta"]["reason"])
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed to execute the product panel")
+    def test_weekly_and_monthly_product_panels_separate_fees_and_preserve_units(self):
+        for grain in ("weekly", "monthly"):
+            with self.subTest(grain=grain):
+                _, html, _ = self.render_from_profile(
+                    f"profile_{grain}_data.py", f"generate_{grain}_report_html.py",
+                    f"{grain}_bundle.json", f"{grain}_meeting_summary.json")
+                self.assertNotIn("份/万元", html)
+                payload = embedded_payload(html)
+                entity = payload["product_sales_per_10k_order_revenue"]["entities"][0]
+                self.assertTrue(all(r["quantity_unit"] == "原品项单位" for r in entity["rows"]))
+                declarations = "const data = JSON.parse" + html.split("const data = JSON.parse", 1)[1].split("let selectedTrendKey", 1)[0]
+                render = "function renderProductSalesPer10kPanel" + html.split("function renderProductSalesPer10kPanel", 1)[1].split("function renderProductSalesPer10k()", 1)[0]
+                script = r"""
+const assert = require('node:assert/strict');
+const body = {innerHTML:''}, status = {}, input = {value:''};
+const document = {
+ getElementById(id) { return id === 'report-data' ? {textContent:PAYLOAD} : id === 'search' ? input : status; },
+ querySelector() { return body; }
+};
+""".replace("PAYLOAD", json.dumps(json.dumps(payload)))
+                script += declarations + render + r"""
+const entity = {available:true,total_denominator:10000,rows:[]};
+function currentProductSalesPer10kEntity() { return entity; }
+for (let i=0;i<12;i++) {
+ entity.rows.push({name:'餐具费'+i,source_name:'餐具费'+i,record_kind:'fee',quantity:1000,units_per_10k:null,sales_class:'堂食',stall:'餐具用品'});
+ entity.rows.push({name:'菜品'+i,source_name:'原品项'+i,record_kind:'product',quantity:3,units_per_10k:3,sales_class:'堂食',stall:'面档'});
+}
+entity.rows[1].name = '<img src=x onerror=alert(1)>';
+const panel = {tableId:'table',searchId:'search',statusId:'status',dataKey:'product_sales_per_10k_order_revenue',denominatorLabel:'订单营业收入'};
+renderProductSalesPer10kPanel(panel);
+const sections = body.innerHTML.split('餐具与收费记录');
+assert.equal(sections.length,2);
+assert.ok(sections[0].includes('原品项9'));
+assert.ok(!sections[0].includes('原品项10'));
+assert.ok(!sections[0].includes('餐具费'));
+assert.ok(sections[1].includes('餐具费9'));
+assert.ok(!sections[1].includes('原品项单位/万元'));
+assert.ok(!body.innerHTML.includes('<img'));
+input.value = '餐具费11'; renderProductSalesPer10kPanel(panel);
+assert.ok(body.innerHTML.includes('餐具费11'));
+assert.ok(!body.innerHTML.includes('没有匹配的产品'));
+input.value = '无此记录'; renderProductSalesPer10kPanel(panel);
+assert.ok(body.innerHTML.includes('没有匹配的产品'));
+"""
+                result = subprocess.run(["node", "-e", script], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed to execute the embedded chart")
     def test_monthly_ranking_displays_the_all_store_revenue_median(self) -> None:
         _, html, _ = self.render_from_profile(

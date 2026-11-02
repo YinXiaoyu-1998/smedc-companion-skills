@@ -89,6 +89,7 @@ class ProfileMonthlyDataTests(unittest.TestCase):
                 "monthly_store_stall_driver_summary.csv",
                 "monthly_store_stall_dish_drivers.csv",
                 "dish_catalog_match_summary.csv",
+                "dish_catalog_matches.csv",
                 "monthly_store_stall_sales_mix.csv",
                 "monthly_store_product_sales_per_10k.csv",
                 "monthly_trend_comparison_metrics.csv",
