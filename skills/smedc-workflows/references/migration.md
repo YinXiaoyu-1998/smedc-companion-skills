@@ -20,6 +20,15 @@ agent 在私有目录生成迁移描述 JSON，用户只审阅业务差异，不
 
 每日保留五类选择、来源集团品牌／门店映射、settled_only 选择依据、逐类进度与已发布任务；旧来源口径无法证明的保持 unknown。评价保留多 POI、采集与回复白名单分离、当前日期窗口、品牌／语气／图形文字规则、新旧保护、完整同步读回、通知／发布持久去重、严格整轮清理和既有例外。周报保留准确分组、比较口径、允许发件身份和所有收件人、最终 HTML、部分数据标记及邮件去重。已识别四项通用规则映射为 executionPolicy={id:verified-review-operations,version:1}，忽略记录映射为 ignoredReviewIdentities（有意排除，不是完成动作）。不支持或冲突的例外阻塞，不能只留旧机文件后宣称新机可恢复。
 
+## 不支持的旧容器：私有规范投影
+
+遇到每日 datasets/reports/files 字典、周报单个回执对象或根数组 control 时，agent 在私有目录准备规范元数据投影：回执用完整列表供 recordsPointer/recordTemplate 读取，控制项用对象及显式 recoveryLists。只转换容器和已核实别名，不新增通用转换器，不让用户手工填写 JSON。
+
+- 保留全部选中原文件的完整 SHA-256；不兼容容器原件仍以 evidence 来源纳入 sources，投影另列来源及自身哈希。真实 taskSource、完整任务定义和全部 prompt/policy 规则仍按原有类型声明实际去向，不能用 evidence 哈希代替。
+- 每个投影字段留存原来源 id／完整哈希、精确 JSON pointer、原值和别名／转换依据及目标字段。单对象包装、字典展开、to 字符串／数组、messageId/gmailMessageId 等解释须逐格式明确核对；冲突保留阻塞，不能默认后一项覆盖。数组下标或文件名不能充当持久动作身份。
+- 独立重读原文件逐一验证全部 pointer／值绑定与别名，复核每个容器的完整数量及重复观测处置，再核对投影、严格目标 schema 和生成 bundle 的全部记录／规则去向。CLI 不自动证明投影与原件的 pointer 关联；原文件作为 evidence 纳入哈希也不等于语义闭合。
+- 缺失身份、范围、原业务哈希、sender、终态或证明均明确保留 unknown／待核对，不能从当前设置、顶层完成标签或其他哈希补造。投影生成成功不代表完整迁移；用户审阅实际业务差异，必要历史、未知项和最终冻结来源核对齐全后才继续导入与切换。
+
 ## 分批导入及完整读回
 
 每请求最多100条／256KiB，静态配置不超过1MiB。历史没有100条总上限；描述读取单文件上限32MiB，超限明确拆为多个来源，不截断。初始 manifest 含第0批，其余 pages 顺序 append；来源摘要同时绑定原文件哈希、明确字段解释及规范记录摘要，修正解释后必须新预览。每批 chunkHash 和全链 chunksDigest 使用与共享 domain 相同的递归排序键 canonical JSON SHA256，重复导入以 sourceSnapshotHash＋targetVersion 幂等。
