@@ -51,7 +51,7 @@ When associating dish sales with a dish catalog or authorized cost cards, read
 `matched_product_name`, then use `product_name` only when the first is empty or unmatched.
 Keep multiple candidates ambiguous. For requested recipe/item/store analysis, read
 [cost-card local CSV analysis](references/cost_cards.zh.md). Cost cards require a separately
-verified service rollout and tenant configuration, in addition to the core-approved launcher. This guidance does not change report runner outputs or the ordinary business/dishes workflow.
+verified service rollout and tenant configuration, in addition to the core-approved launcher. Weekly and monthly report runners apply the same name precedence and retain the match field and ambiguity status in durable facts. Their product panels preserve original item names separately even when linked names match: the current dishes contract has no independent quantity-unit field, so display “原品项单位”, never invent “份” or convert quantities. Source-labelled tableware, processing, packing and packaging charges are separate from physical-product rankings and demand rates; retain their quantities and income for reconciliation. These are fixed report rules, not tenant opt-ins.
 
 1. Use `smedc-mcp` to install or verify its approved exact launcher pin, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
 

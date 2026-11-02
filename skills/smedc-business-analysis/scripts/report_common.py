@@ -807,15 +807,31 @@ def catalog_lookup(rows: list[dict[str, Any]]) -> dict[str, set[str]]:
     return lookup
 
 
+def resolve_stall(row: dict[str, Any], catalog: dict[str, set[str]]) -> tuple[str, str, str]:
+    """Resolve the preferred name once; ambiguity never falls through to another name."""
+    for field in ("matched_product_name", "product_name"):
+        stalls = catalog.get(normalize_text(row.get(field)))
+        if not stalls:
+            continue
+        if len(stalls) > 1:
+            return UNMATCHED_STALL, field, "ambiguous"
+        stall = next(iter(stalls))
+        if stall != UNMATCHED_STALL:
+            return stall, field, "matched"
+        return UNMATCHED_STALL, field, "unclassified"
+    return UNMATCHED_STALL, "", "unmatched"
+
+
 def matched_stall(row: dict[str, Any], catalog: dict[str, set[str]]) -> str:
-    for key in (row.get("product_name"), row.get("matched_product_name")):
-        normalized = normalize_text(key)
-        stalls = catalog.get(normalized)
-        if stalls and len(stalls) == 1:
-            stall = next(iter(stalls))
-            if stall != UNMATCHED_STALL:
-                return stall
-    return UNMATCHED_STALL
+    return resolve_stall(row, catalog)[0]
+
+
+def product_record_kind(primary_name: str, linked_name: str, stall: str) -> str:
+    """Keep source-labelled charges out of physical product demand rankings."""
+    return "fee" if stall == "餐具用品" or any(
+        term in name for name in (primary_name, linked_name)
+        for term in ("餐具", "加工费", "打包费", "包装费")
+    ) else "product"
 
 
 def catalog_stall_count(catalog: dict[str, set[str]]) -> int:
@@ -861,7 +877,8 @@ def stall_and_product_outputs(
 
     dine_in_revenue, order_revenue, gross_sales = period_revenue_maps(current_store_rows)
     stall_groups: dict[tuple[str, str], dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
-    product_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+    product_groups: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    match_rows = []
     matched = 0
     for row in dish_rows:
         store = store_name(row.get("store_name"))
@@ -870,7 +887,11 @@ def stall_and_product_outputs(
         linked_product = str(row.get("matched_product_name") or "").strip()
         is_dine_in = str(row.get("order_category") or "").strip() == "店内销售"
         sales_class = "堂食" if is_dine_in else "外卖"
-        stall = matched_stall(row, catalog)
+        stall, match_field, match_status = resolve_stall(row, catalog)
+        record_kind = product_record_kind(primary_product, linked_product, stall)
+        match_rows.append({"门店名称": store, "product_name": primary_product,
+                           "matched_product_name": linked_product, "销售分类": sales_class,
+                           "档口": stall, "match_field": match_field, "match_status": match_status})
         if stall != UNMATCHED_STALL:
             matched += 1
         quantity = dec(row.get("dish_quantity"))
@@ -880,7 +901,7 @@ def stall_and_product_outputs(
             stall_groups[(store, stall)]["quantity"] += quantity
             stall_groups[(ALL_STORES_LABEL, stall)]["stall_income"] += income
             stall_groups[(ALL_STORES_LABEL, stall)]["quantity"] += quantity
-        key = (store, product, sales_class)
+        key = (store, product, primary_product, sales_class, record_kind)
         product_groups.setdefault(
             key,
             {
@@ -888,6 +909,9 @@ def stall_and_product_outputs(
                 "period_label": period_label,
                 "门店名称": store,
                 "产品名称": product,
+                "原始品项": primary_product,
+                "record_kind": record_kind,
+                "quantity_unit": "原品项单位",
                 "销售分类": sales_class,
                 "quantity": Decimal("0"),
                 "search_names": set(),
@@ -898,7 +922,7 @@ def stall_and_product_outputs(
         product_groups[key]["search_names"].update(name for name in (product, primary_product, linked_product) if name)
         if stall != UNMATCHED_STALL:
             product_groups[key]["matched_stalls"].add(stall)
-        all_key = (ALL_STORES_LABEL, product, sales_class)
+        all_key = (ALL_STORES_LABEL, product, primary_product, sales_class, record_kind)
         product_groups.setdefault(
             all_key,
             {
@@ -906,6 +930,9 @@ def stall_and_product_outputs(
                 "period_label": period_label,
                 "门店名称": ALL_STORES_LABEL,
                 "产品名称": product,
+                "原始品项": primary_product,
+                "record_kind": record_kind,
+                "quantity_unit": "原品项单位",
                 "销售分类": sales_class,
                 "quantity": Decimal("0"),
                 "search_names": set(),
@@ -935,7 +962,7 @@ def stall_and_product_outputs(
     stall_rows.sort(key=lambda item: (item["门店名称"] != ALL_STORES_LABEL, item["档口"] == UNMATCHED_STALL, -(item["stall_income"] or 0), item["门店名称"], item["档口"]))
 
     product_rows = []
-    for (store, _product, _sales_class), row in product_groups.items():
+    for (store, _product, _primary, _sales_class, _kind), row in product_groups.items():
         quantity = row["quantity"]
         stalls = set(row["matched_stalls"])
         revenue_denominator = order_revenue.get(store, Decimal("0"))
@@ -946,9 +973,9 @@ def stall_and_product_outputs(
                 "档口": next(iter(stalls)) if len(stalls) == 1 else UNMATCHED_STALL,
                 "quantity": rounded(quantity, 2),
                 "order_revenue": rounded(revenue_denominator, 2),
-                "units_per_10k": rounded(div(quantity * Decimal("10000"), revenue_denominator), 4),
+                "units_per_10k": rounded(div(quantity * Decimal("10000"), revenue_denominator), 4) if _kind == "product" else None,
                 "gross_sales": rounded(gross_denominator, 2),
-                "units_per_10k_gross_sales": rounded(div(quantity * Decimal("10000"), gross_denominator), 4),
+                "units_per_10k_gross_sales": rounded(div(quantity * Decimal("10000"), gross_denominator), 4) if _kind == "product" else None,
                 "search_names": " / ".join(sorted(row["search_names"])),
             }
         )
@@ -1082,7 +1109,7 @@ def stall_and_product_outputs(
     stall_driver_name = f"{prefix}_store_stall_driver_summary.csv"
     stall_dish_driver_name = f"{prefix}_store_stall_dish_drivers.csv"
     write_csv(output_dir / stall_sales_name, stall_rows, ["period_key", "period_label", "门店名称", "档口", "stall_income", "quantity", "dine_in_revenue", "share"])
-    write_csv(output_dir / product_name, product_rows, ["period_key", "period_label", "门店名称", "产品名称", "销售分类", "档口", "quantity", "order_revenue", "units_per_10k", "gross_sales", "units_per_10k_gross_sales", "search_names"])
+    write_csv(output_dir / product_name, product_rows, ["period_key", "period_label", "门店名称", "产品名称", "原始品项", "record_kind", "quantity_unit", "销售分类", "档口", "quantity", "order_revenue", "units_per_10k", "gross_sales", "units_per_10k_gross_sales", "search_names"])
     stall_metric_rows = [
         {
             "period_key": period_key,
@@ -1098,11 +1125,15 @@ def stall_and_product_outputs(
     write_csv(output_dir / stall_comparison_name, comparison_rows, list(comparison_rows[0]) if comparison_rows else ["门店名称", "档口"])
     write_csv(output_dir / stall_driver_name, attribution_drivers, list(attribution_drivers[0]) if attribution_drivers else ["门店名称", "basis"])
     write_csv(output_dir / stall_dish_driver_name, dish_drivers, list(dish_drivers[0]) if dish_drivers else ["门店名称", "basis", "direction", "档口", "菜品名称"])
+    write_csv(output_dir / "dish_catalog_matches.csv", match_rows, ["门店名称", "product_name", "matched_product_name", "销售分类", "档口", "match_field", "match_status"])
     write_csv(
         output_dir / "dish_catalog_match_summary.csv",
         [
             {"metric": "dish_rows", "value": len(dish_rows)},
             {"metric": "matched_rows", "value": matched},
+            {"metric": "linked_name_matched_rows", "value": sum(r["match_status"] == "matched" and r["match_field"] == "matched_product_name" for r in match_rows)},
+            {"metric": "primary_name_fallback_rows", "value": sum(r["match_status"] == "matched" and r["match_field"] == "product_name" for r in match_rows)},
+            {"metric": "ambiguous_rows", "value": sum(r["match_status"] == "ambiguous" for r in match_rows)},
             {"metric": "unmatched_rows", "value": len(dish_rows) - matched},
             {"metric": "match_rate", "value": round(matched / len(dish_rows), 4) if dish_rows else 0},
             {"metric": "catalog_rows", "value": len(catalog_rows)},
@@ -1116,6 +1147,7 @@ def stall_and_product_outputs(
         stall_driver_name,
         stall_dish_driver_name,
         "dish_catalog_match_summary.csv",
+        "dish_catalog_matches.csv",
         stall_sales_name,
         product_name,
     ]
