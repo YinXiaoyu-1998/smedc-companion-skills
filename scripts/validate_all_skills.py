@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = ROOT / "skills"
-QUICK_VALIDATE = Path("/Users/xiaoyuyin/.codex/skills/.system/skill-creator/scripts/quick_validate.py")
+QUICK_VALIDATE = Path.home() / ".codex/skills/.system/skill-creator/scripts/quick_validate.py"
 
 
 def run(command: list[str], *, cwd: Path) -> None:

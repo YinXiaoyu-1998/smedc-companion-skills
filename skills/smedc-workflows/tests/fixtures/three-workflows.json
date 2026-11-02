@@ -191,5 +191,10 @@
         "deliveryVersion": 1
       }
     ]
-  ]
+  ],
+  "legacyHostSchedules": {
+    "meituan-daily-ingestion": "FREQ=DAILY;BYHOUR=3;BYMINUTE=45",
+    "meituan-review-operations": "RRULE:FREQ=DAILY;BYHOUR=0,8,11,17,21;BYMINUTE=0,30;BYSECOND=0;BYSETPOS=1,4,5,7,9",
+    "weekly-business-report": "FREQ=WEEKLY;BYDAY=MO;BYHOUR=5;BYMINUTE=30"
+  }
 }

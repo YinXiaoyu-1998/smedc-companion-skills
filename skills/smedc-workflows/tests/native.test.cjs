@@ -1102,3 +1102,30 @@ test("openRun rebinds the original run to current verified control and assignmen
   assert.deepEqual(adopted.snapshot.window, snapshot.window);
   await assert.rejects(native.openRun(input), /assigned elsewhere/);
 });
+
+test("installation without an explicit schedule creates no native task", async () => {
+  let creates = 0;
+  const native = factory()({
+    mcp__codex_app__automation_update: async () => {
+      creates++;
+    },
+  });
+  await assert.rejects(
+    native.install(
+      {
+        workflowId: "flow",
+        projectId: null,
+        prompt: "Use workflow",
+        name: "Example",
+        model: "available-model",
+        reasoningEffort: "high",
+        timezone: "Asia/Shanghai",
+        platform: "macos",
+      },
+      {},
+      async () => {},
+    ),
+    /needs_configuration/,
+  );
+  assert.equal(creates, 0);
+});

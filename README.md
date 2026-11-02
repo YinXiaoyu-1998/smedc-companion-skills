@@ -24,6 +24,17 @@ SMEDC account. SMEDC uploads additionally require an explicit upload request, th
 an authenticated admin. Browser selection, export handling and reply approval rules live in the
 linked Skills, not in a second copy here.
 
+## Shared workflows and enterprise settings
+
+Distributed skills carry no tenant names, store rosters, source accounts, recipient addresses,
+publication whitelists or tenant schedules. Standalone skills use the current request and observed
+source scope; `smedc-workflows` supplies confirmed enterprise settings to the selected skills.
+Fresh schedules require user confirmation; migration preserves actual host readback without a
+package-wide default. macOS Codex, Gmail, Asia/Shanghai and Meituan report formats are supported
+product capabilities. The Chinese restaurant voice is a reusable default; brand facts, tone and
+publication authorization come from the caller. Synthetic identities and historical schedules in
+tests are regression fixtures, never installation inputs.
+
 ## Version Ownership
 
 The [official core Skill](https://github.com/YinXiaoyu-1998/smedc-mcp-skill/blob/main/skills/smedc-mcp/SKILL.md)

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "1.0.0",
+  "packageVersion": "1.0.1",
   "minimumServiceCapability": "enterprise-workflows-v1",
   "minimumLauncherVersion": "0.16.0",
   "launcherInstallationOwner": "smedc-mcp",
@@ -32,10 +32,9 @@
       ],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.0"
+        "workflowPackageVersion": "1.0.1"
       },
       "window": "previous-complete-business-day",
-      "defaultSchedule": ["FREQ=DAILY;BYHOUR=3;BYMINUTE=45"],
       "capabilities": [
         "configuration",
         "permissions",
@@ -63,12 +62,9 @@
       "dependencies": ["reply-meituan-reviews", "review-responder"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.0"
+        "workflowPackageVersion": "1.0.1"
       },
       "window": "previous-day-and-today",
-      "defaultSchedule": [
-        "RRULE:FREQ=DAILY;BYHOUR=0,8,11,17,21;BYMINUTE=0,30;BYSECOND=0;BYSETPOS=1,4,5,7,9"
-      ],
       "capabilities": [
         "configuration",
         "permissions",
@@ -105,10 +101,9 @@
       "dependencies": ["smedc-business-analysis"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.0"
+        "workflowPackageVersion": "1.0.1"
       },
       "window": "previous-natural-week",
-      "defaultSchedule": ["FREQ=WEEKLY;BYDAY=MO;BYHOUR=5;BYMINUTE=30"],
       "capabilities": [
         "configuration",
         "permissions",
@@ -146,5 +141,6 @@
     "reviewPythonPackages": ["openpyxl>=3.1.5,<4"],
     "reviewNodePackages": ["@oai/artifact-tool"],
     "discovery": "invoking host load_workspace_dependencies"
-  }
+  },
+  "scheduleSelection": "explicit-user-confirmation-or-verified-host-migration"
 }
