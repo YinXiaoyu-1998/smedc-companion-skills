@@ -91,9 +91,7 @@ class WorkflowCliTests(unittest.TestCase):
                 ]
             ):
                 task = root / f"task-{n}.toml"
-                schedule = json.loads((ROOT / "manifest.json").read_text())[
-                    "workflows"
-                ][kind]["defaultSchedule"][0]
+                schedule = fixture["legacyHostSchedules"][kind]
                 task.write_text(
                     'id = "legacy-'
                     + str(n)
@@ -462,16 +460,17 @@ class WorkflowCliTests(unittest.TestCase):
             self.assertIn("confirmed", result.stderr)
             self.assertTrue(original.exists())
 
-    def test_review_schedule_has_exactly_the_five_intended_daily_occurrences(self):
+    def test_no_enterprise_schedule_default_and_legacy_review_times_preserved(self):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from dateutil.rrule import rrulestr
 
-        definition = json.loads((ROOT / "manifest.json").read_text())["workflows"][
-            "meituan-review-operations"
-        ]
+        package = json.loads((ROOT / "manifest.json").read_text())
+        for definition in package["workflows"].values():
+            self.assertNotIn("defaultSchedule", definition)
+        fixture = json.loads((ROOT / "tests/fixtures/three-workflows.json").read_text())
         schedule = rrulestr(
-            definition["defaultSchedule"][0],
+            fixture["legacyHostSchedules"]["meituan-review-operations"],
             dtstart=datetime(2026, 11, 2, tzinfo=ZoneInfo("Asia/Shanghai")),
         )
         actual = [value.strftime("%H:%M") for value in schedule[:5]]

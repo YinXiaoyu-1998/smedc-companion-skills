@@ -36,7 +36,7 @@
 
 `input` 为 `workflowId/name/prompt/rrule/model/reasoningEffort/timezone/platform/projectId`。本地 projectId 来自 `list_projects`，不得沿用旧机项目 ID。新机也可传 `projectId:null`，但须先实际验证隔离工作目录并传 `workspace/workspaceVerified:true`；prompt 明确该绝对目录。回读必须是 `target.type:projectless`。中央快照 projectRef 的 `projectless` 只是描述，绝不把它传给实际 projectId。若宿主拒绝 projectless，选择现有本地项目或请用户在 Codex 添加目录。
 
-一个工作流一个实际任务。review 的单条 RRULE 用 BYSETPOS 保留每日 00:00、08:30、11:00、17:00、21:00，不展开成十次或三个任务。每日 03:45，周报周一 05:30。迁移优先原样保留实际 RRULE，回读时核对预期发生时间。时间只在 Codex 修改，修改后读回并 record_host；不另建中央调度。
+一个工作流一个实际任务。分发包不提供全企业统一的默认运行时间。新安装按这台电脑通常保持开机的时段提出建议，取得用户对具体时间表的确认后再安装；未确认时保持待配置，不创建猜测日程。迁移和更新从原宿主实际读回日程，原样保留 RRULE，并核对预期发生时间；多个非整点时刻须正确保留组合，不扩成额外次数。时间只在 Codex 修改，修改后读回并 record_host；不另建中央调度。
 
 提示词只包含工作流 ID、enterpriseKey、installationId、锁定包版本／Git commit 和本机专属工作路径，要求使用本技能读最新配置／固定窗口／核对中央授权，不复制全部门店、邮箱、品牌策略和历史记录进去。
 
