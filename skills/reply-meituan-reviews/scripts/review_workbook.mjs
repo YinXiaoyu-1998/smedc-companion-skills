@@ -20,6 +20,8 @@ const rows = records.map(r => {
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$/.test(r.reviewedAt)) throw new Error('Expected canonical Beijing timestamp');
     date = new Date(r.reviewedAt.slice(0,19) + 'Z');
     if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0,19) !== r.reviewedAt.slice(0,19)) throw new Error('Invalid date');
+    // Native Excel serial dates avoid sub-millisecond drift in the Date export path.
+    date = date.getTime() / 86400000 + 25569;
   }
   return [r.reviewerName,r.content ?? null,reply(r) ?? null,score,date,r.storeName,r.enterpriseName,r.source,r.sheetStatus];
 });
