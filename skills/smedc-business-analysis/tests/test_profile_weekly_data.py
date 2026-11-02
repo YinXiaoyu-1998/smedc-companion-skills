@@ -47,6 +47,35 @@ class ProfileWeeklyDataTests(unittest.TestCase):
             )
         return output_dir, json.loads((output_dir / "weekly_meeting_summary.json").read_text(encoding="utf-8"))
 
+    def test_arbitrary_named_groups_preserve_exact_store_assignments(self):
+        output, summary = self.run_profile(store_groups={"schemaVersion": 1, "groups": {"城市中心": ["示例一店"], "社区": ["示例二店"]}})
+        self.assertEqual(summary["meta"]["store_groups"], {"示例一店": "城市中心", "示例二店": "社区"})
+        rendered = subprocess.run([sys.executable, str(ROOT / "scripts" / "generate_weekly_report_html.py"), "--input-dir", str(output), "--report", str(output / "report.html")], capture_output=True, text=True)
+        self.assertEqual(rendered.returncode, 0, rendered.stderr)
+        self.assertIn("城市中心", (output / "report.html").read_text())
+
+    def test_arbitrary_group_name_is_text_in_the_interactive_report(self):
+        output,_=self.run_profile(store_groups={"schemaVersion":1,"groups":{"<img src=x onerror=alert(1)>":["示例一店"]}})
+        report=output/'escaped-groups.html'
+        rendered=subprocess.run([sys.executable,str(ROOT/'scripts'/'generate_weekly_report_html.py'),'--input-dir',str(output),'--report',str(report)],capture_output=True,text=True)
+        self.assertEqual(rendered.returncode,0,rendered.stderr)
+        javascript=r"""
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(process.argv[1],'utf8');
+const data=JSON.parse(html.match(/<script type="application\/json" id="report-data">([\s\S]*?)<\/script>/)[1]);
+const source=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const nodes={kpiCards:{innerHTML:''},table:{innerHTML:''},actionList:{innerHTML:''}};
+const context=vm.createContext({data,stores:data.comparison,segmentGroups:data.segment_groups,document:{getElementById:id=>nodes[id],querySelector:()=>nodes.table,querySelectorAll:()=>[]},setText:()=>{}});
+vm.runInContext(source.slice(source.indexOf('const fmtWan'),source.indexOf('const colors')),context);
+vm.runInContext(source.slice(source.indexOf('function renderKpis'),source.indexOf('function ruleColor')),context);
+vm.runInContext(source.slice(source.indexOf('function renderTable'),source.indexOf('function renderActions')),context);
+vm.runInContext(source.slice(source.indexOf('function renderActions'),source.indexOf('function fmtDeltaWan')),context);
+vm.runInContext('renderKpis();renderTable();renderActions();',context);
+for(const node of Object.values(nodes)){assert(!node.innerHTML.includes('<img'));assert(node.innerHTML.includes('&lt;img'));}
+"""
+        result=subprocess.run(['node','-e',javascript,str(report)],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+
     def test_explicit_sizes_use_separate_peer_medians_without_changing_revenue(self) -> None:
         output_dir, summary = self.run_profile(store_groups={
             "schemaVersion": 1, "groups": {"大店": ["示例一店"], "小店": ["示例二店"]},
@@ -79,7 +108,7 @@ class ProfileWeeklyDataTests(unittest.TestCase):
         for groups in [
             {"schemaVersion": 1, "groups": {"大店": ["示例一店"], "小店": ["示例一店"]}},
             {"schemaVersion": 1, "groups": {"大店": [""]}},
-            {"schemaVersion": 1, "groups": {"中店": ["示例一店"]}},
+            {"schemaVersion": 1, "groups": {"": ["示例一店"]}},
         ]:
             with self.subTest(groups=groups), tempfile.TemporaryDirectory() as tmp:
                 directory = Path(tmp);config = directory / "groups.json"

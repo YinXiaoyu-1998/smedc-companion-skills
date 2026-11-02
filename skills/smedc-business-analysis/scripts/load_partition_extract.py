@@ -251,13 +251,14 @@ def process_file(
     accumulators: list[JobAccumulator],
     store_name_contains: list[str],
     validate_service_scope: bool = False,
+    store_names: list[str] | None = None,
 ) -> None:
     path = validate_file_integrity(directory, file_spec)
     file_name = file_spec["fileName"]
     if validate_service_scope and store_name_contains and not any(fragment in str(file_spec.get("storeName") or "") for fragment in store_name_contains):
         raise ExtractError(f"partition {file_name} violates requested storeNameContains")
     needed = set().union(*(required_fields(item.job) for item in accumulators))
-    if store_name_contains:
+    if store_name_contains or store_names:
         needed.add("store_name")
     source_by_canonical = {name: fields[name]["sourceColumn"] for name in needed if name in fields}
     if set(source_by_canonical) != needed:
@@ -282,6 +283,8 @@ def process_file(
                 if validate_service_scope:
                     raise ExtractError(f"partition {file_name} row {index} violates requested storeNameContains")
                 continue
+            if store_names and row.get("store_name") not in store_names:
+                continue
             for accumulator in accumulators:
                 accumulator.add(row)
     if row_count != metadata_count(file_spec.get("rowCount"), "rowCount"):
@@ -302,6 +305,9 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         for fragment in store_name_contains
     ):
         raise ExtractError("manifest report storeNameContains must contain non-blank text")
+    store_names = report.get("storeNames", [])
+    if not isinstance(store_names, list) or any(not isinstance(name, str) or not name.strip() for name in store_names):
+        raise ExtractError("manifest report storeNames must contain exact nonblank names")
     local_jobs = [job for job in jobs if isinstance(job, dict) and job.get("tool") == "local_partition_aggregate"]
     fields_by_dataset = registry_maps(registry_response)
     accumulators = {job["id"]: JobAccumulator(job) for job in local_jobs}
@@ -313,7 +319,7 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         state = extract_spec.get("downloadState", {}).get("status")
         if ("sharedDownload" in manifest and state != "succeeded") or state in {"failed", "expired", "queued", "running", "ready"}:
             raise ExtractError(f"extract {extract_spec['id']} is not a successful local download")
-        if "storeNameContains" in extract_spec["input"] and set(extract_spec["input"]["storeNameContains"]) != set(store_name_contains):
+        if "storeNameContains" in extract_spec["input"] and (not set(extract_spec["input"]["storeNameContains"]).issubset(set(store_names)) if store_names else set(extract_spec["input"]["storeNameContains"]) != set(store_name_contains)):
             raise ExtractError("extract storeNameContains differs from report scope")
         response_path = safe_response_path(responses_dir, extract_spec["outputFile"])
         saved_response = extract_spec.get("downloadState", {}).get("response") if state == "succeeded" else None
@@ -345,7 +351,7 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
                     raise ExtractError("partition identity has conflicting checksums")
                 continue
             seen_partitions[identity] = (checksum, metadata_count(file_spec.get("rowCount"), "rowCount"))
-            process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators, store_name_contains, "storeNameContains" in extract_spec["input"])
+            process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators, store_name_contains, "storeNameContains" in extract_spec["input"], store_names)
 
     for accumulator in accumulators.values():
         job = accumulator.job

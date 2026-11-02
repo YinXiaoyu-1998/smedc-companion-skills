@@ -481,8 +481,8 @@ def load_store_groups(path: Path | None) -> dict[str, str] | None:
     if not isinstance(payload, dict) or type(payload.get("schemaVersion")) is not int or payload["schemaVersion"] != 1:
         raise ValueError("store groups require schemaVersion 1")
     groups = payload.get("groups")
-    if not isinstance(groups, dict) or not groups or set(groups) - {"大店", "小店"}:
-        raise ValueError("store groups must contain 大店 and/or 小店 lists")
+    if not isinstance(groups, dict) or any(not isinstance(name, str) or not name.strip() or len(name) > 255 for name in groups):
+        raise ValueError("store groups require nonblank group names")
     assignments = {}
     for bucket, names in groups.items():
         if not isinstance(names, list):
@@ -1147,7 +1147,7 @@ def parse_bundle_cli(description: str, *, with_store_groups: bool = False) -> ar
     parser.add_argument("--bundle", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     if with_store_groups:
-        parser.add_argument("--store-groups", type=Path, help="Explicit full-name 大店/小店 JSON configuration.")
+        parser.add_argument("--store-groups", type=Path, help="Optional named groups with exact full store names.")
     parser.add_argument(
         "--current-user",
         type=Path,

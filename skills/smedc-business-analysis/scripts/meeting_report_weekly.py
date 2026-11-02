@@ -355,7 +355,7 @@ REVENUE_BASIS_NOTE = "业务收入=营业分组表「订单营业收入」；不
 
 def build_segment_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     groups: list[dict[str, Any]] = []
-    for store_size in STORE_SIZE_ORDER:
+    for store_size in [*STORE_SIZE_ORDER, *sorted({str(row.get("store_size") or "未分组") for row in rows} - set(STORE_SIZE_ORDER))]:
         bucket_rows = [row for row in rows if row.get("store_size") == store_size]
         if not bucket_rows:
             continue
@@ -1139,6 +1139,7 @@ HTML_TEMPLATE = r'''<!doctype html>
     const fmtYuan = v => `${Number(v || 0).toLocaleString('zh-CN', {maximumFractionDigits: 1})}元`;
     const fmtPct = v => v === null || v === undefined || v === '' ? 'N/A' : `${(Number(v) * 100).toFixed(1)}%`;
     const cleanName = s => String(s || '');
+    const htmlText = value => String(value ?? '').replace(/[&<>\"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[character]));
     const colors = { teal:'#006d77', blue:'#2f5b9f', green:'#3a7d44', amber:'#b85c00', red:'#b23a48', violet:'#7557a6', orange:'#d96b3b', yellow:'#c89b18', yellowFill:'#f2c94c', maximum:'#2f80ed', maximumStroke:'#1c5fb8', minimum:'#e5484d', minimumStroke:'#b42318' };
     const segmentGroups = data.segment_groups || [];
     let selectedTrendKey = '__all__';
@@ -1213,7 +1214,7 @@ HTML_TEMPLATE = r'''<!doctype html>
         ['开台数', fmtNum(k.current_tables), `环比 ${fmtPct(k.wow_table_pct)} / 同比 ${fmtPct(k.yoy_table_pct)}`],
         ['门店分型', `${k.star_count} 明星 / ${k.problem_count} 问题`, segmentGroups.map(g => `${g.label} ${g.star_count} 明星/${g.problem_count} 问题`).join('；') || '按门店类型内收入中位数与环比 0% 划分象限']
       ];
-      document.getElementById('kpiCards').innerHTML = cards.map(c => `<div class="card"><div class="label">${c[0]}</div><div class="value">${c[1]}</div><div class="foot">${c[2]}</div></div>`).join('');
+      document.getElementById('kpiCards').innerHTML = cards.map(c => `<div class="card"><div class="label">${c[0]}</div><div class="value">${c[1]}</div><div class="foot">${htmlText(c[2])}</div></div>`).join('');
     }
     function ruleColor(name) {
       return name === '明星门店' ? colors.green : name === '问题门店' ? colors.red : name === '高基盘承压' ? colors.amber : colors.blue;
@@ -1222,7 +1223,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const rules = data.segment_rules;
       const bucketSegmentSummary = segmentGroups.map(group => `${group.label}：收入中位数 ${fmtWan(group.revenue_threshold)}，${group.star_count} 明星 / ${group.problem_count} 问题`).join('；');
       document.getElementById('segmentRules').innerHTML = `
-        <div class="rule-note" id="bucketSegmentSummary">门店分型基准：全体门店统一比较；${bucketSegmentSummary}。横轴统一使用环比增长率 ${fmtPct(rules.growth_threshold)}。四象限只定义经营位置，预警项用于补充复盘优先级。</div>
+        <div class="rule-note" id="bucketSegmentSummary">门店分型基准：全体门店统一比较；${htmlText(bucketSegmentSummary)}。横轴统一使用环比增长率 ${fmtPct(rules.growth_threshold)}。四象限只定义经营位置，预警项用于补充复盘优先级。</div>
         <div class="rule-grid">
           ${rules.items.map(item => `<div class="rule">
             <div class="rule-title"><i class="dot" style="background:${ruleColor(item.name)}"></i>${item.name}</div>
@@ -2025,7 +2026,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const tagClass = segment => segment === '明星门店' ? 'star' : segment === '问题门店' ? 'problem' : segment === '高基盘承压' ? 'pressure' : segment === '成长观察' ? 'growth' : '';
       const rows = stores.map(r => `<tr>
         <td>${cleanName(r['门店名称'])}</td>
-        <td>${r.store_size || '未分组'}</td>
+        <td>${htmlText(r.store_size || '未分组')}</td>
         <td><span class="tag ${tagClass(r.segment)}">${r.segment}</span></td>
         <td>${fmtWan(r.current_net_revenue)}</td>
         <td>${fmtPct(r.wow_net_revenue_pct)}</td>
@@ -2038,7 +2039,7 @@ HTML_TEMPLATE = r'''<!doctype html>
         <td>${fmtPct(r.current_discount_rate)}</td>
         <td>${r.top_stall_signal || ''}</td>
         <td>${r.top_daypart_signal || ''}</td>
-        <td>${r.top_negative_factor || r.segment_reason || ''}</td>
+        <td>${htmlText(r.top_negative_factor || r.segment_reason || '')}</td>
       </tr>`).join('');
       body.innerHTML = rows;
       document.querySelectorAll('#storeTable th[data-key]').forEach(th => {
@@ -2064,7 +2065,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const hint = k => k === '明星门店' ? '沉淀可复制打法' : k === '问题门店' ? '优先复盘负向因素' : k === '高基盘承压' ? '防止高收入门店继续滑坡' : '验证增长是否可持续';
       document.getElementById('actionList').innerHTML = Object.entries(groups).map(([k, arr]) => {
         const segment = k.split(' · ')[1] || k;
-        return `<div class="card" style="margin-bottom:10px; min-height:0;"><div class="label">${k}</div><div style="margin-top:8px;">${arr.join('、')}</div><div class="foot">${hint(segment)}</div></div>`;
+        return `<div class="card" style="margin-bottom:10px; min-height:0;"><div class="label">${htmlText(k)}</div><div style="margin-top:8px;">${arr.join('、')}</div><div class="foot">${hint(segment)}</div></div>`;
       }).join('');
     }
     function fmtDeltaWan(v) {

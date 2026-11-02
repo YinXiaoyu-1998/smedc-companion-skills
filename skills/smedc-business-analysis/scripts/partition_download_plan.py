@@ -55,6 +55,18 @@ def normalize_store_names(values: list[str] | None) -> list[str]:
     return result
 
 
+def normalize_exact_store_names(values: list[str] | None) -> list[str]:
+    if values is None:
+        return []
+    if not isinstance(values,list) or not 1 <= len(values) <= 2000:
+        raise ValueError('storeNames must contain 1–2000 exact names')
+    if any(not isinstance(name,str) or not name.strip() or len(name)>255 for name in values):
+        raise ValueError('storeNames require nonblank exact full names up to 255 characters')
+    if len(set(values)) != len(values):
+        raise ValueError('storeNames cannot repeat an exact name')
+    return list(values)
+
+
 def split_download_windows(dataset: str, windows: list[Any]) -> list[dict[str, str]]:
     if dataset not in {'business', 'dishes'}:
         raise ValueError(f'unsupported partition dataset: {dataset}')
@@ -154,9 +166,10 @@ def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
                 job['outputFile'] = result_prefix + job['outputFile']
         scope = report.get('metadata', {}).get('organization_name', '')
         report_names = normalize_store_names(report.get('report', {}).get('storeNameContains') or None)
+        exact_names = normalize_exact_store_names(report.get('report', {}).get('storeNames') or None)
         for old in report.get('extracts', []):
             selector = copy.deepcopy(old['input'])
-            if 'storeNameContains' in selector and set(normalize_store_names(selector['storeNameContains'])) != set(report_names):
+            if 'storeNameContains' in selector and (not set(normalize_store_names(selector['storeNameContains'])).issubset(set(exact_names)) if exact_names else set(normalize_store_names(selector['storeNameContains'])) != set(report_names)):
                 raise ValueError('extract storeNameContains differs from report scope')
             if report_names:
                 selector['storeNameContains'] = sorted(report_names)
