@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "1.0.4",
+  "packageVersion": "1.0.5",
   "minimumServiceCapability": "enterprise-workflows-v1",
   "minimumLauncherVersion": "0.16.0",
   "launcherInstallationOwner": "smedc-mcp",
@@ -33,7 +33,7 @@
       ],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.4"
+        "workflowPackageVersion": "1.0.5"
       },
       "window": "previous-complete-business-day",
       "capabilities": [
@@ -63,14 +63,13 @@
       "dependencies": ["reply-meituan-reviews", "review-responder"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.4"
+        "workflowPackageVersion": "1.0.5"
       },
       "window": "previous-day-and-today",
       "capabilities": [
         "configuration",
         "permissions",
         "meituan_reviews",
-        "download",
         "workspace",
         "dependencies",
         "host_schedule",
@@ -79,7 +78,11 @@
         "assignment",
         "file_format"
       ],
-      "optionalCapabilities": ["email_identity", "sent_mail_lookup"],
+      "optionalCapabilities": [
+        "download",
+        "email_identity",
+        "sent_mail_lookup"
+      ],
       "authorizations": [
         "review_sync",
         "review_publish",
@@ -102,7 +105,7 @@
       "dependencies": ["smedc-business-analysis"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.4"
+        "workflowPackageVersion": "1.0.5"
       },
       "window": "previous-natural-week",
       "capabilities": [

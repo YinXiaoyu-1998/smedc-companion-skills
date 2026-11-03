@@ -10,6 +10,43 @@ SCRIPT = ROOT / "scripts" / "workflow.py"
 
 
 class WorkflowCliTests(unittest.TestCase):
+    def review_checks(self):
+        package = json.loads((ROOT / "manifest.json").read_text())
+        return {
+            name: {"status": "ready"}
+            for name in package["workflows"]["meituan-review-operations"]["capabilities"]
+        }
+
+    def test_readiness_rejects_the_sample_status_that_failed_in_record_checks(self):
+        checks = self.review_checks()
+        checks["file_format"]["sampleStatus"] = "synthetic_workbook_readback"
+        result, _ = self.run_cli("readiness", {
+            "workflowType": "meituan-review-operations",
+            "checks": checks, "checkedAt": "2026-11-03T03:15:00Z",
+        })
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("sampleStatus", result.stderr)
+
+    def test_review_page_collection_does_not_require_a_source_export(self):
+        checks = self.review_checks()
+        checks["download"] = {"status": "unsupported", "sampleStatus": "no_sample"}
+        checks["file_format"] = {"status": "ready", "sampleStatus": "verified",
+                                 "nextStep": "Synthetic output workbook independently reopened"}
+        result, value = self.run_cli("readiness", {
+            "workflowType": "meituan-review-operations",
+            "checks": checks, "checkedAt": "2026-11-03T03:15:00Z",
+        })
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(value["localReady"])
+        export = next(c for c in value["checks"] if c["capability"] == "download")
+        self.assertEqual(export["status"], "unsupported")
+        checks["meituan_reviews"]["status"] = "needs_login"
+        _, value = self.run_cli("readiness", {
+            "workflowType": "meituan-review-operations",
+            "checks": checks, "checkedAt": "2026-11-03T03:15:00Z",
+        })
+        self.assertFalse(value["localReady"])
+
     def test_iab_unavailable_has_a_workflow_level_chrome_fallback(self):
         package = json.loads((ROOT / "manifest.json").read_text())
         self.assertEqual(package["hosts"]["codex"]["browser"], "iab")

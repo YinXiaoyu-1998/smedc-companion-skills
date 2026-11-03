@@ -21,7 +21,7 @@
 - configuration：实时兼容服务、已保存精确企业／来源账号／来源集团品牌绑定、门店映射和独立任务选择。未知门店 needs_configuration；不是闭店。
 - permissions：当前 admin 及对应内容权限。未通过前不读本地待上传业务原件。
 - meituan_erp / meituan_reviews：先按 [浏览器选择与恢复](browser.md) 选择实际可用的 IAB 或本机 Chrome，再分别检查正确来源账号和真实会话；不搬 Cookie。IAB 不可用时必须检查 Chrome，不能提前停止整轮准备检查。
-- download / file_format：按原技能对当前授权范围作小样本导出，核对查询筛选、原件完整列、行数及来源身份。页面打开不是导出验证。无样本记 `sampleStatus:no_sample`，准备检查与首次实际运行明确分开。
+- download / file_format：每日入库按原技能对当前授权范围作小样本导出，核对筛选、原件完整列、行数及来源身份；周报检查官方范围下载。评价导出是可选采集路径，不支持当天导出或零样本时保留真实 download 状态，另验证 meituan_reviews 的逐页读取；file_format 验证审阅表生成和独立重开。页面打开不是导出验证。sampleStatus 只用 verified、no_sample、not_checked；具体方法（如合成审阅表回读）放 nextStep，无样本不伪称导出成功。准备检查与首次实际运行分开。
 - workspace：实际可写的专属本地工作目录、文件权限和精确清理归属；不把家目录或共享 Downloads 当 run 根。
 - dependencies：所选技能完整子树、版本／哈希及运行依赖。表格和文档依赖通过宿主 `load_workspace_dependencies` 获取，不硬编码库路径。评价解析需 openpyxl；工作簿复用 artifact-tool 构建器。
 - host_schedule / host_timezone / host_model：原生独立本地 cron、系统 Asia/Shanghai、实际支持的模型与推理选项；缺失就暂停。迁移保留旧任务模型和推理设置，不擅自降级。
@@ -38,7 +38,7 @@
 
 一个工作流一个实际任务。分发包不提供全企业统一的默认运行时间。新安装按这台电脑通常保持开机的时段提出建议，取得用户对具体时间表的确认后再安装；未确认时保持待配置，不创建猜测日程。迁移和更新从原宿主实际读回日程，原样保留 RRULE，并核对预期发生时间；多个非整点时刻须正确保留组合，不扩成额外次数。时间只在 Codex 修改，修改后读回并 record_host；不另建中央调度。
 
-提示词只包含工作流 ID、enterpriseKey、installationId、锁定包版本／Git commit 和本机专属工作路径，要求使用本技能读最新配置／固定窗口／核对中央授权，不复制全部门店、邮箱、品牌策略和历史记录进去。
+提示词明确请求“创建并执行一个持久 Goal，按 smedc-workflows 的定时运行入口完成该工作流”，并携带工作流 ID、enterpriseKey、installationId、锁定包版本／Git commit、安装锁路径和本机专属工作路径。实际执行入口见 [invocation](invocation.md)；不复制全部门店、邮箱、品牌策略和历史记录进去。安装锁保存在专属安装目录，避免引用一次性修复目录；清空运行缓存仍须保留包／依赖锁。
 
 `journal` 在首次创建前经 `save` 原子落盘。未知创建结果留 createPending；按本轮返回 ID 精确恢复，或在用户可见宿主中定位本次创建记录，不能重试制造重复。保存 readback hostSnapshot 到中央 `record_host`。缺项继续保存 PAUSED 任务；准备就绪后按中央配置确认、指定安装／接管、启用状态及宿主原生 update 的顺序激活。实际激活仍需读回，不把 register 当启用。
 
