@@ -952,9 +952,10 @@ test("a partially claimed notification batch is not reported wholly confirmed or
     mcp__smedc__record_workflow_action: async () => ({
       actions: [
         {
-          actionId: "notification",
+          actionId: "legacy-notification",
           state: "confirmed",
           permitted: false,
+          conflictActionIds: ["legacy-notification"],
           claimedItems: 1,
           requestedItems: 2,
           identityHash: "a".repeat(64),
@@ -994,6 +995,52 @@ test("a partially claimed notification batch is not reported wholly confirmed or
   assert.equal(result.state, "unknown");
   assert.equal(result.partialOverlap, true);
   assert.equal(sends, 0);
+});
+
+test("a cold claimant follows the server's original action ID when reconciling confirmed mail", async () => {
+  const receipt = {
+    actionId: "legacy-mail",
+    state: "confirmed",
+    receiptId: "sent-original",
+  };
+  let lookup;
+  const native = factory()({
+    mcp__smedc__manage_workflow_run: async () => ({ allowed: true }),
+    mcp__smedc__record_workflow_action: async ({ operation }) => {
+      if (operation.kind === "intent")
+        return {
+          actions: [
+            {
+              actionId: "legacy-mail",
+              state: "confirmed",
+              permitted: false,
+              conflictActionIds: ["legacy-mail"],
+              claimedItems: 1,
+              requestedItems: 1,
+              receipt,
+            },
+          ],
+        };
+      assert.equal(operation.kind, "get");
+      lookup = [...operation.actionIds];
+      return {
+        actions: [{ actionId: "legacy-mail", state: "confirmed", receipt }],
+      };
+    },
+  });
+  const session = {
+    workflowId: "flow",
+    runId: "run",
+    installationId: "mac",
+    assignmentEpoch: 1,
+    controlVersion: 1,
+  };
+  const intent = { actionId: "new-local-id", identity: { kind: "email" } };
+  const claimed = await native.claim(session, intent);
+  assert.equal(claimed.permitted, false);
+  const result = await native.reconcileEmail(session, intent, claimed);
+  assert.deepEqual(lookup, ["legacy-mail"]);
+  assert.equal(result.receipt.receiptId, "sent-original");
 });
 
 test("host readback records a user changed schedule instead of restoring a stale snapshot", async () => {
@@ -1186,6 +1233,167 @@ test("scheduled Goal uses the host lifecycle and reuses the active Goal after co
     native.beginGoal({ workflowId: "other", goalRequested: true }),
     /different active/,
   );
+});
+
+test("cold action recovery discovers terminal receipts without local action IDs and saves every page", async () => {
+  const pages = [],
+    reads = [];
+  const native = factory()({
+    mcp__smedc__get_workflow_status: async (input) => {
+      assert.equal(input.workflowId, "flow");
+      assert.equal(input.runId, "run");
+      assert.equal(input.limit, 100);
+      if (!input.actionCursor)
+        return {
+          workflowId: "flow",
+          runActionRefs: [{ actionId: "a", runId: "run", state: "confirmed" }],
+          nextRunActionCursor: "a",
+        };
+      assert.equal(input.actionCursor, "a");
+      assert.equal(pages.length, 1, "persist before fetching the next page");
+      return {
+        workflowId: "flow",
+        runActionRefs: [
+          { actionId: "b", runId: "run", state: "unknown" },
+          { actionId: "c", runId: "run", state: "failed" },
+        ],
+        nextRunActionCursor: null,
+      };
+    },
+    mcp__smedc__record_workflow_action: async ({ operation }) => {
+      assert.equal(operation.kind, "get");
+      reads.push([...operation.actionIds]);
+      return {
+        actions: operation.actionIds.map((actionId) => ({
+          actionId,
+          runId: "run",
+          state: { a: "confirmed", b: "unknown", c: "failed" }[actionId],
+          receipt: {
+            state: { a: "confirmed", b: "unknown", c: "failed" }[actionId],
+            providerReceiptId: "synthetic-" + actionId,
+          },
+        })),
+      };
+    },
+  });
+  const result = await native.recoverActions(
+    { workflowId: "flow", runId: "run" },
+    async (page) => pages.push(page),
+  );
+  assert.equal(result.actionCount, 3);
+  assert.equal(result.confirmed, 1);
+  assert.equal(result.unresolved, 1);
+  assert.equal(result.failed, 1);
+  assert.deepEqual(reads, [["a"], ["b", "c"]]);
+  assert.equal(pages[0].actions[0].receipt.providerReceiptId, "synthetic-a");
+});
+
+test("cold action recovery fails closed on an old service or a foreign run", async () => {
+  let response = { workflowId: "flow", pendingActions: [] },
+    lookups = 0;
+  const native = factory()({
+    mcp__smedc__get_workflow_status: async () => response,
+    mcp__smedc__record_workflow_action: async () => {
+      lookups++;
+      return { actions: [] };
+    },
+  });
+  const input = { workflowId: "flow", runId: "run" };
+  await assert.rejects(
+    native.recoverActions(input, async () => {}),
+    /inventory unavailable/,
+  );
+  response = {
+    workflowId: "flow",
+    runActionRefs: [{ actionId: "a", runId: "other", state: "confirmed" }],
+    nextRunActionCursor: null,
+  };
+  await assert.rejects(
+    native.recoverActions(input, async () => {}),
+    /cross-run/,
+  );
+  assert.equal(lookups, 0);
+});
+
+test("a blank daily host reuses the completed current window instead of creating duplicate work", async () => {
+  const window = { startDate: "2026-11-02", endDate: "2026-11-02" };
+  let starts = 0,
+    workflowType = "meituan-daily-ingestion";
+  const native = factory()({
+    mcp__smedc__get_enterprise_workflow: async () => ({
+      capability: {
+        id: "enterprise-workflows-v1",
+        version: "1.0.0",
+        configurationSchemaVersion: 1,
+        minimumLauncherVersion: "0.16.0",
+      },
+      workflowId: "flow",
+      controlState: "active",
+      assignedInstallationId: "mac",
+      assignmentEpoch: 1,
+      controlVersion: 3,
+      version: 3,
+      integration: { version: 2 },
+    }),
+    mcp__smedc__get_workflow_status: async () => ({
+      workflowId: "flow",
+      nextCursor: null,
+      runs: [
+        {
+          id: "finished-original",
+          status: "succeeded",
+          finishedAt: "2026-11-03T03:00:00Z",
+          snapshot: {
+            workflowType,
+            configurationVersion: 3,
+            integrationVersion: 2,
+            window,
+          },
+          summary: { status: "succeeded" },
+        },
+      ],
+    }),
+    mcp__smedc__manage_workflow_run: async ({ operation }) => {
+      starts++;
+      assert.equal(operation.kind, "start");
+      return { runId: "fresh-run", snapshot: { workflowType, window } };
+    },
+  });
+  const result = await native.recoverRun({
+    workflowId: "flow",
+    enterpriseKey: "demo",
+    workflowType: "meituan-daily-ingestion",
+    installationId: "mac",
+    packageVersion: "1.0.6",
+    window,
+  });
+  assert.equal(result.alreadyCompleted, true);
+  assert.equal(result.runId, "finished-original");
+  assert.equal(starts, 0);
+  workflowType = "meituan-review-operations";
+  const input = {
+    workflowId: "flow",
+    enterpriseKey: "demo",
+    installationId: "mac",
+    packageVersion: "1.0.6",
+    window,
+  };
+  assert.equal(
+    (await native.recoverRun({ ...input, workflowType })).runId,
+    "fresh-run",
+  );
+  workflowType = "meituan-daily-ingestion";
+  assert.equal(
+    (
+      await native.recoverRun({
+        ...input,
+        workflowType,
+        backfill: { confirmationDigest: "synthetic-approved-preview" },
+      })
+    ).runId,
+    "fresh-run",
+  );
+  assert.equal(starts, 2);
 });
 
 test("installation without an explicit schedule creates no native task", async () => {
