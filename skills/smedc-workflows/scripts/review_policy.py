@@ -107,9 +107,10 @@ def task(value):
                 raise ValueError("Selected review store/channel has no source mapping")
     grouped = {}
     for mapping in mappings:
-        grouped.setdefault(mapping["storeName"], []).append(
-            {"storeName": mapping["source"]["sourceStoreName"]}
-        )
+        # The legacy display view has no channel; the scoped list below keeps every identity.
+        grouped.setdefault(mapping["storeName"], {})[
+            mapping["source"]["sourceStoreName"]
+        ] = None
     policies = deepcopy(
         load(PACKAGE / "review-execution-policy.json")["legacyPolicies"]
     )
@@ -124,7 +125,10 @@ def task(value):
     return {
         "enterpriseName": value["enterpriseName"],
         "mappings": [
-            {"targetStoreName": name, "sourceStores": names}
+            {
+                "targetStoreName": name,
+                "sourceStores": [{"storeName": source} for source in names],
+            }
             for name, names in grouped.items()
         ],
         "sourceIdentityMappings": mappings,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "1.0.3",
+  "packageVersion": "1.0.4",
   "minimumServiceCapability": "enterprise-workflows-v1",
   "minimumLauncherVersion": "0.16.0",
   "launcherInstallationOwner": "smedc-mcp",
@@ -9,7 +9,8 @@
       "platform": "macos",
       "schedule": "standalone-local-cron",
       "timezone": "Asia/Shanghai",
-      "browser": "iab"
+      "browser": "iab",
+      "browserFallback": ["chrome"]
     }
   },
   "mailAdapters": ["gmail"],
@@ -32,7 +33,7 @@
       ],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.3"
+        "workflowPackageVersion": "1.0.4"
       },
       "window": "previous-complete-business-day",
       "capabilities": [
@@ -62,7 +63,7 @@
       "dependencies": ["reply-meituan-reviews", "review-responder"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.3"
+        "workflowPackageVersion": "1.0.4"
       },
       "window": "previous-day-and-today",
       "capabilities": [
@@ -90,9 +91,9 @@
         "verify_identity",
         "draft",
         "workbook",
+        "notify_new_drafts",
         "publish_authorized",
         "sync_and_readback",
-        "notify_new_drafts",
         "archive_complete_run",
         "cleanup_complete_run"
       ]
@@ -101,7 +102,7 @@
       "dependencies": ["smedc-business-analysis"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.3"
+        "workflowPackageVersion": "1.0.4"
       },
       "window": "previous-natural-week",
       "capabilities": [

@@ -10,6 +10,28 @@ SCRIPT = ROOT / "scripts" / "workflow.py"
 
 
 class WorkflowCliTests(unittest.TestCase):
+    def test_iab_unavailable_has_a_workflow_level_chrome_fallback(self):
+        package = json.loads((ROOT / "manifest.json").read_text())
+        self.assertEqual(package["hosts"]["codex"]["browser"], "iab")
+        self.assertEqual(package["hosts"]["codex"].get("browserFallback"), ["chrome"])
+        for name in ["SKILL.md", "references/installation.md"]:
+            self.assertIn("browser.md", (ROOT / name).read_text())
+        browser = (ROOT / "references/browser.md").read_text()
+        self.assertIn("Browser is not available: iab", browser)
+        self.assertIn("Chrome", browser)
+
+    def test_source_reads_are_not_required_to_invent_a_central_action(self):
+        runtime = (ROOT / "references/runtime.md").read_text()
+        self.assertFalse(
+            "在每个外部动作前 `native.claim(session,intent)`" in runtime,
+            "Read-only source collection must not require an unsupported intent",
+        )
+        self.assertIn("浏览器来源读取", runtime)
+        self.assertIn("review_collect", runtime)
+        self.assertIn("review_export", runtime)
+        self.assertIn("withLease", runtime)
+        self.assertIn("check_actions", runtime)
+
     def run_cli(self, operation, value):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary).resolve() / "input.json"
@@ -526,6 +548,13 @@ class WorkflowCliTests(unittest.TestCase):
         result, _ = self.run_cli("review-task", value)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("channel", result.stderr)
+        value["snapshot"]["integration"]["storeMappings"].append(
+            {"source": {**source, "channel": "dianping"}, "storeName": "Demo"}
+        )
+        result, task = self.run_cli("review-task", value)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(task["sourceIdentityMappings"]), 2)
+        self.assertEqual(task["mappings"][0]["sourceStores"], [{"storeName": "Demo source"}])
         value["snapshot"]["configuration"]["channels"] = ["meituan"]
         value["snapshot"]["configuration"]["executionPolicy"]["version"] = 2
         result, _ = self.run_cli("review-task", value)
