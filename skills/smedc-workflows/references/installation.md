@@ -20,7 +20,7 @@
 
 - configuration：实时兼容服务、已保存精确企业／来源账号／来源集团品牌绑定、门店映射和独立任务选择。未知门店 needs_configuration；不是闭店。
 - permissions：当前 admin 及对应内容权限。未通过前不读本地待上传业务原件。
-- meituan_erp / meituan_reviews：分别检查正确来源账号和真实会话；不搬 Cookie。默认 IAB；仅当原业务技能所需已登录会话／扩展不在 IAB 时按其规则说明并回退本机浏览器。
+- meituan_erp / meituan_reviews：先按 [浏览器选择与恢复](browser.md) 选择实际可用的 IAB 或本机 Chrome，再分别检查正确来源账号和真实会话；不搬 Cookie。IAB 不可用时必须检查 Chrome，不能提前停止整轮准备检查。
 - download / file_format：按原技能对当前授权范围作小样本导出，核对查询筛选、原件完整列、行数及来源身份。页面打开不是导出验证。无样本记 `sampleStatus:no_sample`，准备检查与首次实际运行明确分开。
 - workspace：实际可写的专属本地工作目录、文件权限和精确清理归属；不把家目录或共享 Downloads 当 run 根。
 - dependencies：所选技能完整子树、版本／哈希及运行依赖。表格和文档依赖通过宿主 `load_workspace_dependencies` 获取，不硬编码库路径。评价解析需 openpyxl；工作簿复用 artifact-tool 构建器。
