@@ -86,8 +86,18 @@
     return { installationId, runId, assignmentEpoch, controlVersion };
   }
   function firstAction(result, id) {
-    const a = result.actions?.find((a) => a.actionId === id);
-    if (!a) throw new Error("Missing action result");
+    const a = result.actions?.[0];
+    if (
+      !a ||
+      result.actions.length !== 1 ||
+      (a.actionId !== id &&
+        !(
+          a.permitted === false &&
+          Array.isArray(a.conflictActionIds) &&
+          a.conflictActionIds.includes(a.actionId)
+        ))
+    )
+      throw new Error("Missing or unbound action result");
     return a;
   }
   const quote = (value) => "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
@@ -641,9 +651,14 @@
     );
     if (current.workflowId !== input.workflowId)
       throw new Error("Workflow binding mismatch");
+    if (
+      current.controlState !== "active" ||
+      current.assignedInstallationId !== input.installationId
+    )
+      throw new Error("Workflow paused or assigned elsewhere");
     const unfinished = [],
       seen = new Set();
-    let cursor;
+    let cursor, latestForWindow;
     do {
       const page = await mcp("get_workflow_status", {
         workflowId: input.workflowId,
@@ -654,6 +669,18 @@
         throw new Error("Status workflow binding mismatch");
       for (const run of page.runs ?? []) {
         if (!run.finishedAt) unfinished.push(run);
+        if (
+          !latestForWindow &&
+          input.window &&
+          run.snapshot?.workflowType === input.workflowType &&
+          run.snapshot.window.startDate === input.window.startDate &&
+          run.snapshot.window.endDate === input.window.endDate &&
+          Number.isInteger(current.version) &&
+          Number.isInteger(current.integration?.version) &&
+          run.snapshot.configurationVersion === current.version &&
+          run.snapshot.integrationVersion === current.integration.version
+        )
+          latestForWindow = run;
       }
       cursor = page.nextCursor;
       if (cursor && seen.has(cursor))
@@ -663,6 +690,23 @@
     if (unfinished.length > 1)
       throw new Error("Multiple unfinished runs require reconciliation");
     const run = unfinished[0];
+    if (
+      !run &&
+      !input.backfill &&
+      ["meituan-daily-ingestion", "weekly-business-report"].includes(
+        input.workflowType,
+      ) &&
+      latestForWindow?.status === "succeeded" &&
+      latestForWindow.finishedAt
+    )
+      return {
+        alreadyCompleted: true,
+        workflowId: input.workflowId,
+        runId: latestForWindow.id,
+        snapshot: latestForWindow.snapshot,
+        summary: latestForWindow.summary,
+        finishedAt: latestForWindow.finishedAt,
+      };
     if (input.resume?.runId && run?.id !== input.resume.runId)
       throw new Error("Local run differs from current central unfinished run");
     const pinnedVersion =
@@ -704,6 +748,103 @@
         "central run with its actual outcome. Use the execution plan and original provider " +
         "receipts to choose remaining work. Respect live authorization and reconcile unknown actions.",
     });
+  }
+  async function recoverActions(session, savePage) {
+    if (!session.workflowId || !session.runId || typeof savePage !== "function")
+      throw new Error("Frozen run and durable recovery-page writer required");
+    const summary = {
+      pageCount: 0,
+      actionCount: 0,
+      confirmed: 0,
+      unresolved: 0,
+      failed: 0,
+    };
+    const seenCursors = new Set(),
+      seenActions = new Set();
+    let cursor;
+    do {
+      const page = await mcp("get_workflow_status", {
+        workflowId: session.workflowId,
+        runId: session.runId,
+        limit: 100,
+        ...(cursor ? { actionCursor: cursor } : {}),
+      });
+      if (
+        page.workflowId !== session.workflowId ||
+        !Array.isArray(page.runActionRefs) ||
+        !Object.hasOwn(page, "nextRunActionCursor")
+      )
+        throw new Error(
+          "Run action inventory unavailable; compatible service rollout required",
+        );
+      const refs = page.runActionRefs;
+      if (
+        refs.length > 100 ||
+        refs.some(
+          (ref) =>
+            ref.runId !== session.runId ||
+            typeof ref.actionId !== "string" ||
+            seenActions.has(ref.actionId),
+        )
+      )
+        throw new Error("Invalid or cross-run recovery index");
+      for (const ref of refs) {
+        if (seenActions.has(ref.actionId))
+          throw new Error("Duplicate recovery action");
+        seenActions.add(ref.actionId);
+      }
+      const result = refs.length
+        ? await mcp("record_workflow_action", {
+            workflowId: session.workflowId,
+            operation: {
+              kind: "get",
+              actionIds: refs.map((ref) => ref.actionId),
+            },
+          })
+        : { actions: [] };
+      const actions = result.actions;
+      if (
+        !Array.isArray(actions) ||
+        actions.length !== refs.length ||
+        new Set(actions.map((a) => a.actionId)).size !== refs.length ||
+        actions.some(
+          (a) =>
+            a.runId !== session.runId ||
+            !refs.some((ref) => ref.actionId === a.actionId) ||
+            !["intent", "confirmed", "unknown", "failed"].includes(a.state) ||
+            (a.state === "confirmed" && a.receipt?.state !== "confirmed"),
+        )
+      )
+        throw new Error("Incomplete or cross-run recovery receipts");
+      const next = page.nextRunActionCursor;
+      if (
+        next !== null &&
+        (typeof next !== "string" ||
+          seenCursors.has(next) ||
+          refs.at(-1)?.actionId !== next)
+      )
+        throw new Error("Recovery pagination did not advance");
+      await savePage({
+        workflowId: session.workflowId,
+        runId: session.runId,
+        sequence: summary.pageCount,
+        observedAt: page.observedAt ?? now(),
+        actions,
+        nextCursor: next,
+      });
+      summary.pageCount++;
+      summary.actionCount += actions.length;
+      summary.confirmed += actions.filter(
+        (a) => a.state === "confirmed",
+      ).length;
+      summary.unresolved += actions.filter((a) =>
+        ["intent", "unknown"].includes(a.state),
+      ).length;
+      summary.failed += actions.filter((a) => a.state === "failed").length;
+      if (next) seenCursors.add(next);
+      cursor = next;
+    } while (cursor);
+    return summary;
   }
   async function withLease(session, meta, invoke, save = options.saveOutcome) {
     const factual =
@@ -1244,12 +1385,13 @@
     return { state: "confirmed", receipt };
   }
   async function reconcileEmail(session, intent, action, continuation) {
+    const originalActionId = action?.actionId ?? intent.actionId;
     const persisted = await mcp("record_workflow_action", {
       workflowId: session.workflowId,
-      operation: { kind: "get", actionIds: [intent.actionId] },
+      operation: { kind: "get", actionIds: [originalActionId] },
     });
     const stored = persisted.actions.find(
-      (item) => item.actionId === intent.actionId,
+      (item) => item.actionId === originalActionId,
     );
     if (!stored) throw new Error("Original action metadata unavailable");
     if (stored.state === "confirmed")
@@ -1794,6 +1936,7 @@
     openRun,
     recoverRun,
     beginGoal,
+    recoverActions,
     withLease,
     check,
     claim,
