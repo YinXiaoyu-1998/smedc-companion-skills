@@ -631,6 +631,80 @@
       controlVersion: current.controlVersion,
     };
   }
+  // A missing local checkpoint is not evidence that the central run is new.
+  async function recoverRun(input) {
+    const current = compatible(
+      await mcp("get_enterprise_workflow", {
+        enterpriseKey: input.enterpriseKey,
+        workflowType: input.workflowType,
+      }),
+    );
+    if (current.workflowId !== input.workflowId)
+      throw new Error("Workflow binding mismatch");
+    const unfinished = [],
+      seen = new Set();
+    let cursor;
+    do {
+      const page = await mcp("get_workflow_status", {
+        workflowId: input.workflowId,
+        limit: 100,
+        ...(cursor ? { cursor } : {}),
+      });
+      if (page.workflowId !== input.workflowId)
+        throw new Error("Status workflow binding mismatch");
+      for (const run of page.runs ?? []) {
+        if (!run.finishedAt) unfinished.push(run);
+      }
+      cursor = page.nextCursor;
+      if (cursor && seen.has(cursor))
+        throw new Error("Run pagination did not advance");
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    if (unfinished.length > 1)
+      throw new Error("Multiple unfinished runs require reconciliation");
+    const run = unfinished[0];
+    if (input.resume?.runId && run?.id !== input.resume.runId)
+      throw new Error("Local run differs from current central unfinished run");
+    const pinnedVersion =
+      run?.workflowPackageVersion ?? run?.snapshot?.workflowPackageVersion;
+    if (run && pinnedVersion && input.packageVersion !== pinnedVersion)
+      throw new Error(
+        "Resume requires original package version " + pinnedVersion,
+      );
+    return openRun({
+      ...input,
+      ...(run
+        ? { resume: { workflowId: input.workflowId, runId: run.id } }
+        : {}),
+    });
+  }
+  async function beginGoal(input) {
+    // The saved scheduled prompt must explicitly request a Goal. A skill invocation
+    // alone is not user authorization to create one.
+    if (input.goalRequested !== true)
+      throw new Error("Explicit scheduled Goal request required");
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(input.workflowId))
+      throw new Error("Stable workflow ID required");
+    const marker = "SMEDC workflow " + input.workflowId;
+    const current = await call("get_goal", {});
+    if (current.goal && current.goal.status !== "complete") {
+      if (!current.goal.objective.includes(marker + ":"))
+        throw new Error("A different active Goal already owns this chat");
+      if (current.goal.status !== "active")
+        throw new Error("Existing Goal requires user resumption");
+      return current;
+    }
+    return call("create_goal", {
+      objective:
+        marker +
+        ": execute the installed workflow for its frozen window, " +
+        "resuming the central unfinished run if present. Complete the required source scopes, " +
+        "verify SMEDC uploads/synchronization and authorized publication, verify any enabled " +
+        "email delivery or an evidenced no-new-draft/already-delivered result, and finish the " +
+        "central run with its actual outcome. Use the execution plan and original provider " +
+        "receipts to choose remaining work. Respect live authorization and reconcile unknown actions.",
+    });
+  }
   async function withLease(session, meta, invoke, save = options.saveOutcome) {
     const factual =
       meta.factualReceipt === true &&
@@ -1718,6 +1792,8 @@
     setHostState,
     activate,
     openRun,
+    recoverRun,
+    beginGoal,
     withLease,
     check,
     claim,

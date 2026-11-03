@@ -1103,6 +1103,91 @@ test("openRun rebinds the original run to current verified control and assignmen
   await assert.rejects(native.openRun(input), /assigned elsewhere/);
 });
 
+test("cold recovery discovers an unfinished run on a later page instead of starting twice", async () => {
+  const operations = [];
+  const snapshot = {
+    workflowType: "meituan-daily-ingestion",
+    window: { startDate: "2026-11-02", endDate: "2026-11-02" },
+  };
+  const native = factory()({
+    mcp__smedc__get_enterprise_workflow: async () => ({
+      capability: {
+        id: "enterprise-workflows-v1",
+        version: "1.0.0",
+        configurationSchemaVersion: 1,
+        minimumLauncherVersion: "0.16.0",
+      },
+      workflowId: "flow",
+      controlState: "active",
+      assignedInstallationId: "mac",
+      assignmentEpoch: 2,
+      controlVersion: 3,
+    }),
+    mcp__smedc__get_workflow_status: async ({ cursor }) => ({
+      workflowId: "flow",
+      runs: cursor
+        ? [
+            {
+              id: "original",
+              finishedAt: null,
+              workflowPackageVersion: "1.0.4",
+            },
+          ]
+        : [{ id: "finished", finishedAt: "2026-11-01T00:00:00Z" }],
+      nextCursor: cursor ? null : "page-2",
+    }),
+    mcp__smedc__manage_workflow_run: async ({ operation }) => {
+      operations.push(operation);
+      if (operation.kind === "start") throw new Error("WORKFLOW_BUSY");
+      return { runId: "original", snapshot };
+    },
+  });
+  const run = await native.recoverRun({
+    workflowId: "flow",
+    enterpriseKey: "demo",
+    workflowType: snapshot.workflowType,
+    installationId: "mac",
+    packageVersion: "1.0.4",
+    window: { startDate: "2026-11-03", endDate: "2026-11-03" },
+  });
+  assert.equal(run.runId, "original");
+  assert.equal(run.snapshot.window.startDate, "2026-11-02");
+  assert.equal(operations.length, 1);
+  assert.equal(operations[0].kind, "resume");
+  await assert.rejects(
+    native.recoverRun({
+      workflowId: "flow",
+      enterpriseKey: "demo",
+      workflowType: snapshot.workflowType,
+      installationId: "mac",
+      packageVersion: "1.0.5",
+    }),
+    /original package version/,
+  );
+  assert.equal(operations.length, 1);
+});
+
+test("scheduled Goal uses the host lifecycle and reuses the active Goal after continuation", async () => {
+  let goal = null,
+    created = 0;
+  const native = factory()({
+    get_goal: async () => ({ goal }),
+    create_goal: async ({ objective }) => {
+      created++;
+      goal = { objective, status: "active" };
+      return { goal };
+    },
+  });
+  await assert.rejects(native.beginGoal({ workflowId: "flow" }), /Explicit/);
+  await native.beginGoal({ workflowId: "flow", goalRequested: true });
+  await native.beginGoal({ workflowId: "flow", goalRequested: true });
+  assert.equal(created, 1);
+  await assert.rejects(
+    native.beginGoal({ workflowId: "other", goalRequested: true }),
+    /different active/,
+  );
+});
+
 test("installation without an explicit schedule creates no native task", async () => {
   let creates = 0;
   const native = factory()({

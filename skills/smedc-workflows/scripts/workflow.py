@@ -112,6 +112,13 @@ def readiness(value):
             "unavailable",
         }:
             raise ValueError("Unsupported readiness status")
+        if "sampleStatus" in observed and observed["sampleStatus"] not in {
+            "verified", "no_sample", "not_checked"
+        }:
+            raise ValueError(
+                "Unsupported sampleStatus: use verified, no_sample or not_checked; "
+                "put the observation method in nextStep"
+            )
         checks.append(
             {
                 "capability": capability,
@@ -163,6 +170,7 @@ def main():
             "review-sync-proof",
             "review-sync-intent",
             "prepare-workspace",
+            "execution-plan",
         ],
     )
     source = parser.add_mutually_exclusive_group(required=True)
@@ -172,7 +180,11 @@ def main():
     args = parser.parse_args()
     try:
         value = json.loads(args.json) if args.json is not None else load(args.input)
-        if args.operation == "prepare-workspace":
+        if args.operation == "execution-plan":
+            from execution import plan
+
+            result = plan(value)
+        elif args.operation == "prepare-workspace":
             from lifecycle import prepare_workspace
 
             result = prepare_workspace(value)
