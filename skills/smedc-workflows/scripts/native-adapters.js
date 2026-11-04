@@ -584,6 +584,90 @@
       throw new Error("WORKFLOW_VERSION_INCOMPATIBLE");
     return data;
   }
+  async function ensureRunReadiness(input) {
+    const { workflowId, installationId, workflowType, packageVersion, refreshChecks } = input;
+    const status = await mcp("get_workflow_status", { workflowId, limit: 1 });
+    if (
+      status.workflowId !== workflowId ||
+      status.workflowType !== workflowType ||
+      status.assignedInstallationId !== installationId ||
+      status.controlState !== "active"
+    )
+      throw new Error("Readiness workflow binding mismatch");
+    const installation = status.installations?.find(
+      (item) => item.installationId === installationId,
+    );
+    if (installation?.state !== "enabled" || !installation.hostSnapshot)
+      throw new Error("Enabled installation with recorded host required");
+    if (installation.workflowPackageVersion !== packageVersion)
+      throw new Error("Readiness package binding mismatch");
+
+    const required = [
+      "configuration", "permissions", "workspace", "dependencies",
+      "host_schedule", "host_timezone", "host_model",
+    ];
+    if (workflowType === "meituan-review-operations") required.push("meituan_reviews");
+    else if (workflowType === "meituan-daily-ingestion") required.push("download", "meituan_erp");
+    else if (workflowType === "weekly-business-report") required.push("download");
+    else throw new Error("Unknown workflow type");
+
+    const observedAt = Date.parse(status.observedAt);
+    if (!Number.isFinite(observedAt)) throw new Error("Central readiness clock unavailable");
+    const prior = new Map(
+      (installation.readinessChecks ?? []).map((check) => [check.capability, check]),
+    );
+    const recent = (check, at) => {
+      const checkedAt = Date.parse(check?.checkedAt);
+      return checkedAt > at - 86400000 && checkedAt <= at + 60000;
+    };
+    const requiredRefresh = required.filter((name) => {
+      const check = prior.get(name);
+      return check?.status !== "ready" || !recent(check, observedAt);
+    });
+    if (!requiredRefresh.length) return;
+
+    function needsRefresh(capabilities) {
+      const error = new Error("WORKFLOW_READINESS_REFRESH_REQUIRED: " + capabilities.join(", "));
+      error.code = "WORKFLOW_READINESS_REFRESH_REQUIRED";
+      error.capabilities = capabilities;
+      return error;
+    }
+    if (typeof refreshChecks !== "function") throw needsRefresh(requiredRefresh);
+    const refreshed = await refreshChecks([...requiredRefresh]);
+    const checkedNow = Date.now();
+    if (
+      !Array.isArray(refreshed) ||
+      refreshed.length !== requiredRefresh.length ||
+      new Set(refreshed.map((check) => check.capability)).size !== refreshed.length ||
+      refreshed.some((check) =>
+        !requiredRefresh.includes(check.capability) ||
+        !recent(check, checkedNow) ||
+        Date.parse(check.checkedAt) <= (Date.parse(prior.get(check.capability)?.checkedAt) || 0)
+      )
+    )
+      throw new Error("Expected fresh results for each requested readiness check");
+
+    for (const check of refreshed) prior.set(check.capability, check);
+    const saved = await mcp("manage_workflow_installation", {
+      workflowId,
+      operation: {
+        kind: "record_checks",
+        installationId,
+        checks: [...prior.values()],
+        firstRunVerification: installation.firstRunVerification,
+      },
+    });
+    if (saved.installationId !== installationId)
+      throw new Error("Readiness record acknowledgement mismatch");
+    const savedChecks = new Map(
+      (saved.readinessChecks ?? []).map((check) => [check.capability, check]),
+    );
+    const unavailable = required.filter((name) => {
+      const check = savedChecks.get(name);
+      return check?.status !== "ready" || !recent(check, Date.now());
+    });
+    if (unavailable.length) throw needsRefresh(unavailable);
+  }
   async function openRun(input) {
     const current = await mcp("get_enterprise_workflow", {
       enterpriseKey: input.enterpriseKey,
@@ -600,6 +684,7 @@
       input.resume.workflowId !== current.workflowId
     )
       throw new Error("Resume workflow binding mismatch");
+    if (!input.resume) await ensureRunReadiness({ ...input, workflowId: current.workflowId });
     const operation = input.resume
       ? {
           kind: "resume",
@@ -1933,6 +2018,7 @@
     install,
     setHostState,
     activate,
+    ensureRunReadiness,
     openRun,
     recoverRun,
     beginGoal,

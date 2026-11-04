@@ -2,13 +2,13 @@
 
 安装／更新与业务运行分开。定时 prompt 明确请求创建并执行一个持久 Goal，并携带工作流绑定、固定包版本／源码修订、安装锁路径和专属 workspaceRoot。Goal 使用宿主 `get_goal/create_goal/update_goal` 生命周期；普通技能调用不自动创建 Goal。它让未完成工作能在同一聊天接续，不扩大权限，也不替代业务核验。宿主没有这些工具时，将该执行模式记为 unavailable，不创建另一个调度器。
 
-一次调度触发是一次 invocation，对应一个任务聊天及 Goal；同一 Goal 的后续对话轮次不是新的业务运行。中央 runId、窗口、动作身份及执行队列在这些轮次间保持不变。首次触发／换机／更新时执行准备检查；同一 invocation 续轮读取已保存的真实检查及有效时间，重新核对当前身份、控制、指定安装和浏览器来源。检查失效或环境改变时补查对应能力，不把每个对话轮次都当成重新安装和重新导出样本。
+一次调度触发是一次 invocation，对应一个任务聊天及 Goal；同一 Goal 的后续对话轮次不是新的业务运行。中央 runId、窗口、动作身份及执行队列在这些轮次间保持不变。首次触发／换机／更新时执行准备检查。每次开新轮前对照中央状态检查有效期；同一 invocation 续轮重新核对身份、控制、指定安装和浏览器来源，复用仍适用的检查。
 
 ## 启动和恢复
 
 1. 核验安装锁和所选依赖，按 [runtime](runtime.md) 加载 native adapter。调用 `native.beginGoal({workflowId,goalRequested:true})`；只在定时 prompt 的显式 Goal 请求下传 true。同一聊天续轮复用已有 Goal，不覆盖别的 Goal。
 2. 读取当前身份、配置、指定安装及当前权限。state.json 是本地缓存；缺失时用已核验安装锁、prompt 绑定和中央 installation/hostSnapshot 重建，先核对实际任务 ID、日程、模型和目录归属，不导入旧机路径。迁移回执和 unknown 动作仍从中央恢复；清空本地记录不等于清空业务历史。
-3. 按 [installation](installation.md) 刷新实际就绪检查。准备检查只决定哪些阶段可执行；接下来调用 `native.recoverRun(input)`，它分页寻找中央未结束轮并恢复原 runId／窗口。无未结束轮才以 `workflow.py window` 的窗口开轮；明确补跑仍走 prepare_backfill。传旧 state 的 resume 时会交叉核对中央归属，发现冲突先协调。保存返回的完整 session 和 snapshot，再按原规则持锁。
+3. 调用 `native.recoverRun(input)`，先查中央未结束轮或已完成窗口，再决定是否开新轮。新轮由 `native.openRun` 在 `start` 前检查中央必需项。若返回 `WORKFLOW_READINESS_REFRESH_REQUIRED`，按错误的 `capabilities` 清单和 [安装检查定义](installation.md) 实做每一项，持久保存实际结果，再传 `input.refreshChecks = async (capabilities) => /* 读取这些项目的真实检查结果数组 */` 重试。检查记录按 `capability/status/checkedAt/nextStep` 保存，时间取实际验证时刻。适配器合并仍可复用的记录、登记 `record_checks` 并核对响应，再发送 `start`；失败或未验证项目保留准确缺项，不刷新旧结果的时间。显式补跑先对同一绑定调用 `native.ensureRunReadiness(input)`，再走 `prepare_backfill`，开轮仍会复核。传旧 state 的 resume 时会交叉核对中央归属，发现冲突先协调。保存返回的完整 session 和 snapshot，再按原规则持锁。
 4. 本地动作记录缺失时，先调用 `native.recoverActions(session, savePage)`。savePage 将每页保存到本轮专属 recovery-actions/page-N.json；helper 按中央 runActionRefs 分页发现全部状态的动作 ID，再用现有 get 读取完整最小回执，拒绝跨轮结果和缺页，仅返回计数摘要。旧服务缺少该索引时明确停止依赖历史的写入，保留原轮，不把缺能力当成零历史。另按原流程核对全工作流的未知动作。已确认的动作复用回执，unknown/intent 先核对原 provider/job；恢复回执不会恢复已丢失的原件或报告，也不伪造采集覆盖。
 5. 从返回 session 生成本轮执行队列。`workflow.py execution-plan --input INPUT --output PLAN` 的 INPUT 是 `{run: session, progress: savedProgress}`；首次省略 progress。队列按冻结配置生成五类入库的独立阶段、每个评价来源身份和周报阶段。准备样本不会自动完成 collect。当前 `next` 是可执行的待办；某类来源阻塞时其他独立类／来源仍能出现。用已恢复回执及各业务技能的完整性检查重建可证明的阶段，证据不足的来源范围仍需重新只读采集；不因进度文件缺失重放已确认或未知的写入。
 

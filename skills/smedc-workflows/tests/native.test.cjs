@@ -1337,6 +1337,11 @@ test("a blank daily host reuses the completed current window instead of creating
     }),
     mcp__smedc__get_workflow_status: async () => ({
       workflowId: "flow",
+      workflowType,
+      assignedInstallationId: "mac",
+      controlState: "active",
+      observedAt: new Date().toISOString(),
+      installations: [readyInstallation()],
       nextCursor: null,
       runs: [
         {
@@ -1421,4 +1426,71 @@ test("installation without an explicit schedule creates no native task", async (
     /needs_configuration/,
   );
   assert.equal(creates, 0);
+});
+
+const preflightCapabilities = [
+  "configuration", "permissions", "workspace", "dependencies", "host_schedule",
+  "host_timezone", "host_model", "meituan_reviews", "download", "meituan_erp",
+];
+function readyInstallation() {
+  return {
+    installationId: "mac", state: "enabled", hostSnapshot: {},
+    workflowPackageVersion: "1.0.6", firstRunVerification: "verified",
+    readinessChecks: preflightCapabilities.map((capability) => ({
+      capability, status: "ready", checkedAt: new Date().toISOString(),
+    })),
+  };
+}
+test("expired or missing checks stop a new run until actual results are recorded", async () => {
+  const installation = readyInstallation();
+  const workflowType = "meituan-review-operations";
+  const input = { workflowId: "flow", workflowType, installationId: "mac", packageVersion: "1.0.6" };
+  installation.readinessChecks.find(c => c.capability === "meituan_reviews").checkedAt =
+    new Date(Date.now() - 86400000).toISOString();
+  installation.readinessChecks = installation.readinessChecks.filter(c => c.capability !== "workspace");
+  installation.readinessChecks.find(c => c.capability === "download").status = "unsupported";
+  const operations = [];
+  const starts = [];
+  const native = factory()({
+    mcp__smedc__get_enterprise_workflow: async () => ({
+      capability: {
+        id: "enterprise-workflows-v1", version: "1.0.0",
+        configurationSchemaVersion: 1, minimumLauncherVersion: "0.16.0",
+      },
+      workflowId: "flow", assignedInstallationId: "mac", controlState: "active",
+      version: 1, integration: { version: 1 }, assignmentEpoch: 1, controlVersion: 1,
+    }),
+    mcp__smedc__manage_workflow_run: async ({ operation }) => {
+      starts.push(operation.kind);
+      assert.equal(operations.length, 2);
+      return { runId: "new-run", snapshot: { workflowType } };
+    },
+    mcp__smedc__get_workflow_status: async () => ({
+      ...input, observedAt: new Date().toISOString(), installations: [installation],
+      assignedInstallationId: "mac", controlState: "active",
+    }),
+    mcp__smedc__manage_workflow_installation: async ({ operation }) => {
+      operations.push(operation);
+      installation.readinessChecks = operation.checks;
+      return installation;
+    },
+  });
+  await assert.rejects(native.openRun(input), /workspace, meituan_reviews/);
+  assert.equal(operations.length, 0);
+  const recheck = (status) => async (names) => {
+    assert.deepEqual(Array.from(names), status === "ready" ? ["meituan_reviews"] : ["workspace", "meituan_reviews"]);
+    return Array.from(names, capability => ({
+      capability, status: capability === "meituan_reviews" ? status : "ready",
+      checkedAt: new Date(Date.now() - (status === "ready" ? 0 : 1000)).toISOString(),
+    }));
+  };
+  await assert.rejects(native.openRun({ ...input, refreshChecks: recheck("needs_login") }), /meituan_reviews/);
+  assert.equal(operations[0].kind, "record_checks");
+  assert.equal(operations[0].firstRunVerification, "verified");
+  assert.equal(starts.length, 0);
+  assert.equal((await native.openRun({ ...input, refreshChecks: recheck("ready") })).runId, "new-run");
+  assert.deepEqual(starts, ["start"]);
+  await native.ensureRunReadiness(input);
+  assert.equal(operations.length, 2);
+  assert.equal(installation.readinessChecks.find(c => c.capability === "download").status, "unsupported");
 });
