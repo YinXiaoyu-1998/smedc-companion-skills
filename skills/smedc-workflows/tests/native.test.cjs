@@ -149,7 +149,13 @@ test("readback confirms the exact sent artifact without a manual-resolution bypa
   const crypto = require("node:crypto");
   const content = "<html>Final report</html>";
   const hash = crypto.createHash("sha256").update(content).digest("hex");
-  let receipt;
+  let receipt, refreshed = false, claims = 0;
+  const installation = {
+    ...readyInstallation(), installationId: "i",
+    readinessChecks: ["email_identity", "sent_mail_lookup"].map((capability) => ({
+      capability, status: "ready", checkedAt: "2026-11-01T00:00:00Z",
+    })),
+  };
   const intent = {
     actionId: "a",
     identity: {
@@ -166,8 +172,28 @@ test("readback confirms the exact sent artifact without a manual-resolution bypa
       mcp__codex_apps__gmail_get_profile: async () => ({
         emailAddress: "sender@example.test",
       }),
+      mcp__smedc__get_workflow_status: async () => ({
+        workflowId: "w", workflowType: "meituan-review-operations",
+        assignedInstallationId: "i", controlState: "active",
+        observedAt: new Date().toISOString(), installations: [installation],
+      }),
+      mcp__codex_apps__gmail_search_email_ids: async (request) => {
+        assert.equal(request.query, "in:sent");
+        return { message_ids: [] };
+      },
+      mcp__smedc__manage_workflow_installation: async ({ operation }) => {
+        assert.equal(operation.kind, "record_checks");
+        assert.equal(operation.firstRunVerification, "verified");
+        assert.equal(operation.checks.length, 2);
+        assert.ok(operation.checks.every((check) => check.status === "ready" &&
+          Date.parse(check.checkedAt) > Date.now() - 60000));
+        refreshed = true;
+        return { ...installation, readinessChecks: operation.checks };
+      },
       mcp__smedc__manage_workflow_run: async () => ({ ok: true }),
       mcp__smedc__record_workflow_action: async (input) => {
+        if (input.operation.kind === "intent" && ++claims === 1)
+          return { error: { code: "WORKFLOW_SOURCE_UNAVAILABLE" } };
         if (input.operation.kind === "intent")
           return {
             actions: [
@@ -182,7 +208,11 @@ test("readback confirms the exact sent artifact without a manual-resolution bypa
         receipt = input.operation.receipts[0];
         return { recorded: 1, receipts: [receipt] };
       },
-      mcp__codex_apps__gmail_send_email: async () => ({ id: "provider-id" }),
+      mcp__codex_apps__gmail_send_email: async () => {
+        assert.equal(refreshed, true);
+        assert.equal(claims, 2);
+        return { id: "provider-id" };
+      },
       mcp__codex_apps__gmail_read_email_thread: async () => ({
         messages: [
           {
