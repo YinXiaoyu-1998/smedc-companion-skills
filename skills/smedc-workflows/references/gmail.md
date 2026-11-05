@@ -4,7 +4,7 @@
 
 冻结 email intent 的 purpose、storeNames/window、recipients、sender、deliveryVersion；新稿再加每个 source/feedbackId/recipient。artifactHash 是准确最终 HTML／新稿通知正文的 UTF-8 SHA256，correlationMarker 是稳定可查询标记。正文、发件人或任务 ID 改变不改变中央去重身份。
 
-`native.sendEmail(session,intent,mail)` 在当前授权及持久 intent 后发一次，mail 含 artifactHash/subject/原生 MIME payload，subject 不接受换行并附 marker。正文先本地核对 SHA。周报唯一附件为最终 .html，MIME=text/html，content_disposition=attachment；正文和主题说明报告期、范围及缺口，不附原件、配置、中间事实或未完成报告。普通自动发送使用现行持续授权，不要求 manual_resolution 或逐封人工批准。
+`native.sendEmail(session,intent,mail)` 在当前授权及持久 intent 后发一次，mail 含 artifactHash/subject/原生 MIME payload，subject 不接受换行并附 marker。正文先本地核对 SHA。周报唯一附件为最终 .html，MIME=text/html，content_disposition=attachment；正文和主题说明报告期、范围及缺口，不附原件、配置、中间事实或未完成报告。普通自动发送使用现行持续授权，不要求 manual_resolution 或逐封人工批准。 邮件登记另检查 `email_identity` 和 `sent_mail_lookup` 的 24 小时有效期。遇到中央登记拒绝且这两项已过期或缺失，适配器用实际 Gmail 账号和只读已发送查询补查，合并登记并读回后，只重试同一中央登记一次。这个重试发生在 Gmail 派发前；已派发或结果未知继续按原标记核对。
 
 ## 明确发送回执
 

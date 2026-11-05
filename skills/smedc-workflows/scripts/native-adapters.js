@@ -585,6 +585,20 @@
     return data;
   }
   async function ensureRunReadiness(input) {
+    const { workflowType, packageVersion } = input;
+    if (!packageVersion) throw new Error("Readiness package binding required");
+    const required = [
+      "configuration", "permissions", "workspace", "dependencies",
+      "host_schedule", "host_timezone", "host_model",
+    ];
+    if (workflowType === "meituan-review-operations") required.push("meituan_reviews");
+    else if (workflowType === "meituan-daily-ingestion") required.push("download", "meituan_erp");
+    else if (workflowType === "weekly-business-report") required.push("download");
+    else throw new Error("Unknown workflow type");
+
+    await ensureReadiness(input, required);
+  }
+  async function ensureReadiness(input, required) {
     const { workflowId, installationId, workflowType, packageVersion, refreshChecks } = input;
     const status = await mcp("get_workflow_status", { workflowId, limit: 1 });
     if (
@@ -599,17 +613,8 @@
     );
     if (installation?.state !== "enabled" || !installation.hostSnapshot)
       throw new Error("Enabled installation with recorded host required");
-    if (installation.workflowPackageVersion !== packageVersion)
+    if (packageVersion && installation.workflowPackageVersion !== packageVersion)
       throw new Error("Readiness package binding mismatch");
-
-    const required = [
-      "configuration", "permissions", "workspace", "dependencies",
-      "host_schedule", "host_timezone", "host_model",
-    ];
-    if (workflowType === "meituan-review-operations") required.push("meituan_reviews");
-    else if (workflowType === "meituan-daily-ingestion") required.push("download", "meituan_erp");
-    else if (workflowType === "weekly-business-report") required.push("download");
-    else throw new Error("Unknown workflow type");
 
     const observedAt = Date.parse(status.observedAt);
     if (!Number.isFinite(observedAt)) throw new Error("Central readiness clock unavailable");
@@ -624,7 +629,7 @@
       const check = prior.get(name);
       return check?.status !== "ready" || !recent(check, observedAt);
     });
-    if (!requiredRefresh.length) return;
+    if (!requiredRefresh.length) return false;
 
     function needsRefresh(capabilities) {
       const error = new Error("WORKFLOW_READINESS_REFRESH_REQUIRED: " + capabilities.join(", "));
@@ -667,6 +672,7 @@
       return check?.status !== "ready" || !recent(check, Date.now());
     });
     if (unavailable.length) throw needsRefresh(unavailable);
+    return true;
   }
   async function openRun(input) {
     const current = await mcp("get_enterprise_workflow", {
@@ -1395,7 +1401,41 @@
       throw new Error(
         "needs_login: Gmail sender differs from configured account",
       );
-    const action = await claim(session, intent);
+    const identityCheckedAt = now();
+    let action;
+    try {
+      action = await claim(session, intent);
+    } catch (error) {
+      // SMEDC rejects stale mail readiness before creating an intent.
+      // Refresh the two read-only checks before retrying that exact claim once.
+      if (error.code !== "WORKFLOW_SOURCE_UNAVAILABLE") throw error;
+      const workflowType = intent.identity.purpose === "weekly_report"
+        ? "weekly-business-report"
+        : "meituan-review-operations";
+      const refreshed = await ensureReadiness({
+        workflowId: session.workflowId,
+        installationId: session.installationId,
+        workflowType,
+        packageVersion: session.snapshot?.workflowPackageVersion,
+        refreshChecks: async (capabilities) => {
+          const checks = [];
+          if (capabilities.includes("email_identity")) {
+            checks.push({ capability: "email_identity", status: "ready", checkedAt: identityCheckedAt,
+              nextStep: "Gmail account matches the authorized sender" });
+          }
+          if (capabilities.includes("sent_mail_lookup")) {
+            const result = await call(names.search, { query: "in:sent", max_results: 1 });
+            if (!Array.isArray(result.message_ids ?? result.messageIds ?? result.messages ?? result.ids))
+              throw new Error("Gmail sent-mail search returned no verifiable result");
+            checks.push({ capability: "sent_mail_lookup", status: "ready", checkedAt: now(),
+              nextStep: "Gmail sent-mail search verified" });
+          }
+          return checks;
+        },
+      }, ["email_identity", "sent_mail_lookup"]);
+      if (!refreshed) throw error;
+      action = await claim(session, intent);
+    }
     if (!action.permitted) {
       const partialOverlap =
         action.claimedItems !== undefined &&
