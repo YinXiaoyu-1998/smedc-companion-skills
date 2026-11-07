@@ -102,3 +102,23 @@ python3 -m unittest discover -s skills/smedc-delivery-ledger/tests -v
 Delivery-ledger tests use the Python standard library; business-analysis metadata tests also use
 PyYAML. Runtime instructions and data-cleanup requirements belong to each Skill. Keep temporary
 reports, downloaded data and execution transcripts outside this repository.
+
+## WorkBuddy host support (additive)
+
+A second host path is available in [`workbuddy/`](workbuddy/README.md). It installs generated
+SKILL.md overlays into the WorkBuddy discovery root; every file under `skills/` stays byte-for-byte
+unchanged, so the Codex prompts, scripts, tests and installation path are unaffected. The adapter
+is tenant-neutral and carries no enterprise names, store rosters, source accounts, recipient
+addresses or schedules.
+
+Supported on WorkBuddy: the native `mcp__smedc__*` workflow tools, browser source reads through
+the `bsk` CLI with the local Chrome profile, hash-chained local run-state continuation, and PAUSED
+schedule specifications. Installation never activates a schedule and never grants send, upload
+or publish permission.
+
+Hard limits: WorkBuddy has no native Gmail namespace matching the central `allowedSender`, no
+Goal lifecycle, and no JS environment with injected host tools. Mail stages are therefore
+recorded as blocked with local delivery (weekly reports keep the final HTML; review drafts stay
+in the workbook); run continuity uses a local state file instead of a Goal; central
+claim/check/record calls are issued step by step by the agent. See `workbuddy/HOST_MAP.md` for the
+full mapping. These stages must be reported as partial or degraded, never as a successful send.
