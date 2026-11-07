@@ -3,7 +3,9 @@
 
 The Codex host keeps an unfinished run in a persistent Goal. WorkBuddy has no
 Goal lifecycle tool, so the same continuation contract is expressed as an
-atomically persisted state file inside a dedicated per-run workspace.
+atomically persisted state file plus an append-only hash journal inside a
+dedicated per-run workspace. The journal head is the external anchor that
+detects a rolled-back ``state.json`` even though its self-hash is still valid.
 
 This module never calls SMEDC, never sends mail and never starts a schedule.
 It only records facts that the invoking agent has already verified. Central
@@ -60,6 +62,10 @@ def state_path(root: Path) -> Path:
     return root / "state.json"
 
 
+def journal_path(root: Path) -> Path:
+    return root / "state.journal"
+
+
 def atomic_write(path: Path, data: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=".wb-", suffix=".tmp", dir=str(path.parent))
@@ -74,11 +80,40 @@ def atomic_write(path: Path, data: str) -> None:
             os.unlink(tmp)
 
 
+def append_journal(root: Path, entry: dict) -> None:
+    path = journal_path(root)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def journal_entries(root: Path) -> list[dict]:
+    path = journal_path(root)
+    if not path.exists():
+        raise ValueError("run journal missing; refusing to load an unanchored state")
+    entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
+               if line.strip()]
+    if not entries:
+        raise ValueError("run journal is empty")
+    for index, entry in enumerate(entries):
+        if entry.get("revision") != index + 1:
+            raise ValueError("run journal has a revision gap")
+        if index and entry.get("prevHash") != entries[index - 1].get("stateHash"):
+            raise ValueError("run journal hash chain is broken")
+    return entries
+
+
 def save(state: dict, root: Path) -> dict:
+    prev = state.get("stateHash", "")
+    state["prevHash"] = prev
     state["updatedAt"] = now()
     state["revision"] = int(state.get("revision", 0)) + 1
     state["stateHash"] = state_hash(state)
     atomic_write(state_path(root), json.dumps(state, ensure_ascii=False, indent=2) + "\n")
+    append_journal(root, {"revision": state["revision"],
+                          "stateHash": state["stateHash"],
+                          "prevHash": prev})
     return state
 
 
@@ -92,10 +127,17 @@ def load(root: Path) -> dict:
         raise ValueError("run state hash mismatch; refusing to resume a tampered run")
     if state.get("schemaVersion") != SCHEMA_VERSION:
         raise ValueError("unsupported run state schema version")
+    head = journal_entries(root)[-1]
+    if (head.get("stateHash") != expected
+            or head.get("revision") != state["revision"]
+            or state.get("prevHash") != head.get("prevHash")):
+        raise ValueError("state does not match the journal head; possible rollback")
     return state
 
 
 def evidence_for(paths: list[str]) -> list[dict]:
+    if not paths:
+        raise ValueError("a completed stage requires at least one evidence file")
     result = []
     for raw in paths:
         p = Path(raw).expanduser().resolve()
@@ -108,7 +150,7 @@ def evidence_for(paths: list[str]) -> list[dict]:
 
 def cmd_init(args: argparse.Namespace) -> int:
     root = resolve_root(args.root)
-    if state_path(root).exists():
+    if state_path(root).exists() or journal_path(root).exists():
         raise ValueError("run state already exists; use resume, do not open a second run")
     window = json.loads(args.window) if args.window else {}
     state = {
@@ -183,6 +225,8 @@ def cmd_close(args: argparse.Namespace) -> int:
     state = load(root)
     if args.outcome not in OUTCOMES:
         raise ValueError(f"outcome must be one of {OUTCOMES}")
+    if state["blocked"] and args.outcome == "succeeded":
+        raise ValueError("a run with blocked stages cannot be closed as succeeded")
     state["status"] = CLOSED
     state["outcome"] = args.outcome
     state["closedAt"] = now()
@@ -231,7 +275,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", required=True)
     p.add_argument("--task-id", required=True)
     p.add_argument("--scope-hash", required=True)
-    p.add_argument("--evidence", nargs="*", default=[])
+    p.add_argument("--evidence", nargs="*", default=[],
+                    help="at least one verified evidence file is required")
     p.set_defaults(func=cmd_save_progress)
 
     p = sub.add_parser("mark-blocked")
@@ -245,7 +290,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--outcome", required=True)
     p.set_defaults(func=cmd_close)
 
-    p = sub.add_parser("verify", help="re-hash every recorded evidence file")
+    p = sub.add_parser("verify", help="re-hash every recorded evidence file and the journal")
     p.add_argument("--root", required=True)
     p.set_defaults(func=cmd_verify)
     return parser

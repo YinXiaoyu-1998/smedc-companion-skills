@@ -36,15 +36,15 @@ See `HOST_MAP.md` for the full mapping and the list of hard limits.
 
 ## Files
 
-- `INSTALL.md` — how to install the overlays without touching Codex.
-- `HOST_MAP.md` — capability mapping and hard limits.
+- `INSTALL.md` — how to install the overlay trees without touching Codex.
+- `HOST_MAP.md` — capability mapping, hard limits and local state integrity.
 - `WORKFLOWS.md` — the three runbooks on this host.
-- `scripts/wb_state.py` — local run state machine (pure standard library).
-- `scripts/wb_browser.py` — bsk bridge (structured JSON, no credential handling).
-- `scripts/wb_mail.py` — mail-stage degradation and local delivery. Never sends.
-- `scripts/wb_schedule.py` — renders PAUSED automation specs; never creates a task.
-- `overlays/build_overlays.py` — regenerates and checks the WorkBuddy SKILL.md overlays.
-- `overlays/generated/` — committed overlay files for review.
+- `scripts/wb_state.py` — local run state with an append-only hash journal (Goal replacement).
+- `scripts/wb_browser.py` — bsk bridge with the `--out` download contract and session-loss recovery hints.
+- `scripts/wb_mail.py` — mail-stage degradation and non-overwriting local delivery. Never sends.
+- `scripts/wb_schedule.py` — renders PAUSED automation specs with tool-binding notes; never creates a task.
+- `overlays/build_overlays.py` — regenerates and checks the WorkBuddy `SKILL.md` + `references/*.md` overlays.
+- `overlays/generated/` — committed overlay trees (7 skills, 19 files) for review.
 
 ## Non-goals
 

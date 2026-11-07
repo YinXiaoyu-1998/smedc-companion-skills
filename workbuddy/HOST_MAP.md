@@ -22,11 +22,21 @@ WorkBuddy equivalent exists and the stage must be reported as blocked.
 | --- | --- | --- |
 | IAB / in-app browser | `bsk` + Chrome BrowserSkill Agent Window reusing the local profile | Interactions require `cooperate sync --policy target`; default `strict` rejects click/evaluate |
 | Native local cron + `automation.toml` readback | Host `automation_update` (`create`/`view`/`update`) with `cwds` | No projectId, model or reasoningEffort fields; no native TOML readback |
-| `functions.exec` + `eval` with injected `tools` | Agent issues each native tool call; `wb_state.py` holds the local index | The 30-second concurrent lease renewal inside `withLease` cannot run as a script coroutine; renew at each bounded step |
+| Shell command execution (`exec_command`) | Local `Bash`/`subprocess` calls from the adapter scripts | Only the tool-object injection is impossible; see hard limit 3 |
 | `load_workspace_dependencies` | Explicit local interpreter/package checks | Host-provided bundled library paths are unavailable |
 | `@oai/artifact-tool` | The skill's own requirements and workbook builder | Must be installed in a dedicated venv, never globally |
 | `tab.markHandoff()` | Reopen the verified entry in a new bsk session | Tabs do not survive a conversation turn |
 | `set_thread_archived` | Skipped | Chat archiving is optional and has no host equivalent |
+
+### Local state integrity
+
+`wb_state.py` writes `state.json` atomically (fsync + replace) and appends one
+line per revision to `state.journal`. Each journal line records `revision`,
+`stateHash` and `prevHash`; `load()` verifies the self-hash, the journal chain
+and that the journal head still matches `state.json`. This makes "hash-chained"
+literal: a rolled-back state file is rejected even though its own hash is valid.
+It detects tampering and rollback, but it is still a local index, not a central
+receipt.
 
 ## Not substitutable (hard limits)
 

@@ -31,16 +31,29 @@ def sha256(path: Path) -> str:
 
 
 def deliver_locally(artifact: Path, workspace: Path) -> dict:
+    """Copy the artifact without ever silently overwriting earlier evidence."""
     workspace = workspace.expanduser().resolve()
     target_dir = workspace / "delivery"
     target_dir.mkdir(parents=True, exist_ok=True)
+    source = artifact.resolve()
+    source_hash = sha256(source)
     target = target_dir / artifact.name
-    if artifact.resolve() != target:
-        shutil.copy2(artifact, target)
+    reused = False
+    if target.exists():
+        if sha256(target) == source_hash:
+            reused = True
+        else:
+            target = target_dir / f"{artifact.stem}-{source_hash[:8]}{artifact.suffix}"
+            if target.exists() and sha256(target) != source_hash:
+                raise ValueError("delivery name collision; use a distinct run workspace")
+            reused = False
+    if not target.exists():
+        shutil.copy2(source, target)
     return {
         "path": str(target),
         "sha256": sha256(target),
         "bytes": target.stat().st_size,
+        "reused": reused,
     }
 
 

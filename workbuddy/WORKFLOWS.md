@@ -1,11 +1,13 @@
 # Three runbooks on WorkBuddy
 
-The authoritative business definitions stay in
-`skills/smedc-workflows/references/execution.md`, `runtime.md`, `runtime.md`'s
-central-action section, `review-execution-policy.md` and `gmail.md`. This file
-only states which host mechanism replaces a Codex mechanism. It contains no
-tenant data: stores, source accounts, recipients, brand facts and schedules are
-read from the frozen central snapshot at run time.
+The authoritative business definitions stay in the upstream workflow
+references (`execution.md`, `runtime.md`, `review-execution-policy.md` and
+`gmail.md`); the WorkBuddy overlay copies of those references carry a priority
+notice pointing here. When any upstream paragraph about browser choice, login
+state, save dialogs, download waits or host tools conflicts with this adapter,
+`HOST_MAP.md` and this file win. This file contains no tenant data: stores,
+source accounts, recipients, brand facts and schedules are read from the frozen
+central snapshot at run time.
 
 ## Common start (every invocation)
 

@@ -18,20 +18,24 @@ WorkBuddy discovery root. Do not overlay-copy: extra or stale files must not
 remain. Preserve `SKILL.md`, `agents/`, `references/`, `scripts/`, `config/`,
 `assets/` and `tests/` as shipped.
 
-## 3. Apply only the generated overlays
+## 3. Apply the generated overlay trees
 
-Replace the copied `SKILL.md` with `workbuddy/overlays/generated/<name>/SKILL.md`
-for every name that has an overlay. Skills without an overlay are already host
+For every name that has an overlay, copy the **whole**
+`workbuddy/overlays/generated/<name>/` tree over the copied skill subtree.
+This replaces `SKILL.md` and every adapted `references/*.md` in one step;
+unadapted files stay as shipped. Skills without an overlay are already host
 neutral and are used as-is.
 
 ```bash
 python3 workbuddy/overlays/build_overlays.py --check
-cp workbuddy/overlays/generated/<name>/SKILL.md \
-   ~/.workbuddy/skills/<name>/SKILL.md
+cp -R workbuddy/overlays/generated/<name>/. \
+   ~/.workbuddy/skills/<name>/
 ```
 
-`--check` proves the committed overlays match the current Codex sources. If it
-fails, regenerate with `build` and review the diff before installing.
+`--check` proves the committed overlays match the current Codex sources and
+contain no host-specific tokens. If it fails, regenerate with `build`, review
+the diff, then install. Verify that `~/.workbuddy/skills/<name>/references/`
+contains the adapted files before starting a run.
 
 ## 4. Verify
 

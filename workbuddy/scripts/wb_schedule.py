@@ -7,7 +7,7 @@ model and reasoningEffort. WorkBuddy exposes ``automation_update`` with a
 smaller field set (name/prompt/schedule/status/cwds) and a ``view`` readback.
 
 This module only RENDERS the specification. It never creates a task and
-never writes ``automation.toml``. A schedule is installed only after the
+never writes a host automation file. A schedule is installed only after the
 employee confirms an exact time; for a migration the RRULE must be read back
 from the existing host and preserved verbatim.
 """
@@ -29,7 +29,7 @@ HOST_LIMITATIONS = [
     "no projectId; cwds carries the dedicated workspace",
     "no notificationPolicy field; failed-run-only is expressed inside the prompt",
     "no model/reasoningEffort fields; the host's current model is used",
-    "no notificationPolicy or archive equivalent for set_thread_archived",
+    "no set_thread_archived equivalent; chat archiving is skipped",
 ]
 
 
@@ -38,11 +38,13 @@ def prompt_for(workflow: str, workspace: str) -> str:
         "按 workbuddy/WORKFLOWS.md 的定时运行入口，续接并完成本轮 SMEDC 工作流。\n"
         f"workflowType={workflow}\n"
         f"workspaceRoot={workspace}\n"
+        "runRoot=<workspaceRoot>/runs/<central-runId>，wb_state.py 的 --root 使用此目录。\n"
         "先用 workbuddy/scripts/wb_state.py resume 读取未结束轮，同一 runId 续轮；"
         "只有中央状态确认无未完成轮时才 wb_state.py init 新轮。\n"
         "每轮从中央读取当前身份、配置、指定安装与权限；"
         "中央 claim/check/record 等动作只通过原生 mcp__smedc__* 工具完成，"
         "不自行写 HTTP、JSON-RPC 或私有调度客户端。\n"
+        "运行前确认本轮宿主会话确实暴露了 mcp__smedc__* 工具；拿不到则如实报阻塞，不空跑。\n"
         "浏览器来源读取用 workbuddy/scripts/wb_browser.py（bsk + 本机 Chrome 登录态），"
         "交互前必须先 sync --policy target。\n"
         "邮件阶段按官方降级处理：wb_mail.py plan 记录 blocked 并本地交付，不换发件人。\n"
@@ -62,7 +64,16 @@ def spec_for(workflow: str, workspace: str) -> dict:
         "name": f"SMEDC {workflow}",
         "prompt": prompt_for(workflow, workspace),
         "requiresUserConfirmation": True,
-        "notificationPolicy": "expressed in prompt; host has no native field",
+        "requiredTools": ["mcp__smedc__*"],
+        "toolBinding": (
+            "Host-provided. Verify the automation runtime exposes the smedc MCP "
+            "tools before creating the task. connectorIds is only needed when the "
+            "host requires an explicit connector binding; a custom MCP server entry "
+            "may be inherited from the session."
+        ),
+        "notificationPolicyNote": (
+            "informational only, not a host field; failed-run-only is expressed in the prompt"
+        ),
         "hostLimitations": HOST_LIMITATIONS,
     }
 
