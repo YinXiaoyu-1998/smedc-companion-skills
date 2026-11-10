@@ -20,6 +20,7 @@ def proof(value):
     identity = intent["identity"]
     if identity["kind"] != "download":
         raise ValueError("Download intent required")
+    # This is the extract format floor, including transfers recovered after an upgrade.
     version = value["launcherVersion"]
     if not re.fullmatch(r"\d+\.\d+\.\d+", version) or tuple(
         map(int, version.split("."))

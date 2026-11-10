@@ -4,7 +4,9 @@
 
 先使用核心技能完成官方安装／安全升级／登录。工作流包最低兼容 launcher 为 manifest 声明的版本；这不是安装批准 pin。核心仍批准较旧版本时，显示“工作流暂不可用，等待官方已验证发布”，不自行装候选版本、npm latest 或改现有 MCP 项。普通 SMEDC 功能继续可用。
 
-从当前宿主发现八个官方工作流工具，调用 `list_enterprise_workflows`。必须取得成功的实时兼容描述及企业目录／官方设置入口；静态 tools/list 不证明服务已发布或有权限。管理员选择业务企业，复用已有设置和授权；不存在时在官方“自动任务”页建立草案。不要拼组织 URL。普通账号不能登记、运行或借 admin 代理读取数据；每项业务读取仍需对应类别、门店及密级权限。
+从当前宿主发现七个官方工作流工具。用 `query_enterprise_workflows` 读取配置。首次发现传 `{"query":{"mode":"list"}}`，可在 `query` 内加 `enterpriseKey` 筛选企业、用 `limit` 控制页长。有 `nextCursor` 时，以相同筛选条件将其作为下一页的 `cursor`。读取单个工作流配置传 `{"query":{"mode":"detail","enterpriseKey":"demo","workflowType":"weekly-business-report"}}`，其中标识取自实时目录。查看安装、运行和迁移状态用 `get_workflow_status`。
+
+安装前确认列表成功返回与 manifest 匹配的实时 `capability` 及官方 `setupUrl`。管理员选择业务企业，复用已有设置和授权；不存在时在官方“自动任务”页建立草案。不要拼组织 URL。普通账号不能登记、运行或借 admin 代理读取数据；每项业务读取仍需对应类别、门店及密级权限。
 
 首次核心安装仅介绍三个选项并报告可选状态。用户选定后，在官方 companion 默认分支的已记录 Git commit 检出源码；读更新后的文件、比较完整子树，不覆盖更新的本地定制。执行 `workflow.py install`，输入由 agent 准备：
 
