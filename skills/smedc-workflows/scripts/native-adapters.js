@@ -430,12 +430,10 @@
       throw new Error("Unsupported host state");
     if (state === "enabled") {
       requireHandoff(input, journal);
-      const current = compatible(
-        await mcp("get_enterprise_workflow", {
-          enterpriseKey: input.enterpriseKey,
-          workflowType: input.workflowType,
-        }),
-      );
+      const current = await getWorkflow({
+        enterpriseKey: input.enterpriseKey,
+        workflowType: input.workflowType,
+      });
       if (
         current.workflowId !== input.workflowId ||
         current.controlState !== "active" ||
@@ -504,12 +502,10 @@
   }
   async function activate(input, journal, save) {
     requireHandoff(input, journal);
-    const current = compatible(
-      await mcp("get_enterprise_workflow", {
-        enterpriseKey: input.enterpriseKey,
-        workflowType: input.workflowType,
-      }),
-    );
+    const current = await getWorkflow({
+      enterpriseKey: input.enterpriseKey,
+      workflowType: input.workflowType,
+    });
     if (
       current.workflowId !== input.workflowId ||
       current.controlState !== "active" ||
@@ -593,10 +589,17 @@
       c?.id !== "enterprise-workflows-v1" ||
       c.version !== "1.0.0" ||
       c.configurationSchemaVersion !== 1 ||
-      c.minimumLauncherVersion !== "0.16.0"
+      c.minimumLauncherVersion !== "0.17.0"
     )
       throw new Error("WORKFLOW_VERSION_INCOMPATIBLE");
     return data;
+  }
+  async function getWorkflow(selector) {
+    return compatible(
+      await mcp("query_enterprise_workflows", {
+        query: { ...selector, mode: "detail" },
+      }),
+    );
   }
   async function ensureRunReadiness(input) {
     const { workflowType, packageVersion } = input;
@@ -689,11 +692,10 @@
     return true;
   }
   async function openRun(input) {
-    const current = await mcp("get_enterprise_workflow", {
+    const current = await getWorkflow({
       enterpriseKey: input.enterpriseKey,
       workflowType: input.workflowType,
     });
-    compatible(current);
     if (
       current.controlState !== "active" ||
       current.assignedInstallationId !== input.installationId
@@ -748,12 +750,10 @@
   }
   // A missing local checkpoint is not evidence that the central run is new.
   async function recoverRun(input) {
-    const current = compatible(
-      await mcp("get_enterprise_workflow", {
-        enterpriseKey: input.enterpriseKey,
-        workflowType: input.workflowType,
-      }),
-    );
+    const current = await getWorkflow({
+      enterpriseKey: input.enterpriseKey,
+      workflowType: input.workflowType,
+    });
     if (current.workflowId !== input.workflowId)
       throw new Error("Workflow binding mismatch");
     if (
@@ -1850,7 +1850,7 @@
   async function restoreMachine(selector, saveState, savePage) {
     if (typeof saveState !== "function" || typeof savePage !== "function")
       throw new Error("Durable restoration callbacks required");
-    const current = compatible(await mcp("get_enterprise_workflow", selector));
+    const current = await getWorkflow(selector);
     const state = {
       schemaVersion: 1,
       workflowId: current.workflowId,
@@ -2112,10 +2112,13 @@
         },
         input.proofInputPath,
       ),
-    getWorkflow: async (selector) =>
-      compatible(await mcp("get_enterprise_workflow", selector)),
+    getWorkflow,
     discover: async (input) =>
-      compatible(await mcp("list_enterprise_workflows", input)),
+      compatible(
+        await mcp("query_enterprise_workflows", {
+          query: { ...input, mode: "list" },
+        }),
+      ),
     installation: (workflowId, operation) =>
       mcp("manage_workflow_installation", { workflowId, operation }),
     status: (input) => mcp("get_workflow_status", input),

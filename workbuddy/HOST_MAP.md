@@ -9,7 +9,7 @@ WorkBuddy equivalent exists and the stage must be reported as blocked.
 
 | Capability | WorkBuddy mechanism |
 | --- | --- |
-| Central workflow tools | Native `mcp__smedc__*` tools: `list_enterprise_workflows`, `get_enterprise_workflow`, `get_workflow_status`, `manage_workflow_installation`, `manage_workflow_run`, `prepare_enterprise_workflow_change`, `save_enterprise_workflow`, `record_workflow_action` |
+| Central workflow tools | Native `mcp__smedc__*` tools: `query_enterprise_workflows` (list and detail), `get_workflow_status`, `manage_workflow_installation`, `manage_workflow_run`, `prepare_enterprise_workflow_change`, `save_enterprise_workflow`, `record_workflow_action` |
 | Official binding | `entryName=smedc`, namespace `mcp__smedc__`, service origin owned by the core skill |
 | Authenticated session | Core skill login; the launcher's secure store keeps the durable session |
 | Local file writes, hashing, atomic replace | Standard-library scripts in `scripts/` |

@@ -308,7 +308,7 @@ test("long native operation renews its lease and retains uncertain outcome after
 test("host activation is refused when the central assignment belongs to another installation", async () => {
   let updates = 0;
   const native = factory()({
-    mcp__smedc__get_enterprise_workflow: async () => ({
+    mcp__smedc__query_enterprise_workflows: async () => ({
       workflowId: "w",
       controlState: "active",
       assignedInstallationId: "another",
@@ -316,7 +316,7 @@ test("host activation is refused when the central assignment belongs to another 
         id: "enterprise-workflows-v1",
         version: "1.0.0",
         configurationSchemaVersion: 1,
-        minimumLauncherVersion: "0.16.0",
+        minimumLauncherVersion: "0.17.0",
       },
     }),
     mcp__codex_app__automation_update: async () => {
@@ -525,11 +525,11 @@ test("a fresh machine discovers all migration pages and restores original unknow
       id: "enterprise-workflows-v1",
       version: "1.0.0",
       configurationSchemaVersion: 1,
-      minimumLauncherVersion: "0.16.0",
+      minimumLauncherVersion: "0.17.0",
     },
   };
   const tools = {
-    mcp__smedc__get_enterprise_workflow: async () => current,
+    mcp__smedc__query_enterprise_workflows: async () => current,
     mcp__smedc__get_workflow_status: async () => ({
       ...current,
       pendingActions: [
@@ -838,7 +838,7 @@ test("package maintenance updates the same paused native task and preserves its 
 test("activation cannot mutate central installation state while its real local host task is active", async () => {
   let mutations = 0;
   const tools = {
-    mcp__smedc__get_enterprise_workflow: async () => ({
+    mcp__smedc__query_enterprise_workflows: async () => ({
       workflowId: "w",
       assignedInstallationId: "i",
       controlState: "active",
@@ -846,7 +846,7 @@ test("activation cannot mutate central installation state while its real local h
         id: "enterprise-workflows-v1",
         version: "1.0.0",
         configurationSchemaVersion: 1,
-        minimumLauncherVersion: "0.16.0",
+        minimumLauncherVersion: "0.17.0",
       },
     }),
     exec_command: async () => ({
@@ -880,13 +880,73 @@ test("activation cannot mutate central installation state while its real local h
   assert.equal(mutations, 0);
 });
 
+test("workflow discovery forwards the enterprise filter and pagination and preserves the page", async () => {
+  const filters = { enterpriseKey: "demo", cursor: "page-2", limit: 1 };
+  const page = {
+    workflows: [
+      { enterpriseKey: "demo", workflowType: "weekly-business-report" },
+    ],
+    nextCursor: "page-3",
+    needsConfiguration: false,
+    setupUrl: "https://example.test/admin/test-org/workflows/demo",
+    capability: {
+      id: "enterprise-workflows-v1",
+      version: "1.0.0",
+      configurationSchemaVersion: 1,
+      minimumLauncherVersion: "0.17.0",
+    },
+  };
+  const native = factory()({
+    mcp__smedc__query_enterprise_workflows: async (input) => {
+      assert.deepEqual(JSON.parse(JSON.stringify(input)), {
+        query: { mode: "list", ...filters },
+      });
+      return { structuredContent: { data: page } };
+    },
+  });
+  assert.deepEqual(await native.discover(filters), page);
+});
+
+test("workflow detail requires the compatible live launcher minimum", async () => {
+  const selector = {
+    enterpriseKey: "demo",
+    workflowType: "weekly-business-report",
+  };
+  const detail = {
+    ...selector,
+    workflowId: "weekly",
+    version: 2,
+    capability: {
+      id: "enterprise-workflows-v1",
+      version: "1.0.0",
+      configurationSchemaVersion: 1,
+      minimumLauncherVersion: "0.17.0",
+    },
+  };
+  const native = factory()({
+    mcp__smedc__query_enterprise_workflows: async (input) => {
+      assert.deepEqual(JSON.parse(JSON.stringify(input)), {
+        query: { mode: "detail", ...selector },
+      });
+      return { structuredContent: { data: detail } };
+    },
+  });
+  assert.deepEqual(await native.getWorkflow(selector), detail);
+
+  detail.capability.minimumLauncherVersion = "0.16.0";
+  await assert.rejects(
+    native.getWorkflow(selector),
+    /WORKFLOW_VERSION_INCOMPATIBLE/,
+  );
+});
+
 test("the native bridge refuses missing official bindings and foreign server suffix matches", async () => {
   let calls = 0;
   const tools = {
-    mcp__smedc__get_enterprise_workflow: async () => {
+    mcp__smedc__query_enterprise_workflows: async () => {
       calls++;
     },
-    mcp__other__get_enterprise_workflow: async () => {
+    mcp__other__query_enterprise_workflows: async () => {
       calls++;
     },
   };
@@ -900,7 +960,7 @@ test("the native bridge refuses missing official bindings and foreign server suf
   await assert.rejects(
     factory()(tools, {
       smedcTools: {
-        get_enterprise_workflow: "mcp__other__get_enterprise_workflow",
+        query_enterprise_workflows: "mcp__other__query_enterprise_workflows",
       },
     }).getWorkflow({
       enterpriseKey: "demo",
@@ -1136,7 +1196,7 @@ test("openRun rebinds the original run to current verified control and assignmen
       id: "enterprise-workflows-v1",
       version: "1.0.0",
       configurationSchemaVersion: 1,
-      minimumLauncherVersion: "0.16.0",
+      minimumLauncherVersion: "0.17.0",
     },
     workflowId: "flow",
     controlState: "active",
@@ -1153,7 +1213,7 @@ test("openRun rebinds the original run to current verified control and assignmen
     snapshot,
   };
   const native = factory()({
-    mcp__smedc__get_enterprise_workflow: async () => current,
+    mcp__smedc__query_enterprise_workflows: async () => current,
     mcp__smedc__manage_workflow_run: async ({ workflowId, operation }) => {
       assert.equal(workflowId, "flow");
       assert.equal(operation.kind, "resume");
@@ -1187,12 +1247,12 @@ test("cold recovery discovers an unfinished run on a later page instead of start
     window: { startDate: "2026-11-02", endDate: "2026-11-02" },
   };
   const native = factory()({
-    mcp__smedc__get_enterprise_workflow: async () => ({
+    mcp__smedc__query_enterprise_workflows: async () => ({
       capability: {
         id: "enterprise-workflows-v1",
         version: "1.0.0",
         configurationSchemaVersion: 1,
-        minimumLauncherVersion: "0.16.0",
+        minimumLauncherVersion: "0.17.0",
       },
       workflowId: "flow",
       controlState: "active",
@@ -1350,12 +1410,12 @@ test("a blank daily host reuses the completed current window instead of creating
   let starts = 0,
     workflowType = "meituan-daily-ingestion";
   const native = factory()({
-    mcp__smedc__get_enterprise_workflow: async () => ({
+    mcp__smedc__query_enterprise_workflows: async () => ({
       capability: {
         id: "enterprise-workflows-v1",
         version: "1.0.0",
         configurationSchemaVersion: 1,
-        minimumLauncherVersion: "0.16.0",
+        minimumLauncherVersion: "0.17.0",
       },
       workflowId: "flow",
       controlState: "active",
@@ -1482,10 +1542,10 @@ test("expired or missing checks stop a new run until actual results are recorded
   const operations = [];
   const starts = [];
   const native = factory()({
-    mcp__smedc__get_enterprise_workflow: async () => ({
+    mcp__smedc__query_enterprise_workflows: async () => ({
       capability: {
         id: "enterprise-workflows-v1", version: "1.0.0",
-        configurationSchemaVersion: 1, minimumLauncherVersion: "0.16.0",
+        configurationSchemaVersion: 1, minimumLauncherVersion: "0.17.0",
       },
       workflowId: "flow", assignedInstallationId: "mac", controlState: "active",
       version: 1, integration: { version: 1 }, assignmentEpoch: 1, controlVersion: 1,

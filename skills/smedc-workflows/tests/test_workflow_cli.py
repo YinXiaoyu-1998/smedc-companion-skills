@@ -647,6 +647,11 @@ class WorkflowCliTests(unittest.TestCase):
                 "identityHash": "a" * 64,
                 "launcherVersion": "0.16.0",
             }
+            result, _ = self.run_cli("download-proof", request)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Incompatible verified launcher", result.stderr)
+
+            request["launcherVersion"] = "0.17.0"
             result, receipt = self.run_cli("download-proof", request)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(receipt["evidence"], "launcher_transfer")

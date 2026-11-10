@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "packageVersion": "1.0.6",
   "minimumServiceCapability": "enterprise-workflows-v1",
-  "minimumLauncherVersion": "0.16.0",
+  "minimumLauncherVersion": "0.17.0",
   "launcherInstallationOwner": "smedc-mcp",
   "hosts": {
     "codex": {

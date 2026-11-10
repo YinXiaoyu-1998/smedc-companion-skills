@@ -23,7 +23,7 @@ def proof(value):
     version = value["launcherVersion"]
     if not re.fullmatch(r"\d+\.\d+\.\d+", version) or tuple(
         map(int, version.split("."))
-    ) < (0, 16, 0):
+    ) < (0, 17, 0):
         raise ValueError("Incompatible verified launcher")
     root = Path(response["localDirectory"])
     if root.is_symlink() or root.parent.is_symlink():
