@@ -1524,3 +1524,16 @@ test("expired or missing checks stop a new run until actual results are recorded
   assert.equal(operations.length, 2);
   assert.equal(installation.readinessChecks.find(c => c.capability === "download").status, "unsupported");
 });
+
+test("preserves a structured same-receipt rejection without inferring it from prose", () => {
+  const native = factory()({});
+  const failure = (body) => ({ isError: true, content: [{ type: "text", text: body }] });
+  assert.throws(
+    () => native.unwrap(failure(JSON.stringify({ error: { code: "RECEIPT_ID_CONFLICT" } }))),
+    { code: "RECEIPT_ID_CONFLICT" },
+  );
+  assert.throws(
+    () => native.unwrap(failure("Timeout while checking for RECEIPT_ID_CONFLICT")),
+    { code: "TOOL_REJECTED" },
+  );
+});
