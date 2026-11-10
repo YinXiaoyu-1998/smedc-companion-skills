@@ -15,10 +15,24 @@
   function unwrap(result) {
     if (!result) throw new Error("TOOL_UNAVAILABLE");
     if (result.isError) {
+      let errorCode = result.structuredContent?.error?.code;
+      if (
+        !result.structuredContent &&
+        result.content?.length === 1 &&
+        result.content[0].type === "text"
+      ) {
+        try {
+          errorCode = JSON.parse(result.content[0].text)?.error?.code;
+        } catch {
+          // Plain-text tool failures retain the existing classification.
+        }
+      }
       const code =
-        JSON.stringify(result).match(
-          /\b(?:WORKFLOW|ORDER_SCOPE|AUTH|LAUNCHER|SMEDC)_[A-Z_]+\b/,
-        )?.[0] ?? "TOOL_REJECTED";
+        errorCode === "RECEIPT_ID_CONFLICT"
+          ? errorCode
+          : (JSON.stringify(result).match(
+              /\b(?:WORKFLOW|ORDER_SCOPE|AUTH|LAUNCHER|SMEDC)_[A-Z_]+\b/,
+            )?.[0] ?? "TOOL_REJECTED");
       const error = new Error(code);
       error.code = code;
       error.toolResult = redactJournal(result);
