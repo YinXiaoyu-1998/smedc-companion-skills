@@ -1,14 +1,6 @@
 {
   "dataset": "dish_catalog",
-  "metadataPolicy": "snapshot",
-  "sources": [
-    {
-      "importBatchId": "imp_synth_catalog_20260731",
-      "sourceDocumentId": "doc_synth_catalog_20260731",
-      "sourceDocumentTitle": "Synthetic SMEDC Dish Catalog Snapshot 2026-07-31",
-      "snapshotDate": "2026-07-31",
-      "appliedAt": "2026-08-01T08:50:00.000Z",
-      "rowCount": 96
-    }
-  ]
+  "metadataPolicy": "current",
+  "rowCount": 7,
+  "lastUpdatedAt": "2026-07-31T09:00:00.000Z"
 }

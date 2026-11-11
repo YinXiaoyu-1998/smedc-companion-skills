@@ -107,7 +107,7 @@ verified service rollout and tenant configuration, in addition to the core-appro
    - For `downloadMode: range`, execute the single `download_structured_partitions` selector call with dataset, enterprise, dates and optional store filters. For explicitly selected `downloadMode: bundle`, follow the three generated steps described in **Optional bundle download mode** above. Save the complete successful local download envelope at `outputFile`.
    - Check MCP `isError`; failed downloads stop materialization and never imply empty data. A range extract never requires a server-side preparation request.
 
-8. Call `query_structured_dataset` only for manifest jobs whose `tool` is `query_structured_dataset`; currently that is the controlled `dish_catalog` snapshot query. Follow `nextCursor` until the returned `nextCursor` is `null`; save an array of page envelopes in request order at `jobs[].outputFile`.
+8. The current `dish_catalog` coverage envelope reports `rowCount` and `lastUpdatedAt` across the account’s authorized enterprises. Record it as coverage evidence. Reports for a selected enterprise omit catalog-based attribution because the catalog query has no enterprise selector. Continue running the generated enterprise-scoped partition jobs.
 
 9. Stream the downloaded canonical CSV partitions into local aggregate job results:
 

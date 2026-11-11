@@ -20,14 +20,23 @@
         {
           "canonicalName": "business_date",
           "sourceColumn": "营业日期",
-          "aliases": ["营业日期", "营业日"],
+          "aliases": [
+            "营业日期",
+            "营业日"
+          ],
           "type": "date",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gte", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gte",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -39,14 +48,21 @@
         {
           "canonicalName": "business_week",
           "sourceColumn": "周",
-          "aliases": ["周"],
+          "aliases": [
+            "周"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -61,14 +77,21 @@
         {
           "canonicalName": "business_month",
           "sourceColumn": "月",
-          "aliases": ["月"],
+          "aliases": [
+            "月"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -83,14 +106,22 @@
         {
           "canonicalName": "store_name",
           "sourceColumn": "门店名称",
-          "aliases": ["门店名称", "门店"],
+          "aliases": [
+            "门店名称",
+            "门店"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -105,14 +136,21 @@
         {
           "canonicalName": "city",
           "sourceColumn": "城市",
-          "aliases": ["城市"],
+          "aliases": [
+            "城市"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -127,14 +165,21 @@
         {
           "canonicalName": "merchant_id",
           "sourceColumn": "商户号",
-          "aliases": ["商户号"],
+          "aliases": [
+            "商户号"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -149,14 +194,21 @@
         {
           "canonicalName": "organization_level_1_name",
           "sourceColumn": "一级组织机构名称",
-          "aliases": ["一级组织机构名称"],
+          "aliases": [
+            "一级组织机构名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -171,14 +223,21 @@
         {
           "canonicalName": "organization_level_2_name",
           "sourceColumn": "二级组织机构名称",
-          "aliases": ["二级组织机构名称"],
+          "aliases": [
+            "二级组织机构名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -193,14 +252,21 @@
         {
           "canonicalName": "organization_level_3_name",
           "sourceColumn": "三级组织机构名称",
-          "aliases": ["三级组织机构名称"],
+          "aliases": [
+            "三级组织机构名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -215,14 +281,21 @@
         {
           "canonicalName": "organization_level_4_name",
           "sourceColumn": "四级组织机构名称",
-          "aliases": ["四级组织机构名称"],
+          "aliases": [
+            "四级组织机构名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -237,14 +310,21 @@
         {
           "canonicalName": "order_category",
           "sourceColumn": "订单分类",
-          "aliases": ["订单分类"],
+          "aliases": [
+            "订单分类"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -259,14 +339,21 @@
         {
           "canonicalName": "order_source",
           "sourceColumn": "订单来源",
-          "aliases": ["订单来源"],
+          "aliases": [
+            "订单来源"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -281,14 +368,21 @@
         {
           "canonicalName": "time_slot",
           "sourceColumn": "时段",
-          "aliases": ["时段"],
+          "aliases": [
+            "时段"
+          ],
           "type": "time_range",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -300,14 +394,21 @@
         {
           "canonicalName": "meal_period",
           "sourceColumn": "餐段",
-          "aliases": ["餐段"],
+          "aliases": [
+            "餐段"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -322,14 +423,21 @@
         {
           "canonicalName": "refund_type_name",
           "sourceColumn": "退单类型名称",
-          "aliases": ["退单类型名称"],
+          "aliases": [
+            "退单类型名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -344,14 +452,21 @@
         {
           "canonicalName": "is_member",
           "sourceColumn": "是否是会员",
-          "aliases": ["是否是会员"],
+          "aliases": [
+            "是否是会员"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -366,14 +481,21 @@
         {
           "canonicalName": "dining_method",
           "sourceColumn": "就餐方式",
-          "aliases": ["就餐方式"],
+          "aliases": [
+            "就餐方式"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -388,14 +510,24 @@
         {
           "canonicalName": "gross_sales_amount",
           "sourceColumn": "营业额(元)",
-          "aliases": ["营业额(元)"],
+          "aliases": [
+            "营业额(元)"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -410,14 +542,24 @@
         {
           "canonicalName": "table_count",
           "sourceColumn": "桌台数量",
-          "aliases": ["桌台数量"],
+          "aliases": [
+            "桌台数量"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -429,14 +571,24 @@
         {
           "canonicalName": "table_use_count",
           "sourceColumn": "桌台使用次数",
-          "aliases": ["桌台使用次数"],
+          "aliases": [
+            "桌台使用次数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -448,14 +600,24 @@
         {
           "canonicalName": "open_rate",
           "sourceColumn": "开台率",
-          "aliases": ["开台率"],
+          "aliases": [
+            "开台率"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -470,14 +632,24 @@
         {
           "canonicalName": "table_turnover_rate",
           "sourceColumn": "翻台率",
-          "aliases": ["翻台率"],
+          "aliases": [
+            "翻台率"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -492,14 +664,24 @@
         {
           "canonicalName": "valid_order_count",
           "sourceColumn": "有效订单量",
-          "aliases": ["有效订单量"],
+          "aliases": [
+            "有效订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -514,14 +696,24 @@
         {
           "canonicalName": "order_revenue",
           "sourceColumn": "订单营业收入",
-          "aliases": ["订单营业收入"],
+          "aliases": [
+            "订单营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -536,14 +728,24 @@
         {
           "canonicalName": "discount_amount",
           "sourceColumn": "优惠金额",
-          "aliases": ["优惠金额"],
+          "aliases": [
+            "优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -558,14 +760,24 @@
         {
           "canonicalName": "reverse_order_count",
           "sourceColumn": "逆向订单量",
-          "aliases": ["逆向订单量"],
+          "aliases": [
+            "逆向订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -580,14 +792,24 @@
         {
           "canonicalName": "positive_order_count",
           "sourceColumn": "正向订单量",
-          "aliases": ["正向订单量"],
+          "aliases": [
+            "正向订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -602,14 +824,24 @@
         {
           "canonicalName": "settled_order_count",
           "sourceColumn": "已结账订单量",
-          "aliases": ["已结账订单量"],
+          "aliases": [
+            "已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -624,14 +856,24 @@
         {
           "canonicalName": "discount_rate",
           "sourceColumn": "折扣率",
-          "aliases": ["折扣率"],
+          "aliases": [
+            "折扣率"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -646,14 +888,24 @@
         {
           "canonicalName": "average_order_value_before_discount",
           "sourceColumn": "折前单均",
-          "aliases": ["折前单均"],
+          "aliases": [
+            "折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -668,14 +920,24 @@
         {
           "canonicalName": "average_order_value_after_discount",
           "sourceColumn": "折后单均",
-          "aliases": ["折后单均"],
+          "aliases": [
+            "折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -690,14 +952,24 @@
         {
           "canonicalName": "table_days",
           "sourceColumn": "桌台数x营业天数",
-          "aliases": ["桌台数x营业天数"],
+          "aliases": [
+            "桌台数x营业天数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -709,14 +981,24 @@
         {
           "canonicalName": "served_table_count",
           "sourceColumn": "消费桌数",
-          "aliases": ["消费桌数"],
+          "aliases": [
+            "消费桌数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -728,14 +1010,24 @@
         {
           "canonicalName": "consumption_count",
           "sourceColumn": "消费次数",
-          "aliases": ["消费次数"],
+          "aliases": [
+            "消费次数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -747,14 +1039,24 @@
         {
           "canonicalName": "member_consumption_amount",
           "sourceColumn": "会员消费金额",
-          "aliases": ["会员消费金额"],
+          "aliases": [
+            "会员消费金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -769,14 +1071,24 @@
         {
           "canonicalName": "member_order_revenue",
           "sourceColumn": "会员订单收入",
-          "aliases": ["会员订单收入"],
+          "aliases": [
+            "会员订单收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -791,14 +1103,24 @@
         {
           "canonicalName": "dine_in_sales_amount",
           "sourceColumn": "店内营业额",
-          "aliases": ["店内营业额"],
+          "aliases": [
+            "店内营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -813,14 +1135,24 @@
         {
           "canonicalName": "dine_in_revenue",
           "sourceColumn": "店内营业收入",
-          "aliases": ["店内营业收入"],
+          "aliases": [
+            "店内营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -835,14 +1167,24 @@
         {
           "canonicalName": "dine_in_discount_amount",
           "sourceColumn": "店内优惠金额",
-          "aliases": ["店内优惠金额"],
+          "aliases": [
+            "店内优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -857,14 +1199,24 @@
         {
           "canonicalName": "dine_in_average_order_value_before_discount",
           "sourceColumn": "店内折前单均",
-          "aliases": ["店内折前单均"],
+          "aliases": [
+            "店内折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -879,14 +1231,24 @@
         {
           "canonicalName": "dine_in_positive_order_count",
           "sourceColumn": "店内正向单订单量",
-          "aliases": ["店内正向单订单量"],
+          "aliases": [
+            "店内正向单订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -901,14 +1263,24 @@
         {
           "canonicalName": "dine_in_refund_order_count",
           "sourceColumn": "店内退单量",
-          "aliases": ["店内退单量"],
+          "aliases": [
+            "店内退单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -923,14 +1295,24 @@
         {
           "canonicalName": "dine_in_settled_order_count",
           "sourceColumn": "店内已结账订单量",
-          "aliases": ["店内已结账订单量"],
+          "aliases": [
+            "店内已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -945,14 +1327,24 @@
         {
           "canonicalName": "dine_in_refund_amount",
           "sourceColumn": "店内退款金额",
-          "aliases": ["店内退款金额"],
+          "aliases": [
+            "店内退款金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -967,14 +1359,24 @@
         {
           "canonicalName": "delivery_sales_amount",
           "sourceColumn": "外卖营业额",
-          "aliases": ["外卖营业额"],
+          "aliases": [
+            "外卖营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -989,14 +1391,24 @@
         {
           "canonicalName": "dine_in_order_count",
           "sourceColumn": "店内订单量",
-          "aliases": ["店内订单量"],
+          "aliases": [
+            "店内订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1011,14 +1423,24 @@
         {
           "canonicalName": "delivery_revenue",
           "sourceColumn": "外卖营业收入",
-          "aliases": ["外卖营业收入"],
+          "aliases": [
+            "外卖营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1033,14 +1455,24 @@
         {
           "canonicalName": "delivery_discount_amount",
           "sourceColumn": "外卖折扣金额",
-          "aliases": ["外卖折扣金额"],
+          "aliases": [
+            "外卖折扣金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1055,14 +1487,24 @@
         {
           "canonicalName": "delivery_average_order_value_before_discount",
           "sourceColumn": "外卖折前单均",
-          "aliases": ["外卖折前单均"],
+          "aliases": [
+            "外卖折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1077,14 +1519,24 @@
         {
           "canonicalName": "delivery_average_order_value_after_discount",
           "sourceColumn": "外卖折后单均",
-          "aliases": ["外卖折后单均"],
+          "aliases": [
+            "外卖折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1099,14 +1551,24 @@
         {
           "canonicalName": "delivery_order_count",
           "sourceColumn": "外卖订单量",
-          "aliases": ["外卖订单量"],
+          "aliases": [
+            "外卖订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1121,14 +1583,24 @@
         {
           "canonicalName": "delivery_positive_order_count",
           "sourceColumn": "外卖正向单订单量",
-          "aliases": ["外卖正向单订单量"],
+          "aliases": [
+            "外卖正向单订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1143,14 +1615,24 @@
         {
           "canonicalName": "delivery_refund_order_count",
           "sourceColumn": "外卖退单量",
-          "aliases": ["外卖退单量"],
+          "aliases": [
+            "外卖退单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1165,14 +1647,24 @@
         {
           "canonicalName": "delivery_refund_amount",
           "sourceColumn": "外卖退款金额",
-          "aliases": ["外卖退款金额"],
+          "aliases": [
+            "外卖退款金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1187,14 +1679,24 @@
         {
           "canonicalName": "meituan_delivery_sales_amount",
           "sourceColumn": "美团外卖营业额",
-          "aliases": ["美团外卖营业额"],
+          "aliases": [
+            "美团外卖营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1209,14 +1711,24 @@
         {
           "canonicalName": "meituan_delivery_revenue",
           "sourceColumn": "美团外卖营业收入",
-          "aliases": ["美团外卖营业收入"],
+          "aliases": [
+            "美团外卖营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1231,14 +1743,24 @@
         {
           "canonicalName": "meituan_delivery_discount_amount",
           "sourceColumn": "美团外卖折扣金额",
-          "aliases": ["美团外卖折扣金额"],
+          "aliases": [
+            "美团外卖折扣金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1253,14 +1775,24 @@
         {
           "canonicalName": "meituan_delivery_order_count",
           "sourceColumn": "美团外卖订单量",
-          "aliases": ["美团外卖订单量"],
+          "aliases": [
+            "美团外卖订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1275,14 +1807,24 @@
         {
           "canonicalName": "meituan_delivery_positive_order_count",
           "sourceColumn": "美团外卖正向单订单量",
-          "aliases": ["美团外卖正向单订单量"],
+          "aliases": [
+            "美团外卖正向单订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1297,14 +1839,24 @@
         {
           "canonicalName": "meituan_delivery_refund_order_count",
           "sourceColumn": "美团外卖退单量",
-          "aliases": ["美团外卖退单量"],
+          "aliases": [
+            "美团外卖退单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1319,14 +1871,24 @@
         {
           "canonicalName": "meituan_delivery_settled_order_count",
           "sourceColumn": "美团外卖已结账订单量",
-          "aliases": ["美团外卖已结账订单量"],
+          "aliases": [
+            "美团外卖已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1341,14 +1903,24 @@
         {
           "canonicalName": "meituan_delivery_average_order_value_before_discount",
           "sourceColumn": "美团外卖折前单均",
-          "aliases": ["美团外卖折前单均"],
+          "aliases": [
+            "美团外卖折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1363,14 +1935,24 @@
         {
           "canonicalName": "meituan_delivery_average_order_value_after_discount",
           "sourceColumn": "美团外卖折后单均",
-          "aliases": ["美团外卖折后单均"],
+          "aliases": [
+            "美团外卖折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1385,14 +1967,24 @@
         {
           "canonicalName": "meituan_delivery_refund_amount",
           "sourceColumn": "美团外卖退款金额",
-          "aliases": ["美团外卖退款金额"],
+          "aliases": [
+            "美团外卖退款金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1407,14 +1999,24 @@
         {
           "canonicalName": "jd_delivery_sales_amount",
           "sourceColumn": "京东外卖营业额",
-          "aliases": ["京东外卖营业额"],
+          "aliases": [
+            "京东外卖营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1429,14 +2031,24 @@
         {
           "canonicalName": "jd_delivery_revenue",
           "sourceColumn": "京东外卖营业收入",
-          "aliases": ["京东外卖营业收入"],
+          "aliases": [
+            "京东外卖营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1451,14 +2063,24 @@
         {
           "canonicalName": "jd_delivery_discount_amount",
           "sourceColumn": "京东外卖折扣金额",
-          "aliases": ["京东外卖折扣金额"],
+          "aliases": [
+            "京东外卖折扣金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1473,14 +2095,24 @@
         {
           "canonicalName": "jd_delivery_average_order_value_before_discount",
           "sourceColumn": "京东外卖折前单均",
-          "aliases": ["京东外卖折前单均"],
+          "aliases": [
+            "京东外卖折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1495,14 +2127,24 @@
         {
           "canonicalName": "jd_delivery_average_order_value_after_discount",
           "sourceColumn": "京东外卖折后单均",
-          "aliases": ["京东外卖折后单均"],
+          "aliases": [
+            "京东外卖折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1517,14 +2159,24 @@
         {
           "canonicalName": "jd_delivery_order_count",
           "sourceColumn": "京东外卖订单量",
-          "aliases": ["京东外卖订单量"],
+          "aliases": [
+            "京东外卖订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1539,14 +2191,24 @@
         {
           "canonicalName": "jd_delivery_positive_order_count",
           "sourceColumn": "京东外卖正向单订单量",
-          "aliases": ["京东外卖正向单订单量"],
+          "aliases": [
+            "京东外卖正向单订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1561,14 +2223,24 @@
         {
           "canonicalName": "jd_delivery_refund_order_count",
           "sourceColumn": "京东外卖退单量",
-          "aliases": ["京东外卖退单量"],
+          "aliases": [
+            "京东外卖退单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1583,14 +2255,24 @@
         {
           "canonicalName": "jd_delivery_settled_order_count",
           "sourceColumn": "京东外卖已结账订单量",
-          "aliases": ["京东外卖已结账订单量"],
+          "aliases": [
+            "京东外卖已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1605,14 +2287,24 @@
         {
           "canonicalName": "jd_delivery_refund_amount",
           "sourceColumn": "京东外卖退款金额",
-          "aliases": ["京东外卖退款金额"],
+          "aliases": [
+            "京东外卖退款金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1627,14 +2319,24 @@
         {
           "canonicalName": "eleme_delivery_sales_amount",
           "sourceColumn": "饿了么外卖营业额",
-          "aliases": ["饿了么外卖营业额"],
+          "aliases": [
+            "饿了么外卖营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1649,14 +2351,24 @@
         {
           "canonicalName": "eleme_delivery_revenue",
           "sourceColumn": "饿了么外卖营业收入",
-          "aliases": ["饿了么外卖营业收入"],
+          "aliases": [
+            "饿了么外卖营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1671,14 +2383,24 @@
         {
           "canonicalName": "eleme_delivery_discount_amount",
           "sourceColumn": "饿了么外卖折扣金额",
-          "aliases": ["饿了么外卖折扣金额"],
+          "aliases": [
+            "饿了么外卖折扣金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1693,14 +2415,24 @@
         {
           "canonicalName": "eleme_delivery_average_order_value_before_discount",
           "sourceColumn": "饿了么外卖折前单均",
-          "aliases": ["饿了么外卖折前单均"],
+          "aliases": [
+            "饿了么外卖折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1715,14 +2447,24 @@
         {
           "canonicalName": "eleme_delivery_average_order_value_after_discount",
           "sourceColumn": "饿了么外卖折后单均",
-          "aliases": ["饿了么外卖折后单均"],
+          "aliases": [
+            "饿了么外卖折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1737,14 +2479,24 @@
         {
           "canonicalName": "eleme_delivery_order_count",
           "sourceColumn": "饿了么外卖订单量",
-          "aliases": ["饿了么外卖订单量"],
+          "aliases": [
+            "饿了么外卖订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1759,14 +2511,24 @@
         {
           "canonicalName": "eleme_delivery_positive_order_count",
           "sourceColumn": "饿了么外卖正向单订单量",
-          "aliases": ["饿了么外卖正向单订单量"],
+          "aliases": [
+            "饿了么外卖正向单订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1781,14 +2543,24 @@
         {
           "canonicalName": "eleme_delivery_refund_order_count",
           "sourceColumn": "饿了么外卖退单量",
-          "aliases": ["饿了么外卖退单量"],
+          "aliases": [
+            "饿了么外卖退单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1803,14 +2575,24 @@
         {
           "canonicalName": "eleme_delivery_settled_order_count",
           "sourceColumn": "饿了么外卖已结账订单量",
-          "aliases": ["饿了么外卖已结账订单量"],
+          "aliases": [
+            "饿了么外卖已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1825,14 +2607,24 @@
         {
           "canonicalName": "eleme_delivery_refund_amount",
           "sourceColumn": "饿了么外卖退款金额",
-          "aliases": ["饿了么外卖退款金额"],
+          "aliases": [
+            "饿了么外卖退款金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1847,14 +2639,24 @@
         {
           "canonicalName": "pickup_sales_amount",
           "sourceColumn": "自提营业额",
-          "aliases": ["自提营业额"],
+          "aliases": [
+            "自提营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1869,14 +2671,24 @@
         {
           "canonicalName": "pickup_revenue",
           "sourceColumn": "自提营业收入",
-          "aliases": ["自提营业收入"],
+          "aliases": [
+            "自提营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1891,14 +2703,24 @@
         {
           "canonicalName": "pickup_discount_amount",
           "sourceColumn": "自提折扣金额",
-          "aliases": ["自提折扣金额"],
+          "aliases": [
+            "自提折扣金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1913,14 +2735,24 @@
         {
           "canonicalName": "business_088_pickup_avg_before_discount",
           "sourceColumn": "自提折前单均",
-          "aliases": ["自提折前单均"],
+          "aliases": [
+            "自提折前单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1935,14 +2767,24 @@
         {
           "canonicalName": "business_089_pickup_avg_after_discount",
           "sourceColumn": "自提折后单均",
-          "aliases": ["自提折后单均"],
+          "aliases": [
+            "自提折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1957,14 +2799,24 @@
         {
           "canonicalName": "pickup_order_count",
           "sourceColumn": "自提订单量",
-          "aliases": ["自提订单量"],
+          "aliases": [
+            "自提订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -1979,14 +2831,24 @@
         {
           "canonicalName": "pickup_positive_order_count",
           "sourceColumn": "自提正向单订单量",
-          "aliases": ["自提正向单订单量"],
+          "aliases": [
+            "自提正向单订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2001,14 +2863,24 @@
         {
           "canonicalName": "pickup_settled_order_count",
           "sourceColumn": "自提已结账订单量",
-          "aliases": ["自提已结账订单量"],
+          "aliases": [
+            "自提已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2023,14 +2895,24 @@
         {
           "canonicalName": "pickup_refund_order_count",
           "sourceColumn": "自提退单量",
-          "aliases": ["自提退单量"],
+          "aliases": [
+            "自提退单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2045,14 +2927,24 @@
         {
           "canonicalName": "pickup_refund_amount",
           "sourceColumn": "自提退款金额",
-          "aliases": ["自提退款金额"],
+          "aliases": [
+            "自提退款金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2067,14 +2959,24 @@
         {
           "canonicalName": "cash_sales_amount",
           "sourceColumn": "现金营业额",
-          "aliases": ["现金营业额"],
+          "aliases": [
+            "现金营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2089,14 +2991,24 @@
         {
           "canonicalName": "cash_revenue",
           "sourceColumn": "现金营业收入",
-          "aliases": ["现金营业收入"],
+          "aliases": [
+            "现金营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2111,14 +3023,24 @@
         {
           "canonicalName": "cash_discount_amount",
           "sourceColumn": "现金优惠金额",
-          "aliases": ["现金优惠金额"],
+          "aliases": [
+            "现金优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2133,14 +3055,24 @@
         {
           "canonicalName": "cash_payment_count",
           "sourceColumn": "现金支付次数",
-          "aliases": ["现金支付次数"],
+          "aliases": [
+            "现金支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2155,14 +3087,24 @@
         {
           "canonicalName": "qr_payment_revenue",
           "sourceColumn": "扫码支付营业收入",
-          "aliases": ["扫码支付营业收入"],
+          "aliases": [
+            "扫码支付营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2177,14 +3119,24 @@
         {
           "canonicalName": "qr_payment_sales_amount",
           "sourceColumn": "扫码支付营业额",
-          "aliases": ["扫码支付营业额"],
+          "aliases": [
+            "扫码支付营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2199,14 +3151,24 @@
         {
           "canonicalName": "qr_payment_discount_amount",
           "sourceColumn": "扫码支付优惠金额",
-          "aliases": ["扫码支付优惠金额"],
+          "aliases": [
+            "扫码支付优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2221,14 +3183,24 @@
         {
           "canonicalName": "qr_payment_count",
           "sourceColumn": "扫码支付支付次数",
-          "aliases": ["扫码支付支付次数"],
+          "aliases": [
+            "扫码支付支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2243,14 +3215,24 @@
         {
           "canonicalName": "qr_payment_wechat_sales_amount",
           "sourceColumn": "扫码支付微信营业额",
-          "aliases": ["扫码支付微信营业额"],
+          "aliases": [
+            "扫码支付微信营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2265,14 +3247,24 @@
         {
           "canonicalName": "qr_payment_alipay_sales_amount",
           "sourceColumn": "扫码支付支付宝营业额",
-          "aliases": ["扫码支付支付宝营业额"],
+          "aliases": [
+            "扫码支付支付宝营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2287,14 +3279,24 @@
         {
           "canonicalName": "qr_payment_wechat_revenue",
           "sourceColumn": "扫码支付微信营业收入",
-          "aliases": ["扫码支付微信营业收入"],
+          "aliases": [
+            "扫码支付微信营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2309,14 +3311,24 @@
         {
           "canonicalName": "qr_payment_alipay_revenue",
           "sourceColumn": "扫码支付支付宝营业收入",
-          "aliases": ["扫码支付支付宝营业收入"],
+          "aliases": [
+            "扫码支付支付宝营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2331,14 +3343,24 @@
         {
           "canonicalName": "qr_payment_wechat_discount_amount",
           "sourceColumn": "扫码支付微信优惠金额",
-          "aliases": ["扫码支付微信优惠金额"],
+          "aliases": [
+            "扫码支付微信优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2353,14 +3375,24 @@
         {
           "canonicalName": "qr_payment_alipay_discount_amount",
           "sourceColumn": "扫码支付支付宝优惠金额",
-          "aliases": ["扫码支付支付宝优惠金额"],
+          "aliases": [
+            "扫码支付支付宝优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2375,14 +3407,24 @@
         {
           "canonicalName": "qr_payment_wechat_count",
           "sourceColumn": "扫码支付微信支付次数",
-          "aliases": ["扫码支付微信支付次数"],
+          "aliases": [
+            "扫码支付微信支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2397,14 +3439,24 @@
         {
           "canonicalName": "qr_payment_alipay_count",
           "sourceColumn": "扫码支付支付宝支付次数",
-          "aliases": ["扫码支付支付宝支付次数"],
+          "aliases": [
+            "扫码支付支付宝支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2419,14 +3471,24 @@
         {
           "canonicalName": "group_buy_sales_amount",
           "sourceColumn": "团购营业额",
-          "aliases": ["团购营业额"],
+          "aliases": [
+            "团购营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2441,14 +3503,24 @@
         {
           "canonicalName": "meituan_group_buy_sales_amount",
           "sourceColumn": "美团团购营业额",
-          "aliases": ["美团团购营业额"],
+          "aliases": [
+            "美团团购营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2463,14 +3535,24 @@
         {
           "canonicalName": "douyin_group_buy_sales_amount",
           "sourceColumn": "抖音团购营业额",
-          "aliases": ["抖音团购营业额"],
+          "aliases": [
+            "抖音团购营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2485,14 +3567,24 @@
         {
           "canonicalName": "kuaishou_group_buy_sales_amount",
           "sourceColumn": "快手团购营业额",
-          "aliases": ["快手团购营业额"],
+          "aliases": [
+            "快手团购营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2507,14 +3599,24 @@
         {
           "canonicalName": "group_buy_revenue",
           "sourceColumn": "团购营业收入",
-          "aliases": ["团购营业收入"],
+          "aliases": [
+            "团购营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2529,14 +3631,24 @@
         {
           "canonicalName": "meituan_group_buy_revenue",
           "sourceColumn": "美团团购营业收入",
-          "aliases": ["美团团购营业收入"],
+          "aliases": [
+            "美团团购营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2551,14 +3663,24 @@
         {
           "canonicalName": "douyin_group_buy_revenue",
           "sourceColumn": "抖音团购营业收入",
-          "aliases": ["抖音团购营业收入"],
+          "aliases": [
+            "抖音团购营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2573,14 +3695,24 @@
         {
           "canonicalName": "kuaishou_group_buy_revenue",
           "sourceColumn": "快手团购营业收入",
-          "aliases": ["快手团购营业收入"],
+          "aliases": [
+            "快手团购营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2595,14 +3727,24 @@
         {
           "canonicalName": "group_buy_discount_amount",
           "sourceColumn": "团购优惠金额",
-          "aliases": ["团购优惠金额"],
+          "aliases": [
+            "团购优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2617,14 +3759,24 @@
         {
           "canonicalName": "meituan_group_buy_discount_amount",
           "sourceColumn": "美团团购优惠金额",
-          "aliases": ["美团团购优惠金额"],
+          "aliases": [
+            "美团团购优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2639,14 +3791,24 @@
         {
           "canonicalName": "douyin_group_buy_discount_amount",
           "sourceColumn": "抖音团购优惠金额",
-          "aliases": ["抖音团购优惠金额"],
+          "aliases": [
+            "抖音团购优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2661,14 +3823,24 @@
         {
           "canonicalName": "kuaishou_group_buy_discount_amount",
           "sourceColumn": "快手团购优惠金额",
-          "aliases": ["快手团购优惠金额"],
+          "aliases": [
+            "快手团购优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2683,14 +3855,24 @@
         {
           "canonicalName": "group_buy_payment_count",
           "sourceColumn": "团购支付次数",
-          "aliases": ["团购支付次数"],
+          "aliases": [
+            "团购支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2705,14 +3887,24 @@
         {
           "canonicalName": "meituan_group_buy_payment_count",
           "sourceColumn": "美团团购支付次数",
-          "aliases": ["美团团购支付次数"],
+          "aliases": [
+            "美团团购支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2727,14 +3919,24 @@
         {
           "canonicalName": "douyin_group_buy_payment_count",
           "sourceColumn": "抖音团购支付次数",
-          "aliases": ["抖音团购支付次数"],
+          "aliases": [
+            "抖音团购支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2749,14 +3951,24 @@
         {
           "canonicalName": "kuaishou_group_buy_payment_count",
           "sourceColumn": "快手团购支付次数",
-          "aliases": ["快手团购支付次数"],
+          "aliases": [
+            "快手团购支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2771,14 +3983,24 @@
         {
           "canonicalName": "voucher_sales_amount",
           "sourceColumn": "抵用券营业额",
-          "aliases": ["抵用券营业额"],
+          "aliases": [
+            "抵用券营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2793,14 +4015,24 @@
         {
           "canonicalName": "voucher_revenue",
           "sourceColumn": "抵用券营业收入",
-          "aliases": ["抵用券营业收入"],
+          "aliases": [
+            "抵用券营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2815,14 +4047,24 @@
         {
           "canonicalName": "voucher_discount_amount",
           "sourceColumn": "抵用券优惠金额",
-          "aliases": ["抵用券优惠金额"],
+          "aliases": [
+            "抵用券优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2837,14 +4079,24 @@
         {
           "canonicalName": "voucher_payment_count",
           "sourceColumn": "抵用券支付次数",
-          "aliases": ["抵用券支付次数"],
+          "aliases": [
+            "抵用券支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2859,14 +4111,24 @@
         {
           "canonicalName": "coupon_sales_amount",
           "sourceColumn": "优惠券营业额",
-          "aliases": ["优惠券营业额"],
+          "aliases": [
+            "优惠券营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2881,14 +4143,24 @@
         {
           "canonicalName": "coupon_revenue",
           "sourceColumn": "优惠券营业收入",
-          "aliases": ["优惠券营业收入"],
+          "aliases": [
+            "优惠券营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2903,14 +4175,24 @@
         {
           "canonicalName": "coupon_discount_amount",
           "sourceColumn": "优惠券优惠金额",
-          "aliases": ["优惠券优惠金额"],
+          "aliases": [
+            "优惠券优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2925,14 +4207,24 @@
         {
           "canonicalName": "coupon_payment_count",
           "sourceColumn": "优惠券支付次数",
-          "aliases": ["优惠券支付次数"],
+          "aliases": [
+            "优惠券支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2947,14 +4239,24 @@
         {
           "canonicalName": "custom_accounting_sales_amount",
           "sourceColumn": "自定义记账营业额",
-          "aliases": ["自定义记账营业额"],
+          "aliases": [
+            "自定义记账营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2969,14 +4271,24 @@
         {
           "canonicalName": "custom_accounting_revenue",
           "sourceColumn": "自定义记账营业收入",
-          "aliases": ["自定义记账营业收入"],
+          "aliases": [
+            "自定义记账营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -2991,14 +4303,24 @@
         {
           "canonicalName": "custom_accounting_discount_amount",
           "sourceColumn": "自定义记账优惠金额",
-          "aliases": ["自定义记账优惠金额"],
+          "aliases": [
+            "自定义记账优惠金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3013,14 +4335,24 @@
         {
           "canonicalName": "custom_accounting_payment_count",
           "sourceColumn": "自定义记账支付次数",
-          "aliases": ["自定义记账支付次数"],
+          "aliases": [
+            "自定义记账支付次数"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3035,14 +4367,24 @@
         {
           "canonicalName": "dine_in_marketing_member_order_count",
           "sourceColumn": "店内营销会员订单量",
-          "aliases": ["店内营销会员订单量"],
+          "aliases": [
+            "店内营销会员订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3057,14 +4399,24 @@
         {
           "canonicalName": "dine_in_non_member_order_count",
           "sourceColumn": "店内非会员订单量",
-          "aliases": ["店内非会员订单量"],
+          "aliases": [
+            "店内非会员订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3079,14 +4431,24 @@
         {
           "canonicalName": "delivery_marketing_member_order_count",
           "sourceColumn": "外卖营销会员订单量",
-          "aliases": ["外卖营销会员订单量"],
+          "aliases": [
+            "外卖营销会员订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3101,14 +4463,24 @@
         {
           "canonicalName": "business_142_takeout_gross_sales_member_marketing",
           "sourceColumn": "外卖营销会员单均营业额",
-          "aliases": ["外卖营销会员单均营业额"],
+          "aliases": [
+            "外卖营销会员单均营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3123,14 +4495,24 @@
         {
           "canonicalName": "dine_in_marketing_member_sales_amount",
           "sourceColumn": "店内营销会员营业额",
-          "aliases": ["店内营销会员营业额"],
+          "aliases": [
+            "店内营销会员营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3145,14 +4527,24 @@
         {
           "canonicalName": "dine_in_non_member_sales_amount",
           "sourceColumn": "店内非会员营业额",
-          "aliases": ["店内非会员营业额"],
+          "aliases": [
+            "店内非会员营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3167,14 +4559,24 @@
         {
           "canonicalName": "dine_in_marketing_member_revenue",
           "sourceColumn": "店内营销会员营业收入",
-          "aliases": ["店内营销会员营业收入"],
+          "aliases": [
+            "店内营销会员营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3189,14 +4591,24 @@
         {
           "canonicalName": "business_146_dine_in_gross_sales_member_marketing",
           "sourceColumn": "店内营销会员单均营业额",
-          "aliases": ["店内营销会员单均营业额"],
+          "aliases": [
+            "店内营销会员单均营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3211,14 +4623,24 @@
         {
           "canonicalName": "delivery_marketing_member_sales_amount",
           "sourceColumn": "外卖营销会员营业额",
-          "aliases": ["外卖营销会员营业额"],
+          "aliases": [
+            "外卖营销会员营业额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3233,14 +4655,24 @@
         {
           "canonicalName": "delivery_settled_order_count",
           "sourceColumn": "外卖已结账订单量",
-          "aliases": ["外卖已结账订单量"],
+          "aliases": [
+            "外卖已结账订单量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3255,14 +4687,24 @@
         {
           "canonicalName": "business_149_dine_in_avg_after_discount",
           "sourceColumn": "店内折后单均",
-          "aliases": ["店内折后单均"],
+          "aliases": [
+            "店内折后单均"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3277,14 +4719,24 @@
         {
           "canonicalName": "business_150_dine_in_revenue_member_non_member",
           "sourceColumn": "店内非会员单均营业收入",
-          "aliases": ["店内非会员单均营业收入"],
+          "aliases": [
+            "店内非会员单均营业收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3299,14 +4751,24 @@
         {
           "canonicalName": "diner_count",
           "sourceColumn": "用餐人数",
-          "aliases": ["用餐人数"],
+          "aliases": [
+            "用餐人数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3318,14 +4780,24 @@
         {
           "canonicalName": "business_day_count",
           "sourceColumn": "营业天数",
-          "aliases": ["营业天数"],
+          "aliases": [
+            "营业天数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3343,14 +4815,23 @@
         {
           "canonicalName": "order_time",
           "sourceColumn": "下单时间",
-          "aliases": ["下单时间", "订单时间"],
+          "aliases": [
+            "下单时间",
+            "订单时间"
+          ],
           "type": "date_time",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gte", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gte",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3362,14 +4843,22 @@
         {
           "canonicalName": "store_name",
           "sourceColumn": "门店",
-          "aliases": ["门店", "门店名称"],
+          "aliases": [
+            "门店",
+            "门店名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3384,14 +4873,21 @@
         {
           "canonicalName": "province",
           "sourceColumn": "省份",
-          "aliases": ["省份"],
+          "aliases": [
+            "省份"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3406,14 +4902,21 @@
         {
           "canonicalName": "city",
           "sourceColumn": "城市",
-          "aliases": ["城市"],
+          "aliases": [
+            "城市"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3428,14 +4931,21 @@
         {
           "canonicalName": "district",
           "sourceColumn": "区域",
-          "aliases": ["区域"],
+          "aliases": [
+            "区域"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3450,14 +4960,21 @@
         {
           "canonicalName": "organization_level_1",
           "sourceColumn": "一级组织机构",
-          "aliases": ["一级组织机构"],
+          "aliases": [
+            "一级组织机构"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3472,14 +4989,21 @@
         {
           "canonicalName": "organization_level_2",
           "sourceColumn": "二级组织机构",
-          "aliases": ["二级组织机构"],
+          "aliases": [
+            "二级组织机构"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3494,14 +5018,21 @@
         {
           "canonicalName": "organization_level_3",
           "sourceColumn": "三级组织机构",
-          "aliases": ["三级组织机构"],
+          "aliases": [
+            "三级组织机构"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3516,14 +5047,21 @@
         {
           "canonicalName": "organization_level_4",
           "sourceColumn": "四级组织机构",
-          "aliases": ["四级组织机构"],
+          "aliases": [
+            "四级组织机构"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3538,14 +5076,21 @@
         {
           "canonicalName": "is_member",
           "sourceColumn": "是否是会员",
-          "aliases": ["是否是会员"],
+          "aliases": [
+            "是否是会员"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3560,14 +5105,21 @@
         {
           "canonicalName": "product_name",
           "sourceColumn": "菜品名称",
-          "aliases": ["菜品名称"],
+          "aliases": [
+            "菜品名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3582,14 +5134,21 @@
         {
           "canonicalName": "time_slot",
           "sourceColumn": "时段",
-          "aliases": ["时段"],
+          "aliases": [
+            "时段"
+          ],
           "type": "time_range",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3601,14 +5160,21 @@
         {
           "canonicalName": "matched_product_name",
           "sourceColumn": "关联菜品名称",
-          "aliases": ["关联菜品名称"],
+          "aliases": [
+            "关联菜品名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3623,14 +5189,21 @@
         {
           "canonicalName": "order_category",
           "sourceColumn": "订单分类",
-          "aliases": ["订单分类"],
+          "aliases": [
+            "订单分类"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3645,14 +5218,23 @@
         {
           "canonicalName": "business_date",
           "sourceColumn": "营业日",
-          "aliases": ["营业日", "营业日期"],
+          "aliases": [
+            "营业日",
+            "营业日期"
+          ],
           "type": "date",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gte", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gte",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3664,14 +5246,21 @@
         {
           "canonicalName": "business_week",
           "sourceColumn": "营业周",
-          "aliases": ["营业周"],
+          "aliases": [
+            "营业周"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3686,14 +5275,21 @@
         {
           "canonicalName": "business_month",
           "sourceColumn": "营业月",
-          "aliases": ["营业月"],
+          "aliases": [
+            "营业月"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3708,14 +5304,21 @@
         {
           "canonicalName": "dish_sales_method_name",
           "sourceColumn": "菜品销售方式名称",
-          "aliases": ["菜品销售方式名称"],
+          "aliases": [
+            "菜品销售方式名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3730,14 +5333,21 @@
         {
           "canonicalName": "modifier_name",
           "sourceColumn": "加料名称",
-          "aliases": ["加料名称"],
+          "aliases": [
+            "加料名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3752,14 +5362,21 @@
         {
           "canonicalName": "preparation_name",
           "sourceColumn": "做法名称",
-          "aliases": ["做法名称"],
+          "aliases": [
+            "做法名称"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3774,14 +5391,21 @@
         {
           "canonicalName": "merchant_id",
           "sourceColumn": "商户号",
-          "aliases": ["商户号"],
+          "aliases": [
+            "商户号"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3796,14 +5420,21 @@
         {
           "canonicalName": "organization_code",
           "sourceColumn": "组织机构编码",
-          "aliases": ["组织机构编码"],
+          "aliases": [
+            "组织机构编码"
+          ],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3818,14 +5449,24 @@
         {
           "canonicalName": "dish_sales_quantity",
           "sourceColumn": "菜品销售数量",
-          "aliases": ["菜品销售数量"],
+          "aliases": [
+            "菜品销售数量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3840,14 +5481,24 @@
         {
           "canonicalName": "dish_sales_amount",
           "sourceColumn": "菜品销售额",
-          "aliases": ["菜品销售额"],
+          "aliases": [
+            "菜品销售额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3862,14 +5513,24 @@
         {
           "canonicalName": "dish_discount_amount",
           "sourceColumn": "菜品优惠",
-          "aliases": ["菜品优惠"],
+          "aliases": [
+            "菜品优惠"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3884,14 +5545,24 @@
         {
           "canonicalName": "dish_revenue",
           "sourceColumn": "菜品收入",
-          "aliases": ["菜品收入"],
+          "aliases": [
+            "菜品收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3906,14 +5577,24 @@
         {
           "canonicalName": "dish_modifier_sales_amount",
           "sourceColumn": "菜品关联加料销售额",
-          "aliases": ["菜品关联加料销售额"],
+          "aliases": [
+            "菜品关联加料销售额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3928,14 +5609,24 @@
         {
           "canonicalName": "dish_modifier_revenue",
           "sourceColumn": "菜品关联加料收入",
-          "aliases": ["菜品关联加料收入"],
+          "aliases": [
+            "菜品关联加料收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3950,14 +5641,24 @@
         {
           "canonicalName": "dish_preparation_sales_amount",
           "sourceColumn": "菜品关联做法销售额",
-          "aliases": ["菜品关联做法销售额"],
+          "aliases": [
+            "菜品关联做法销售额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3972,14 +5673,24 @@
         {
           "canonicalName": "dish_preparation_revenue",
           "sourceColumn": "菜品关联做法收入",
-          "aliases": ["菜品关联做法收入"],
+          "aliases": [
+            "菜品关联做法收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -3994,14 +5705,24 @@
         {
           "canonicalName": "dish_packaging_sales_amount",
           "sourceColumn": "菜品关联餐盒销售额",
-          "aliases": ["菜品关联餐盒销售额"],
+          "aliases": [
+            "菜品关联餐盒销售额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4016,14 +5737,24 @@
         {
           "canonicalName": "dish_preparation_discount_amount",
           "sourceColumn": "菜品关联做法优惠",
-          "aliases": ["菜品关联做法优惠"],
+          "aliases": [
+            "菜品关联做法优惠"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4038,14 +5769,24 @@
         {
           "canonicalName": "dish_packaging_discount_amount",
           "sourceColumn": "菜品关联餐盒优惠",
-          "aliases": ["菜品关联餐盒优惠"],
+          "aliases": [
+            "菜品关联餐盒优惠"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4060,14 +5801,24 @@
         {
           "canonicalName": "dish_positive_order_count",
           "sourceColumn": "菜品关联正向订单量",
-          "aliases": ["菜品关联正向订单量"],
+          "aliases": [
+            "菜品关联正向订单量"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4079,14 +5830,24 @@
         {
           "canonicalName": "dish_reverse_order_count",
           "sourceColumn": "菜品关联逆向订单量",
-          "aliases": ["菜品关联逆向订单量"],
+          "aliases": [
+            "菜品关联逆向订单量"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4098,14 +5859,24 @@
         {
           "canonicalName": "dish_total_sales_amount",
           "sourceColumn": "菜品总销售额",
-          "aliases": ["菜品总销售额"],
+          "aliases": [
+            "菜品总销售额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4120,14 +5891,24 @@
         {
           "canonicalName": "dish_total_revenue",
           "sourceColumn": "菜品总收入",
-          "aliases": ["菜品总收入"],
+          "aliases": [
+            "菜品总收入"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4142,14 +5923,24 @@
         {
           "canonicalName": "dish_total_discount_amount",
           "sourceColumn": "菜品总优惠",
-          "aliases": ["菜品总优惠"],
+          "aliases": [
+            "菜品总优惠"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4164,14 +5955,24 @@
         {
           "canonicalName": "dish_average_unit_price",
           "sourceColumn": "菜品平均售价_菜品本身",
-          "aliases": ["菜品平均售价_菜品本身"],
+          "aliases": [
+            "菜品平均售价_菜品本身"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4186,14 +5987,24 @@
         {
           "canonicalName": "dish_total_average_unit_price",
           "sourceColumn": "菜品平均售价_菜品及关联加料做法餐盒",
-          "aliases": ["菜品平均售价_菜品及关联加料做法餐盒"],
+          "aliases": [
+            "菜品平均售价_菜品及关联加料做法餐盒"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4208,14 +6019,24 @@
         {
           "canonicalName": "dish_average_revenue",
           "sourceColumn": "菜品平均收入_菜品本身",
-          "aliases": ["菜品平均收入_菜品本身"],
+          "aliases": [
+            "菜品平均收入_菜品本身"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4230,14 +6051,24 @@
         {
           "canonicalName": "dish_total_average_revenue",
           "sourceColumn": "菜品平均收入_菜品及关联加料做法餐盒",
-          "aliases": ["菜品平均收入_菜品及关联加料做法餐盒"],
+          "aliases": [
+            "菜品平均收入_菜品及关联加料做法餐盒"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4252,14 +6083,24 @@
         {
           "canonicalName": "dish_sales_quantity_share",
           "sourceColumn": "销量占比",
-          "aliases": ["销量占比"],
+          "aliases": [
+            "销量占比"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4274,14 +6115,24 @@
         {
           "canonicalName": "dish_sales_amount_share",
           "sourceColumn": "菜品营业额占比",
-          "aliases": ["菜品营业额占比"],
+          "aliases": [
+            "菜品营业额占比"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4296,14 +6147,24 @@
         {
           "canonicalName": "returned_dish_quantity",
           "sourceColumn": "退菜数量",
-          "aliases": ["退菜数量"],
+          "aliases": [
+            "退菜数量"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4318,14 +6179,24 @@
         {
           "canonicalName": "returned_dish_amount",
           "sourceColumn": "退菜金额",
-          "aliases": ["退菜金额"],
+          "aliases": [
+            "退菜金额"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4340,14 +6211,24 @@
         {
           "canonicalName": "dish_total_gross_margin_before_discount",
           "sourceColumn": "菜品总毛利额（折前）",
-          "aliases": ["菜品总毛利额（折前）"],
+          "aliases": [
+            "菜品总毛利额（折前）"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4362,14 +6243,24 @@
         {
           "canonicalName": "dish_total_gross_margin_after_discount",
           "sourceColumn": "菜品总毛利额（折后）",
-          "aliases": ["菜品总毛利额（折后）"],
+          "aliases": [
+            "菜品总毛利额（折后）"
+          ],
           "type": "decimal",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4384,14 +6275,24 @@
         {
           "canonicalName": "serving_order_count",
           "sourceColumn": "出餐订单数",
-          "aliases": ["出餐订单数"],
+          "aliases": [
+            "出餐订单数"
+          ],
           "type": "integer",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4403,14 +6304,24 @@
         {
           "canonicalName": "dish_total_gross_margin_rate_before_discount",
           "sourceColumn": "菜品总毛利率（折前）",
-          "aliases": ["菜品总毛利率（折前）"],
+          "aliases": [
+            "菜品总毛利率（折前）"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4425,14 +6336,24 @@
         {
           "canonicalName": "dish_total_gross_margin_rate_after_discount",
           "sourceColumn": "菜品总毛利率（折后）",
-          "aliases": ["菜品总毛利率（折后）"],
+          "aliases": [
+            "菜品总毛利率（折后）"
+          ],
           "type": "percent",
           "nullable": true,
           "sensitivity": "business_metric",
           "lifecycle": "active",
           "volatility": "review_on_export_change",
           "defaultReturn": false,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4449,69 +6370,24 @@
     {
       "dataset": "dish_catalog",
       "accessMode": "row_query",
-      "rowTable": "dish_catalog_rows",
+      "rowTable": "dish_catalog_entries",
       "fields": [
-        {
-          "canonicalName": "source_document_id",
-          "sourceColumn": "source_document_id",
-          "aliases": ["source_document_id"],
-          "type": "string",
-          "nullable": false,
-          "sensitivity": "normal",
-          "lifecycle": "active",
-          "volatility": "stable_export",
-          "defaultReturn": false,
-          "operators": ["eq", "contains", "starts_with", "in"],
-          "capabilities": {
-            "filter": false,
-            "sort": false,
-            "group": false,
-            "aggregate": false
-          },
-          "indexStatus": "not_indexed",
-          "valueLimits": {
-            "maxLength": 512
-          },
-          "storage": {
-            "table": "dish_catalog_rows",
-            "column": "source_document_id"
-          }
-        },
-        {
-          "canonicalName": "snapshot_date",
-          "sourceColumn": "snapshot_date",
-          "aliases": ["snapshot_date"],
-          "type": "date",
-          "nullable": false,
-          "sensitivity": "normal",
-          "lifecycle": "active",
-          "volatility": "stable_export",
-          "defaultReturn": true,
-          "operators": ["eq", "between", "gte", "lte", "in"],
-          "capabilities": {
-            "filter": true,
-            "sort": true,
-            "group": true,
-            "aggregate": false
-          },
-          "indexStatus": "planned",
-          "storage": {
-            "table": "dish_catalog_rows",
-            "column": "payload",
-            "jsonPath": "$.snapshot_date"
-          }
-        },
         {
           "canonicalName": "spu_id",
           "sourceColumn": "菜品编码（SPUID）",
-          "aliases": ["菜品编码（SPUID）"],
+          "aliases": [],
           "type": "string",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4520,10 +6396,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 128
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.spu_id"
           }
@@ -4531,14 +6407,19 @@
         {
           "canonicalName": "sku_id",
           "sourceColumn": "菜品编码（SKUID）",
-          "aliases": ["菜品编码（SKUID）"],
+          "aliases": [],
           "type": "string",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4547,10 +6428,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 128
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.sku_id"
           }
@@ -4558,14 +6439,19 @@
         {
           "canonicalName": "dish_name",
           "sourceColumn": "菜品名称",
-          "aliases": ["菜品名称"],
+          "aliases": [],
           "type": "string",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4577,7 +6463,7 @@
             "maxLength": 512
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.dish_name"
           }
@@ -4585,14 +6471,19 @@
         {
           "canonicalName": "brand_name",
           "sourceColumn": "品牌",
-          "aliases": ["品牌"],
+          "aliases": [],
           "type": "string",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4601,10 +6492,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 255
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.brand_name"
           }
@@ -4612,14 +6503,19 @@
         {
           "canonicalName": "base_category_name",
           "sourceColumn": "基础分类",
-          "aliases": ["基础分类"],
+          "aliases": [],
           "type": "string",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4628,10 +6524,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 255
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.base_category_name"
           }
@@ -4639,14 +6535,19 @@
         {
           "canonicalName": "level_1_category_code",
           "sourceColumn": "一级分类编码",
-          "aliases": ["一级分类编码"],
+          "aliases": [],
           "type": "string",
           "nullable": false,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4655,10 +6556,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 128
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.level_1_category_code"
           }
@@ -4666,14 +6567,19 @@
         {
           "canonicalName": "level_2_category_code",
           "sourceColumn": "二级分类编码",
-          "aliases": ["二级分类编码"],
+          "aliases": [],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4682,10 +6588,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 128
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.level_2_category_code"
           }
@@ -4693,14 +6599,19 @@
         {
           "canonicalName": "specification_name",
           "sourceColumn": "规格名称",
-          "aliases": ["规格名称"],
+          "aliases": [],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4709,10 +6620,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "maxLength": 512
+            "maxLength": 255
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.specification_name"
           }
@@ -4720,14 +6631,22 @@
         {
           "canonicalName": "sale_price",
           "sourceColumn": "售卖价",
-          "aliases": ["售卖价"],
+          "aliases": [],
           "type": "decimal",
           "nullable": false,
           "sensitivity": "business_metric",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "between", "gt", "gte", "lt", "lte", "in"],
+          "operators": [
+            "eq",
+            "between",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4736,10 +6655,10 @@
           },
           "indexStatus": "planned",
           "valueLimits": {
-            "decimalScale": 4
+            "decimalScale": 6
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.sale_price"
           }
@@ -4747,14 +6666,19 @@
         {
           "canonicalName": "dish_alias",
           "sourceColumn": "菜品别名",
-          "aliases": ["菜品别名"],
+          "aliases": [],
           "type": "string",
           "nullable": true,
           "sensitivity": "normal",
           "lifecycle": "active",
-          "volatility": "review_on_export_change",
+          "volatility": "stable_export",
           "defaultReturn": true,
-          "operators": ["eq", "contains", "starts_with", "in"],
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
           "capabilities": {
             "filter": true,
             "sort": true,
@@ -4766,9 +6690,130 @@
             "maxLength": 512
           },
           "storage": {
-            "table": "dish_catalog_rows",
+            "table": "dish_catalog_entries",
             "column": "payload",
             "jsonPath": "$.dish_alias"
+          }
+        },
+        {
+          "canonicalName": "department_id",
+          "sourceColumn": "department_id",
+          "aliases": [],
+          "type": "string",
+          "nullable": true,
+          "sensitivity": "normal",
+          "lifecycle": "active",
+          "volatility": "stable_export",
+          "defaultReturn": false,
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
+          "capabilities": {
+            "filter": true,
+            "sort": true,
+            "group": true,
+            "aggregate": true
+          },
+          "indexStatus": "planned",
+          "valueLimits": {
+            "maxLength": 36
+          },
+          "storage": {
+            "table": "dish_catalog_entries",
+            "column": "department_id"
+          }
+        },
+        {
+          "canonicalName": "department_name",
+          "sourceColumn": "department_name",
+          "aliases": [],
+          "type": "string",
+          "nullable": true,
+          "sensitivity": "normal",
+          "lifecycle": "active",
+          "volatility": "stable_export",
+          "defaultReturn": true,
+          "operators": [
+            "eq",
+            "contains",
+            "starts_with",
+            "in"
+          ],
+          "capabilities": {
+            "filter": true,
+            "sort": true,
+            "group": true,
+            "aggregate": true
+          },
+          "indexStatus": "planned",
+          "valueLimits": {
+            "maxLength": 255
+          },
+          "storage": {
+            "table": "business_departments",
+            "column": "name",
+            "join": "department"
+          }
+        },
+        {
+          "canonicalName": "created_at",
+          "sourceColumn": "created_at",
+          "aliases": [],
+          "type": "date_time",
+          "nullable": false,
+          "sensitivity": "normal",
+          "lifecycle": "active",
+          "volatility": "stable_export",
+          "defaultReturn": false,
+          "operators": [
+            "eq",
+            "between",
+            "gte",
+            "lte",
+            "in"
+          ],
+          "capabilities": {
+            "filter": true,
+            "sort": true,
+            "group": true,
+            "aggregate": true
+          },
+          "indexStatus": "planned",
+          "storage": {
+            "table": "dish_catalog_entries",
+            "column": "created_at"
+          }
+        },
+        {
+          "canonicalName": "updated_at",
+          "sourceColumn": "updated_at",
+          "aliases": [],
+          "type": "date_time",
+          "nullable": false,
+          "sensitivity": "normal",
+          "lifecycle": "active",
+          "volatility": "stable_export",
+          "defaultReturn": true,
+          "operators": [
+            "eq",
+            "between",
+            "gte",
+            "lte",
+            "in"
+          ],
+          "capabilities": {
+            "filter": true,
+            "sort": true,
+            "group": true,
+            "aggregate": true
+          },
+          "indexStatus": "planned",
+          "storage": {
+            "table": "dish_catalog_entries",
+            "column": "updated_at"
           }
         }
       ]

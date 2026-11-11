@@ -13,7 +13,7 @@
     },
     "dish_catalog": {
       "dataset": "dish_catalog",
-      "metadataPolicy": "snapshot",
+      "metadataPolicy": "current",
       "requiredFor": ["stallAttribution", "stallSalesMix", "productSalesPer10k"]
     }
   },
@@ -104,7 +104,6 @@
       "afterDiscountGrossMargin": "dish_total_gross_margin_after_discount"
     },
     "dish_catalog": {
-      "snapshotDate": "snapshot_date",
       "dishName": "dish_name",
       "baseCategory": "base_category_name",
       "stall": "base_category_name",

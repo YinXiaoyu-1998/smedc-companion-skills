@@ -54,7 +54,7 @@ class BuildQueryPlanTests(unittest.TestCase):
             )
         if empty_dish_catalog:
             (coverage_dir / "coverage_dish_catalog.json").write_text(
-                json.dumps({"dataset": "dish_catalog", "metadataPolicy": "snapshot", "sources": []}),
+                json.dumps({"dataset": "dish_catalog", "metadataPolicy": "current", "rowCount": 0, "lastUpdatedAt": None}),
                 encoding="utf-8",
             )
         output = run_dir / "manifest.json"
@@ -125,7 +125,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
         extracts = manifest["extracts"]
-        self.assertEqual({entry["input"]["dataset"] for entry in extracts}, {"business", "dishes"})
+        self.assertEqual({entry["input"]["dataset"] for entry in extracts}, {"business"})
         self.assertTrue(all(entry["tool"] == "download_structured_partitions" for entry in extracts))
         self.assertTrue(all(entry["input"]["enterpriseName"] == "示例企业" for entry in extracts))
         self.assertEqual(
@@ -143,10 +143,8 @@ class BuildQueryPlanTests(unittest.TestCase):
         partition_jobs = [job for job in manifest["jobs"] if job["input"]["dataset"] in {"business", "dishes"}]
         self.assertTrue(partition_jobs)
         self.assertTrue(all(job["tool"] == "local_partition_aggregate" for job in partition_jobs))
-        self.assertEqual(
-            {job["input"]["dataset"] for job in manifest["jobs"] if job["tool"] == "query_structured_dataset"},
-            {"dish_catalog"},
-        )
+        self.assertFalse(any(job["tool"] == "query_structured_dataset" for job in manifest["jobs"]))
+        self.assertEqual(manifest["coverage"]["dish_catalog"]["rowCount"], 7)
         self.assertEqual(manifest["metadata"]["organization_name"], "示例餐饮管理有限公司")
 
     def test_monthly_plan_downloads_a_full_year_and_prior_year(self) -> None:
@@ -189,19 +187,21 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertIn("store-name-contains values must be non-blank", completed.stderr)
         self.assertFalse(output.exists())
 
-    def test_weekly_plan_omits_catalog_job_when_no_snapshot_is_readable(self) -> None:
-        completed, manifest = self.run_plan(empty_dish_catalog=True)
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertFalse(any(job["input"]["dataset"] == "dish_catalog" for job in manifest["jobs"]))
-        self.assertIn(
-            {
-                "code": "COVERAGE_WINDOW_MISSING",
-                "dataset": "dish_catalog",
-                "window": "current",
-                "module": "stallAttribution",
-            },
-            manifest["notices"],
-        )
+    def test_weekly_plan_omits_unscoped_catalog_attribution_even_with_readable_rows(self) -> None:
+        for empty in (False, True):
+            with self.subTest(empty=empty):
+                completed, manifest = self.run_plan(empty_dish_catalog=empty)
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                self.assertFalse(any(job["module"] == "stallAttribution" for job in manifest["jobs"]))
+                self.assertIn(
+                    {
+                        "code": "CATALOG_ENTERPRISE_SCOPE_UNAVAILABLE",
+                        "dataset": "dish_catalog",
+                        "window": "current",
+                        "module": "stallAttribution",
+                    },
+                    manifest["notices"],
+                )
 
     def test_missing_current_user_flag_fails_before_writing_manifest(self) -> None:
         completed, output = self.run_plan_command(current_user=None)

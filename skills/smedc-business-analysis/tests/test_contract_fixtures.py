@@ -89,7 +89,7 @@ class ContractFixtureTests(unittest.TestCase):
         self.assertEqual(tuple(dataset["dataset"] for dataset in registry["datasets"]), SCOPED_DATASETS)
         self.assertEqual(
             {dataset["dataset"]: len(dataset["fields"]) for dataset in registry["datasets"]},
-            {"business": 152, "dishes": 51, "dish_catalog": 12},
+            {"business": 152, "dishes": 51, "dish_catalog": 14},
         )
 
     def test_coverage_fixtures_use_dataset_specific_source_shape(self) -> None:
@@ -106,12 +106,10 @@ class ContractFixtureTests(unittest.TestCase):
 
         catalog_coverage = self.load_json("tests/fixtures/coverage_dish_catalog.json")
         self.assertEqual(catalog_coverage["dataset"], "dish_catalog")
-        self.assertEqual(catalog_coverage["metadataPolicy"], "snapshot")
-        for source in catalog_coverage["sources"]:
-            self.assertIn("snapshotDate", source)
-            self.assertNotIn("startDate", source)
-            self.assertNotIn("endDate", source)
-            self.assertTrue(source["sourceDocumentTitle"].startswith("Synthetic "))
+        self.assertEqual(catalog_coverage["metadataPolicy"], "current")
+        self.assertGreater(catalog_coverage["rowCount"], 0)
+        self.assertTrue(catalog_coverage["lastUpdatedAt"].endswith("Z"))
+        self.assertNotIn("sources", catalog_coverage)
 
 
 if __name__ == "__main__":
