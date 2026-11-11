@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -238,7 +238,7 @@ def validate_config_fields(config: dict[str, Any], registry: dict[str, dict[str,
     for dataset_name, dataset_config in config["datasets"].items():
         if dataset_name not in registry:
             raise PlanError(f"registry is missing dataset {dataset_name}")
-        if dataset_config.get("metadataPolicy") not in {"window", "snapshot"}:
+        if dataset_config.get("metadataPolicy") not in {"window", "current"}:
             raise PlanError(f"dataset {dataset_name} has unsupported metadata policy")
     for dataset_name, aliases in config["fields"].items():
         for alias in aliases:
@@ -293,35 +293,45 @@ def load_coverage(
                 "readable": True,
             }
             continue
-        if envelope.get("metadataPolicy") != dataset_config["metadataPolicy"] or not isinstance(envelope.get("sources"), list):
-            raise PlanError(f"malformed coverage envelope for {dataset_name}")
+        policy = dataset_config["metadataPolicy"]
+        if envelope.get("metadataPolicy") != policy:
+            raise PlanError(f"malformed coverage envelope for {dataset_name}: expected {policy}")
+        if policy == "current":
+            count, updated_at = envelope.get("rowCount"), envelope.get("lastUpdatedAt")
+            if type(count) is not int or count < 0 or "lastUpdatedAt" not in envelope or "sources" in envelope:
+                raise PlanError(f"malformed current coverage for {dataset_name}")
+            if count == 0:
+                if updated_at is not None:
+                    raise PlanError(f"empty current coverage for {dataset_name} must have null lastUpdatedAt")
+            else:
+                try:
+                    if not isinstance(updated_at, str) or datetime.fromisoformat(updated_at.replace("Z", "+00:00")).utcoffset() is None:
+                        raise ValueError("lastUpdatedAt must include a timezone")
+                except ValueError as exc:
+                    raise PlanError(f"malformed current coverage timestamp for {dataset_name}") from exc
+            coverage[dataset_name] = {**envelope, "readable": True}
+            continue
+
+        if not isinstance(envelope.get("sources"), list):
+            raise PlanError(f"malformed coverage envelope for {dataset_name}: expected sources")
         for source in envelope["sources"]:
             if not isinstance(source, dict):
                 raise PlanError(f"malformed coverage envelope for {dataset_name}: source must be object")
-            if dataset_config["metadataPolicy"] == "window":
-                if "snapshotDate" in source:
-                    raise PlanError(f"malformed coverage envelope for {dataset_name}: window source must not include snapshotDate")
-                if not isinstance(source.get("startDate"), str) or not isinstance(source.get("endDate"), str):
-                    raise PlanError(f"malformed coverage envelope for {dataset_name}: window source dates missing")
-                start = parse_date(source["startDate"], f"{dataset_name}.sources.startDate")
-                end = parse_date(source["endDate"], f"{dataset_name}.sources.endDate")
-                if start > end:
-                    raise PlanError(f"malformed coverage envelope for {dataset_name}: source startDate after endDate")
-            else:
-                if "startDate" in source or "endDate" in source:
-                    raise PlanError(f"malformed coverage envelope for {dataset_name}: snapshot source must not include startDate/endDate")
-                if not isinstance(source.get("snapshotDate"), str):
-                    raise PlanError(f"malformed coverage envelope for {dataset_name}: snapshotDate missing")
-                parse_date(source["snapshotDate"], f"{dataset_name}.sources.snapshotDate")
+            if "snapshotDate" in source:
+                raise PlanError(f"malformed coverage envelope for {dataset_name}: window source must not include snapshotDate")
+            if not isinstance(source.get("startDate"), str) or not isinstance(source.get("endDate"), str):
+                raise PlanError(f"malformed coverage envelope for {dataset_name}: window source dates missing")
+            start = parse_date(source["startDate"], f"{dataset_name}.sources.startDate")
+            end = parse_date(source["endDate"], f"{dataset_name}.sources.endDate")
+            if start > end:
+                raise PlanError(f"malformed coverage envelope for {dataset_name}: source startDate after endDate")
         coverage[dataset_name] = {**envelope, "readable": True}
     return coverage, notices
 
 
 def coverage_overlaps(coverage: dict[str, Any], window: DateWindow) -> bool:
-    if not coverage.get("readable"):
+    if not coverage.get("readable") or coverage.get("metadataPolicy") != "window":
         return False
-    if coverage.get("metadataPolicy") == "snapshot":
-        return bool(coverage.get("sources"))
     for source in coverage.get("sources", []):
         start = date.fromisoformat(source["startDate"])
         end = date.fromisoformat(source["endDate"])
@@ -387,21 +397,14 @@ def source_summaries(coverage: dict[str, Any], windows: dict[str, DateWindow]) -
         "sources": [],
         "windows": {},
     }
-    if coverage["metadataPolicy"] == "snapshot":
-        sources = []
-        for source in sorted(coverage.get("sources", []), key=lambda item: item["snapshotDate"]):
-            sources.append(
-                {
-                    "snapshotDate": source["snapshotDate"],
-                    "rowCount": source.get("rowCount"),
-                    "importBatchId": source.get("importBatchId"),
-                    "sourceDocumentId": source.get("sourceDocumentId"),
-                }
-            )
-        snapshots = [source["snapshotDate"] for source in sources]
-        result["sources"] = sources
-        result["snapshots"] = snapshots
-        return result
+    if coverage["metadataPolicy"] == "current":
+        return {
+            "dataset": dataset_name,
+            "metadataPolicy": "current",
+            "readable": bool(coverage.get("readable")),
+            "rowCount": coverage.get("rowCount"),
+            "lastUpdatedAt": coverage.get("lastUpdatedAt"),
+        }
 
     for source in sorted(coverage.get("sources", []), key=lambda item: (item["startDate"], item["endDate"])):
         if coverage.get("accessMode") == "partition_extract":
@@ -551,27 +554,6 @@ def business_supplemental_aggregate_sets(
     ]
 
 
-def dish_aggregates(config: dict[str, Any], registry: dict[str, dict[str, Any]]) -> list[dict[str, str]]:
-    aggregate_specs = [
-        ("sum", "dishes.quantity", "dish_quantity"),
-        ("sum", "dishes.sales", "dish_sales"),
-        ("sum", "dishes.revenue", "dish_revenue"),
-        ("sum", "dishes.discount", "dish_discount"),
-        ("sum", "dishes.totalSales", "dish_total_sales"),
-        ("sum", "dishes.totalRevenue", "dish_total_revenue"),
-        ("sum", "dishes.totalDiscount", "dish_total_discount"),
-        ("sum", "dishes.positiveOrders", "dish_positive_orders"),
-        ("sum", "dishes.returnedQuantity", "returned_quantity"),
-        ("sum", "dishes.returnedAmount", "returned_amount"),
-        ("sum", "dishes.servingOrders", "serving_orders"),
-    ]
-    aggregates: list[dict[str, str]] = []
-    for op, dotted_ref, alias in aggregate_specs:
-        field = require_field(config, registry, dotted_ref, "aggregate")
-        aggregates.append({"op": op, "field": field.canonical, "as": alias})
-    return aggregates
-
-
 def ensure_numeric_weighted_avg(registry: dict[str, dict[str, Any]], dataset_name: str, aggregates: list[dict[str, str]]) -> None:
     fields = registry[dataset_name]["_fields"]
     for aggregate in aggregates:
@@ -696,45 +678,6 @@ def aggregate_job(
     }
 
 
-def catalog_job(
-    config: dict[str, Any],
-    registry: dict[str, dict[str, Any]],
-    limits: dict[str, int],
-    coverage: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
-    snapshot_dates = sorted(
-        source["snapshotDate"]
-        for source in coverage["dish_catalog"].get("sources", [])
-        if isinstance(source, dict) and isinstance(source.get("snapshotDate"), str)
-    )
-    if not snapshot_dates:
-        raise PlanError("dish_catalog coverage has no visible snapshotDate")
-    latest_snapshot = snapshot_dates[-1]
-    selected = [
-        require_field(config, registry, "dish_catalog.snapshotDate", "sort").canonical,
-        require_field(config, registry, "dish_catalog.dishName", "group").canonical,
-        require_field(config, registry, "dish_catalog.baseCategory", "group").canonical,
-        require_field(config, registry, "dish_catalog.alias", "group").canonical,
-        require_field(config, registry, "dish_catalog.price", "aggregate").canonical,
-    ]
-    return {
-        "id": "dish_catalog_current_snapshot",
-        "tool": "query_structured_dataset",
-        "input": {
-            "dataset": "dish_catalog",
-            "filter": {"field": "snapshot_date", "op": "eq", "value": latest_snapshot},
-            "select": selected,
-            "sort": [
-                {"field": "snapshot_date", "direction": "desc"},
-                {"field": "dish_name", "direction": "asc"},
-            ],
-            "page": {"limit": min(limits["maxRows"], 200)},
-        },
-        "outputFile": "query-results/dish_catalog_current_snapshot.json",
-        "module": "stallAttribution",
-    }
-
-
 def make_notice(code: str, dataset: str, window: str, module: str) -> dict[str, str]:
     return {"code": code, "dataset": dataset, "window": window, "module": module}
 
@@ -828,15 +771,9 @@ def build_plan(
     time_slot = require_field(config, registry, "business.timeSlot", "group").canonical
     membership = require_field(config, registry, "business.membership", "group").canonical
 
-    dishes_date = require_field(config, registry, "dishes.date", "filter").canonical
-    dishes_store = require_field(config, registry, "dishes.store", "group").canonical
-    product_name = require_field(config, registry, "dishes.productName", "group").canonical
-    matched_product_name = require_field(config, registry, "dishes.matchedProductName", "group").canonical
-    dish_order_category = require_field(config, registry, "dishes.orderCategory", "group").canonical
 
     business_aggs = business_aggregates(config, registry)
     business_supplemental_sets = business_supplemental_aggregate_sets(config, registry)
-    dish_aggs = dish_aggregates(config, registry)
     jobs: list[dict[str, Any]] = []
     notices: list[dict[str, Any]] = []
     trend_windows: dict[str, dict[str, str]] = {}
@@ -1012,41 +949,11 @@ def build_plan(
                 [business_store, meal_period, time_slot],
                 f"business_{window_name}_daypart_mix",
             )
-            add_if_covered(
-                jobs,
-                notices,
-                coverage,
-                job=aggregate_job(
-                    job_id=f"dishes_{window_name}_product_totals",
-                    module="stallAttribution",
-                    dataset_name="dishes",
-                    registry=registry,
-                    window=windows[window_name],
-                    date_field=dishes_date,
-                    group_by=[dishes_store, product_name, matched_product_name, dish_order_category],
-                    aggregates=dish_aggs,
-                    output_file=f"dishes_{window_name}_product_totals",
-                    limits=limits,
-                    order_by=[{"field": "dish_revenue", "direction": "desc"}],
-                ),
-                datasets=["dishes", "dish_catalog"],
-                window=windows[window_name],
-                module="stallAttribution",
-            )
-        if coverage["dish_catalog"].get("sources"):
-            add_if_covered(
-                jobs,
-                notices,
-                coverage,
-                job=catalog_job(config, registry, limits, coverage),
-                datasets=["dish_catalog"],
-                window=None,
-                module="stallAttribution",
-            )
-        else:
-            notices.append(
-                make_notice("COVERAGE_WINDOW_MISSING", "dish_catalog", "current", "stallAttribution")
-            )
+        # Catalog coverage and rows span all enterprises visible to the account.
+        # They cannot be attached to the report's selected enterprise.
+        notices.append(make_notice(
+            "CATALOG_ENTERPRISE_SCOPE_UNAVAILABLE", "dish_catalog", "current", "stallAttribution"
+        ))
 
     coverage_manifest = {
         dataset_name: source_summaries(dataset_coverage, windows)

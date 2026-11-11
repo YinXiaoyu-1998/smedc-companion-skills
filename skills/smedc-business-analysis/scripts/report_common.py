@@ -269,6 +269,8 @@ def human_gap_messages(notices: list[dict[str, Any]]) -> list[str]:
             message = "缺少上期或同期营业数据，相关对比和归因未展示。"
         elif module in {"channelMix", "daypartAttribution"}:
             message = "营业明细维度不足，部分渠道或时段分析未展示。"
+        elif notice.get("code") == "CATALOG_ENTERPRISE_SCOPE_UNAVAILABLE":
+            message = "菜品目录无法按所选企业取数，档口和产品归因未展示。"
         elif module == "stallAttribution":
             message = "缺少菜品销售数据或菜品库，档口和产品分析未展示。"
         else:
@@ -307,7 +309,11 @@ def report_gap_messages(
         inferred.append("缺少渠道数据，堂食与外卖分析未展示。")
     if not has_dayparts:
         inferred.append("缺少时段数据，时段分析未展示。")
-    if not has_dishes or not has_catalog:
+    catalog_scope_unavailable = any(
+        isinstance(notice, dict) and notice.get("code") == "CATALOG_ENTERPRISE_SCOPE_UNAVAILABLE"
+        for notice in notices
+    )
+    if (not has_dishes or not has_catalog) and not catalog_scope_unavailable:
         inferred.append("缺少菜品销售数据或菜品库，档口和产品分析未展示。")
     for message in inferred:
         if message not in messages:
