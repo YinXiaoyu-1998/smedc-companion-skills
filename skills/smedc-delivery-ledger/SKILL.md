@@ -23,8 +23,9 @@ This archive workflow also requires service archive delivery enabled.
 
 If the core Skill is missing, stop before ledger/photo access, identify
 <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and install only with employee authorization.
-Never install another companion automatically. Discover all four archive tools from the connected
+Never install another companion automatically. Discover all five archive tools from the connected
 host; an absent tool or `LEDGER_PDF_NOT_ENABLED` means the PDF workflow is unavailable/pending.
+`download_ledger_pdf_bundle` requires launcher 0.20.0+; without it the link flow still works.
 Report the blocker; do not promise PDFs or recreate them locally. Existing original uploads and
 photo operations may proceed through the current approved tools when independently requested.
 Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and error semantics.
@@ -35,9 +36,11 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
 - Admin role is required for original/photo uploads. Preparing a download requires
   service-authorized access to the existing PDFs. Employee agents, including admins, cannot
   trigger PDF generation through MCP or another API; do not bypass these boundaries.
-- Do not create local PDF, XLSX, or CSV ledgers, dynamically query rows to export them, append to
-  monthly files, or run retired exporter scripts. No OCR, photo conversion/classification,
-  authenticity judgment, business analysis, or sibling runtime imports.
+- Do not fabricate, edit, or substitute a ledger: no locally generated PDF/XLSX/CSV standing in
+  for an official one, no dynamic row export to rebuild it, no appending to monthly files, and no
+  retired exporter scripts. Extracting a downloaded bundle and using those PDFs is expected. No
+  OCR, photo conversion/classification, authenticity judgment, business analysis, or sibling
+  runtime imports.
 - Do not overwrite or edit existing receipts. `RECEIPT_ID_CONFLICT` stays a conflict; explain it
   without changing receipt IDs, reshaping input, deleting old data, or treating it as an update.
 - Raw `delivery_ledger` detail, aggregates, source coverage and original CSV/XLSX signing are
@@ -90,11 +93,20 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
    date selection, and a stable operation-specific `idempotencyKey`. It packages existing ready PDFs
    only and never renders/repairs PDFs. Poll `get_ledger_pdf_request_status` while queued/running,
    read all partition pages via `nextCursor`, and inspect the terminal result before claiming success.
-7. After successful preparation call `get_ledger_pdf_download_url` with `requestId` for a fresh
-   `downloadUrl`/`expiresAt`. Return the short link and scope to the user. The signature lasts
-   **15 minutes**; the ZIP is retained **24 hours**. Status contains no URL. Do not proxy/cache PDF
-   or ZIP bytes, emit base64, or create local ledger artifacts. If only the link expired, ask the
-   service for a fresh URL; if the ZIP expired, prepare again with a new key.
+7. To deliver the files, call `download_ledger_pdf_bundle` with `requestId`. The launcher signs,
+   downloads, verifies and extracts the bundle itself, and returns `localDirectory`, `fileCount`
+   and relative `files[]`; the signed URL never reaches you. Hand the extracted PDFs over and let
+   the employee open, forward, quote or further process them — no extra restriction applies.
+   Allow up to 10 minutes and 1 GiB per call; above roughly 256 MiB, suggest a narrower store/date
+   scope instead of retrying. On failure, report `LEDGER_PDF_BUNDLE_URL_INVALID`,
+   `LEDGER_PDF_BUNDLE_VERIFY_FAILED`, or `LEDGER_PDF_BUNDLE_DOWNLOAD_TIMEOUT`; service codes such
+   as `LEDGER_PDF_BUNDLE_STALE` and `LEDGER_PDF_NOT_READY` keep their usual meaning.
+8. Only when the employee wants a link to open on their own device, or the launcher has no
+   `download_ledger_pdf_bundle`, call `get_ledger_pdf_download_url` with `requestId` for a fresh
+   `downloadUrl`/`expiresAt` and return the short link with its scope. The signature lasts
+   **15 minutes**; the ZIP is retained **24 hours**. Status contains no URL. Do not cache a link
+   for a later request or emit base64 archive bytes. If only the link expired, ask the service for
+   a fresh URL; if the ZIP expired, prepare again with a new key.
 
 Automatic PDF updates are the normal workflow after uploads and photo changes.
 Internal operator CLI backfill/recovery belongs to service operations, not this employee Skill.
