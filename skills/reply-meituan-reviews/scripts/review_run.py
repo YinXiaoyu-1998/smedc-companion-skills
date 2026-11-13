@@ -253,7 +253,11 @@ def parse_exports(a):
                     and 0 <= fid < 10**15
                 ):
                     fid = str(fid)
-                if not isinstance(fid, str) or not fid.strip():
+                if (
+                    not isinstance(fid, str)
+                    or not fid.strip()
+                    or fid.strip().removeprefix("feedback-") in {"", "0"}
+                ):
                     issues.append("评价ID缺失或数字精度未确认")
                     fid = None
                 r["feedbackId"] = (

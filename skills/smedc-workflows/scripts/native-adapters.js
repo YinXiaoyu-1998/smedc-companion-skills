@@ -1,6 +1,9 @@
 /* Evaluate this function expression in the invoking host with its actual tools object.
    No network, credentials, scheduler file writes or alternate SMEDC client. */
 (function createNativeAdapters(tools, options = {}) {
+  const host = options.host ?? "codex";
+  if (!["codex", "dsh"].includes(host)) throw new Error("Unsupported workflow host");
+  const dsh = host === "dsh";
   const names = {
     projects: "mcp__codex_app__list_projects",
     automation: "mcp__codex_app__automation_update",
@@ -116,6 +119,17 @@
   }
   const quote = (value) => "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
   async function runLocalCommand(input) {
+    if (dsh) {
+      const result = await tools.bash({
+        command: input.cmd,
+        description: "Run the pinned SMEDC local helper",
+        timeoutMs: 55000,
+      });
+      if (result?.kind !== "foreground" || !Number.isInteger(result.exitCode) ||
+          result.stdout?.truncated || result.timedOut || result.aborted)
+        throw new Error("DSH local helper did not return a complete foreground result");
+      return { exit_code: result.exitCode, output: result.stdout?.text ?? "" };
+    }
     let result = await tools.exec_command(input),
       output = result.output ?? "";
     while (result.session_id) {
@@ -175,7 +189,7 @@
     });
   }
   async function prepareWorkspace(input) {
-    if (!options.localScript || typeof tools.exec_command !== "function")
+    if (!options.localScript || typeof tools[dsh ? "bash" : "exec_command"] !== "function")
       throw new Error("Local helper unavailable");
     const result = await runLocalCommand({
       cmd:
@@ -195,7 +209,7 @@
     return JSON.parse(result.output);
   }
   async function saveLocal(path, value) {
-    if (!options.localScript || typeof tools.exec_command !== "function")
+    if (!options.localScript || typeof tools[dsh ? "bash" : "exec_command"] !== "function")
       throw new Error("Local helper unavailable");
     const text = JSON.stringify(value),
       checksum = sha256(utf8(text));
@@ -246,6 +260,13 @@
   async function readHostDefinition(taskId) {
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(taskId))
       throw new Error("Unsafe native task identity");
+    if (dsh) {
+      const task = await call("schedule_view", { id: taskId });
+      if (task.id !== taskId || task.kind !== "rrule" || task.target?.kind !== "session" ||
+          task.target.sessionId !== options.dshSessionId || !task.updatedAt)
+        throw new Error("DSH task must belong to the verified workflow session");
+      return task;
+    }
     if (!options.localScript || typeof tools.exec_command !== "function")
       throw new Error(
         "unsupported: native TOML readback requires the local helper and exec tool",
@@ -265,7 +286,70 @@
       });
     return JSON.parse(result.output);
   }
+  function dshSnapshot(task, input) {
+    return {
+      host, platform: "macos", taskId: task.id, projectRef: options.dshSessionId,
+      cron: task.rrule, timezone: "Asia/Shanghai", model: input.model,
+      reasoningEffort: input.reasoningEffort, state: task.status === "active" ? "enabled" : "paused",
+      verifiedAt: now(),
+    };
+  }
+  function checkDshDefinition(task, input, status) {
+    if (task.status !== status || task.rrule !== input.rrule || task.prompt !== input.prompt)
+      throw new Error("DSH schedule state, recurrence or prompt differs from the verified definition");
+  }
+  async function installDsh(input, journal, save) {
+    if (!/^session-[a-f0-9-]{36}$/.test(options.dshSessionId ?? "") ||
+        input.platform !== "macos" || input.timezone !== "Asia/Shanghai" ||
+        !input.workflowId || !input.name || !input.model || !input.reasoningEffort ||
+        !input.workspaceVerified || !input.workspace?.startsWith("/") || !input.prompt ||
+        !/^DTSTART;TZID=Asia\/Shanghai:\d{8}T\d{6}\nRRULE:[^\r\n]+$/.test(input.rrule ?? "") ||
+        /(?:^|[;:])(?:COUNT|UNTIL)=/i.test(input.rrule) || input.rrule.length > 255)
+      throw new Error("DSH requires a verified local session, model, workspace and recurring Shanghai schedule");
+    if ((journal.workflowId && journal.workflowId !== input.workflowId) ||
+        (journal.hostSnapshot && journal.hostSnapshot.host !== "dsh"))
+      throw new Error("Installation journal belongs to another workflow or host");
+    if (!journal.taskId && journal.createPending)
+      throw new Error("DSH create outcome unknown; locate the original task before retry");
+    const placeholder = "SMEDC installation draft. Do not open a workflow run or perform any action.";
+    if (!journal.taskId) {
+      Object.assign(journal, { workflowId: input.workflowId, createPending: true, createRequestedAt: now() });
+      await save(journal);
+      const created = await call("schedule_create", {
+        title: input.name, prompt: placeholder, rrule: input.rrule, target: "this_session",
+      });
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(created.id ?? ""))
+        throw new Error("DSH create outcome unknown; native task identity missing");
+      journal.taskId = created.id;
+      await save(journal);
+    }
+    let task = await readHostDefinition(journal.taskId);
+    if (task.rrule !== input.rrule)
+      throw new Error("Read back and preserve the actual DSH schedule before maintenance");
+    if (input.update && journal.hostSnapshot &&
+        (journal.hostSnapshot.model !== input.model ||
+         journal.hostSnapshot.reasoningEffort !== input.reasoningEffort))
+      throw new Error("Preserve the verified DSH model and reasoning setting during package maintenance");
+    if ((journal.createPending && task.prompt === placeholder) || input.update === true) {
+      if (!journal.createPending && task.status !== "paused")
+        throw new Error("Pause the DSH task before a package update");
+      journal.updatePending = true;
+      await save(journal);
+      await call("schedule_edit", {
+        id: task.id, action: "update", expectedUpdatedAt: task.updatedAt, active: false, prompt: input.prompt,
+      });
+      task = await readHostDefinition(task.id);
+    }
+    checkDshDefinition(task, input, journal.hostSnapshot?.state === "enabled" && !input.update ? "active" : "paused");
+    Object.assign(journal, { createPending: false, updatePending: false, hostSnapshot: dshSnapshot(task, input) });
+    await save(journal);
+    return journal.hostSnapshot;
+  }
   async function install(input, journal, save) {
+    if (dsh) {
+      await getWorkflow({ enterpriseKey: input.enterpriseKey, workflowType: input.workflowType });
+      return installDsh(input, journal, save);
+    }
     if (input.platform !== "macos" || input.timezone !== "Asia/Shanghai")
       throw new Error("unsupported: macOS and Asia/Shanghai required");
     if (
@@ -449,12 +533,28 @@
       const installation = status.installations.find(
         (i) => i.installationId === input.installationId,
       );
-      if (installation?.state !== "enabled")
+      if (installation?.state !== "enabled" || (dsh && installation.host !== "dsh"))
         throw new Error(
           "Installation must be ready/enabled centrally before host activation",
         );
     }
     const old = await readHostDefinition(journal.taskId);
+    if (dsh) {
+      checkDshDefinition(old, input, old.status === "active" ? "active" : "paused");
+      if (old.status !== (state === "enabled" ? "active" : "paused"))
+        await call("schedule_edit", {
+          id: old.id, action: "update", expectedUpdatedAt: old.updatedAt, active: state === "enabled",
+        });
+      const task = await readHostDefinition(old.id);
+      checkDshDefinition(task, input, state === "enabled" ? "active" : "paused");
+      journal.hostSnapshot = dshSnapshot(task, input);
+      await save(journal);
+      await mcp("manage_workflow_installation", {
+        workflowId: input.workflowId,
+        operation: { kind: "record_host", installationId: input.installationId, hostSnapshot: journal.hostSnapshot },
+      });
+      return journal.hostSnapshot;
+    }
     if (old.kind !== "cron" || old.execution_environment !== "local")
       throw new Error("Unsupported host task");
     await call(names.automation, {
@@ -515,7 +615,8 @@
         "Current assignment and control permission required before activation",
       );
     const actual = await readHostDefinition(journal.taskId);
-    if (
+    if (dsh) checkDshDefinition(actual, input, "paused");
+    else if (
       actual.status !== "PAUSED" ||
       actual.id !== journal.hostSnapshot.taskId ||
       actual.kind !== "cron" ||
@@ -524,7 +625,7 @@
       throw new Error(
         "Actual PAUSED host readback required before any central activation",
       );
-    journal.hostSnapshot = {
+    journal.hostSnapshot = dsh ? dshSnapshot(actual, input) : {
       ...journal.hostSnapshot,
       cron: actual.rrule,
       model: actual.model,
@@ -548,7 +649,8 @@
     const installation = status.installations.find(
       (item) => item.installationId === input.installationId,
     );
-    if (!installation) throw new Error("Installation registration unavailable");
+    if (!installation || (dsh && installation.host !== "dsh"))
+      throw new Error("Installation registration unavailable");
     const checks = [
       ...(installation.readinessChecks ?? []).filter(
         (check) => check.capability !== "assignment",
@@ -592,6 +694,8 @@
       c.minimumLauncherVersion !== "0.17.0"
     )
       throw new Error("WORKFLOW_VERSION_INCOMPATIBLE");
+    if (dsh && c.dshMinimumLauncherVersion !== "0.20.1")
+      throw new Error("WORKFLOW_VERSION_INCOMPATIBLE: DSH requires the matching service and approved launcher");
     return data;
   }
   async function getWorkflow(selector) {
@@ -706,6 +810,18 @@
       input.resume.workflowId !== current.workflowId
     )
       throw new Error("Resume workflow binding mismatch");
+    if (dsh) {
+      if (!input.taskId) throw new Error("DSH requires the exact native task ID");
+      const task = await readHostDefinition(input.taskId);
+      checkDshDefinition(task, input, "active");
+      const status = await mcp("get_workflow_status", { workflowId: current.workflowId, limit: 100 });
+      const installation = status.installations.find((item) => item.installationId === input.installationId);
+      if (installation?.host !== "dsh" || installation.hostSnapshot?.taskId !== task.id ||
+          installation.hostSnapshot?.cron !== task.rrule ||
+          installation.hostSnapshot?.projectRef !== options.dshSessionId ||
+          installation.hostSnapshot?.state !== "enabled")
+        throw new Error("DSH native schedule does not match the assigned installation");
+    }
     if (!input.resume) await ensureRunReadiness({ ...input, workflowId: current.workflowId });
     const operation = input.resume
       ? {
@@ -828,6 +944,8 @@
     });
   }
   async function beginGoal(input) {
+    // DSH's Goal tool requires direct human initiation; a schedule message does not qualify.
+    if (dsh) return { goal: null, continuation: "next_schedule" };
     // The saved scheduled prompt must explicitly request a Goal. A skill invocation
     // alone is not user authorization to create one.
     if (input.goalRequested !== true)
@@ -1372,6 +1490,128 @@
       },
     };
   }
+  function smtpPath(workflowId, actionId) {
+    if (!options.smtpJournalRoot?.startsWith("/") ||
+        ![workflowId, actionId].every((id) => /^[A-Za-z0-9_-]{1,64}$/.test(id)))
+      throw new Error("SMTP requires an installation-owned persistent journal");
+    return options.smtpJournalRoot + "/" + workflowId + "-" + actionId + ".json";
+  }
+  async function smtp(mode, value) {
+    if (!options.localScript?.endsWith("/workflow.py"))
+      throw new Error("Pinned workflow helper required");
+    const script = options.localScript.replace(/workflow\.py$/, "smtp_submission.py");
+    const result = await runLocalCommand({
+      cmd: [pythonExecutable, script, mode, value].map(quote).join(" "),
+      max_output_tokens: 1000,
+    });
+    if (result.exit_code !== 0) throw new Error("SMTP local helper unavailable");
+    return JSON.parse(result.output);
+  }
+  async function captureBrowserDownload(session, input) {
+    if (!dsh || !options.localScript?.endsWith("/workflow.py"))
+      throw new Error("BrowserSkill capture requires the pinned DSH local helper");
+    const script = options.localScript.replace(/workflow\.py$/, "browser_download.py");
+    return withLease(session, { stage: "bsk_download", effect: "read" }, async () => {
+      const result = await runLocalCommand({
+        cmd: [pythonExecutable, script, JSON.stringify(input)].map(quote).join(" "),
+        max_output_tokens: 1000,
+      });
+      if (result.exit_code !== 0) throw new Error("BrowserSkill download helper failed");
+      return JSON.parse(result.output);
+    });
+  }
+  async function smtpReadiness(sender) {
+    if ((await smtp("check", sender)).state !== "ready")
+      throw new Error("SMTP authentication/TLS or approved sender unavailable");
+    const checkedAt = now();
+    return [
+      { capability: "email_identity", status: "ready", checkedAt, nextStep: "SMTP login matches the authorized sender" },
+      { capability: "smtp_submission", status: "ready", checkedAt, nextStep: "Authenticated SMTP connection with verified TLS" },
+    ];
+  }
+  function smtpReceipt(workflowId, intent, identityHash, result) {
+    if (
+      result.state !== "accepted" || result.workflowId !== workflowId || result.actionId !== intent.actionId ||
+      result.identityHash !== identityHash || result.artifactHash !== intent.artifactHash ||
+      result.correlationMarker !== intent.correlationMarker || result.responseCode !== 250 ||
+      !/^<smedc-[a-f0-9]{40}@[a-z0-9.-]+>$/i.test(result.messageId ?? "") ||
+      !Number.isFinite(Date.parse(result.verifiedAt))
+    ) return null;
+    return {
+      actionId: intent.actionId, state: "confirmed", evidence: "smtp_accepted",
+      receiptId: result.messageId, verifiedAt: result.verifiedAt,
+      smtpAcceptance: {
+        identityHash, artifactHash: intent.artifactHash, correlationMarker: intent.correlationMarker,
+        messageId: result.messageId, responseCode: result.responseCode,
+      },
+    };
+  }
+  function smtpPayload(intent, mail) {
+    const attached = attachments(mail.payload);
+    const plain = (part) => {
+      const bytes = bodyBytes(part?.body);
+      if (!bytes) throw new Error("Complete SMTP message bytes required");
+      return decodeURIComponent(bytes.map((b) => "%" + b.toString(16).padStart(2, "0")).join(""));
+    };
+    const body = attached.length
+      ? mail.payload.parts?.find((p) => !p.filename && p.content_disposition !== "attachment")
+      : mail.payload;
+    if (!["text/html", "text/plain"].includes(body?.mime_type) ||
+        attached.length !== (intent.identity.purpose === "weekly_report" ? 1 : 0))
+      throw new Error("Unsupported SMTP message shape");
+    return {
+      sender: intent.identity.sender, recipients: intent.identity.recipients, subject: mail.subject,
+      body: plain(body), bodyType: body.mime_type.split("/")[1],
+      ...(attached.length ? { attachment: { filename: attached[0].filename, content: plain(attached[0]) } } : {}),
+    };
+  }
+  async function sendSmtp(session, intent, mail) {
+    const path = smtpPath(session.workflowId, intent.actionId);
+    const payload = smtpPayload(intent, mail);
+    let action;
+    try {
+      action = await claim(session, intent);
+    } catch (error) {
+      if (error.code !== "WORKFLOW_SOURCE_UNAVAILABLE") throw error;
+      const checks = await smtpReadiness(intent.identity.sender);
+      await ensureReadiness({
+        workflowId: session.workflowId,
+        installationId: session.installationId,
+        workflowType: intent.identity.purpose === "weekly_report" ? "weekly-business-report" : "meituan-review-operations",
+        packageVersion: session.snapshot?.workflowPackageVersion,
+        refreshChecks: (needed) => checks.filter((c) => needed.includes(c.capability)),
+      }, ["email_identity", "smtp_submission"]);
+      action = await claim(session, intent);
+    }
+    if (!action.permitted) {
+      const partialOverlap = action.claimedItems < action.requestedItems;
+      return { state: partialOverlap ? "unknown" : action.state, reconcile: true, partialOverlap, action };
+    }
+    if (!/^[a-f0-9]{64}$/.test(action.identityHash ?? ""))
+      throw new Error("SMTP requires a verified central action identity");
+    await saveLocal(path, {
+      ...payload, workflowId: session.workflowId, actionId: intent.actionId,
+      identityHash: action.identityHash, artifactHash: intent.artifactHash,
+      correlationMarker: intent.correlationMarker,
+    });
+    await check(session, intent);
+    let result;
+    try {
+      result = await withLease(session, {
+        stage: "smtp_submit", effect: "external_write", actionId: intent.actionId,
+      }, () => smtp("submit", path));
+    } catch {
+      result = { state: "unknown" };
+    }
+    const receipt = smtpReceipt(session.workflowId, intent, action.identityHash, result) ?? {
+      actionId: intent.actionId, verifiedAt: now(),
+      ...(result.state === "rejected"
+        ? { state: "failed", evidence: "request_rejected", reason: "SMTP rejected the envelope before DATA" }
+        : { state: "unknown", evidence: "transport_unknown", reason: "SMTP acceptance not established; reconcile the original message" }),
+    };
+    await record(session, receipt);
+    return { state: receipt.state, receipt, reconcile: receipt.state === "unknown" };
+  }
   async function sendEmail(session, intent, mail) {
     if (
       intent.identity.kind !== "email" ||
@@ -1404,6 +1644,7 @@
           "Weekly mail requires only the verified final HTML attachment",
         );
     }
+    if (dsh) return sendSmtp(session, intent, mail);
     const profile = await call(names.profile, {});
     if (
       (
@@ -1544,6 +1785,14 @@
       correlationMarker: stored.correlationMarker,
     };
     action = stored;
+    if (dsh) {
+      const result = await smtp("receipt", smtpPath(session.workflowId, intent.actionId));
+      const receipt = smtpReceipt(session.workflowId, intent, stored.identityHash, result);
+      if (!receipt || stored.runId !== session.runId)
+        return { state: "unknown", needsLocalEvidence: true };
+      await record(session, receipt, true);
+      return { state: "confirmed", receipt };
+    }
     const marker = intent.correlationMarker;
     if (!/^[A-Za-z0-9_-]+$/.test(marker))
       throw new Error("Unsafe correlation marker");
@@ -2124,5 +2373,7 @@
     status: (input) => mcp("get_workflow_status", input),
     archive: (input) => call(names.archive, { ...input, archived: true }),
     gmailIdentity: () => call(names.profile, {}),
+    smtpReadiness,
+    captureBrowserDownload,
   };
 });

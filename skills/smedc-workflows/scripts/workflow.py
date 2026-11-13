@@ -94,10 +94,17 @@ def window(value):
 
 def readiness(value):
     definition = manifest()["workflows"][value["workflowType"]]
+    host = value.get("host", "codex")
+    if host not in manifest()["hosts"]:
+        raise ValueError("Unsupported workflow host")
+    mail_capability = "smtp_submission" if host == "dsh" else "sent_mail_lookup"
     checks = []
     for capability in [
         *definition["capabilities"],
-        *definition.get("optionalCapabilities", []),
+        *(
+            mail_capability if name == "sent_mail_lookup" else name
+            for name in definition.get("optionalCapabilities", [])
+        ),
     ]:
         observed = value["checks"].get(
             capability,
@@ -140,7 +147,7 @@ def readiness(value):
     mail_ready = not value.get("mailEnabled") or all(
         c["status"] == "ready"
         for c in checks
-        if c["capability"] in {"email_identity", "sent_mail_lookup"}
+        if c["capability"] in {"email_identity", mail_capability}
     )
     return {
         "checks": checks,

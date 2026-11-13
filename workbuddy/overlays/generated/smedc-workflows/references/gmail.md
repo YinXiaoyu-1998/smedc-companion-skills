@@ -5,7 +5,7 @@
 
 # 原生邮件连接器（本宿主不可用） 发送与未知结果核对
 
-首版只用固定的宿主原生 原生邮件连接器（本宿主不可用） 工具命名空间，不选其他服务器同名后缀或 SMTP。原生邮件身份工具（本宿主不可用） 当前 email_address/emailAddress/email 必须与中央 allowedSender 完全一致；凭据留连接器。收件人只用快照显式列表，不加 cc/bcc。
+本参考用于 原宿主 的宿主原生 原生邮件连接器（本宿主不可用） 工具。DSH 走 [SMTP](smtp.md)。原生邮件身份工具（本宿主不可用） 当前 email_address/emailAddress/email 必须与中央 allowedSender 完全一致；凭据留连接器。收件人只用快照显式列表，不加 cc/bcc。
 
 冻结 email intent 的 purpose、storeNames/window、recipients、sender、deliveryVersion；新稿再加每个 source/feedbackId/recipient。artifactHash 是准确最终 HTML／新稿通知正文的 UTF-8 SHA256，correlationMarker 是稳定可查询标记。正文、发件人或任务 ID 改变不改变中央去重身份。
 

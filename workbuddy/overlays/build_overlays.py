@@ -217,6 +217,8 @@ def generate() -> dict[str, dict[str, str]]:
         ref_dir = skill_dir / "references"
         if ref_dir.is_dir():
             for ref in sorted(ref_dir.glob("*.md")):
+                if name == "smedc-workflows" and ref.name in {"dsh.md", "smtp.md"}:
+                    continue  # DSH-only transport references do not belong to the WorkBuddy overlay.
                 text = ref.read_text(encoding="utf-8")
                 if has_host_marker(text):
                     files[f"references/{ref.name}"] = REFERENCE_NOTE + adapt_text(text)

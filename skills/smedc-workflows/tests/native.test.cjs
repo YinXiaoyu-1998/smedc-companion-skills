@@ -1597,3 +1597,145 @@ test("preserves a structured same-receipt rejection without inferring it from pr
     { code: "TOOL_REJECTED" },
   );
 });
+
+test("DSH creates an inert draft, pauses it through the native tool, and reuses its identity", async () => {
+  const dshSessionId = "session-3000fc41-2afb-47df-a11d-ae25f6d6ff88";
+  const input = {
+    enterpriseKey: "synthetic", workflowType: "meituan-daily-ingestion", workflowId: "flow",
+    platform: "macos", timezone: "Asia/Shanghai", name: "Test", model: "deepseek-flash",
+    reasoningEffort: "high", workspaceVerified: true, workspace: "/private/test",
+    rrule: "DTSTART;TZID=Asia/Shanghai:20261203T090000\nRRULE:FREQ=DAILY", prompt: "Run workflow",
+  };
+  const journal = {};
+  const saved = [];
+  let task, creates = 0;
+  const native = factory()({
+    mcp__smedc__query_enterprise_workflows: async () => ({
+      capability: { id: "enterprise-workflows-v1", version: "1.0.0", configurationSchemaVersion: 1,
+        minimumLauncherVersion: "0.17.0", dshMinimumLauncherVersion: "0.20.1" },
+    }),
+    schedule_create: async (params) => {
+      creates++;
+      assert.equal(saved.at(-1).createPending, true);
+      assert.equal(params.target, "this_session");
+      assert.match(params.prompt, /Do not open a workflow run/);
+      task = { ...params, kind: "rrule", id: "schedule-1", updatedAt: "v1", status: "active",
+        target: { kind: "session", sessionId: dshSessionId } };
+      return task;
+    },
+    schedule_view: async () => task,
+    schedule_edit: async (params) => {
+      assert.equal(params.expectedUpdatedAt, "v1");
+      assert.equal(params.active, false);
+      task = { ...task, status: "paused", prompt: params.prompt, updatedAt: "v2" };
+      return task;
+    },
+  }, { host: "dsh", dshSessionId });
+  const save = async (state) => saved.push(structuredClone(state));
+  const installed = await native.install(input, journal, save);
+  assert.equal(installed.host, "dsh");
+  assert.equal(installed.state, "paused");
+  await native.install(input, journal, save);
+  assert.equal(creates, 1);
+  task.target = { kind: "session", sessionId: "another-session" };
+  await assert.rejects(native.install(input, journal, save), /verified workflow session/);
+});
+
+test("DSH records an SMTP acceptance without Gmail and never resubmits an unknown action", async () => {
+  const crypto = require("node:crypto");
+  const identityHash = "a".repeat(64);
+  const content = "Weekly HTML";
+  const artifactHash = crypto.createHash("sha256").update(content).digest("hex");
+  const intent = {
+    actionId: "action", correlationMarker: "test-marker", artifactHash,
+    identity: { kind: "email", purpose: "weekly_report", sender: "sender@example.test",
+      recipients: ["owner@example.test"] },
+  };
+  const session = { workflowId: "flow", installationId: "dsh-installation", runId: "run",
+    assignmentEpoch: 1, controlVersion: 1 };
+  const accepted = { state: "accepted", workflowId: "flow", actionId: "action", identityHash, artifactHash,
+    correlationMarker: "test-marker", messageId: "<smedc-" + "c".repeat(40) + "@example.test>",
+    responseCode: 250, verifiedAt: new Date().toISOString() };
+  let submits = 0;
+  let permitted = true;
+  let stored = null;
+  const receiptLog = [];
+  const native = factory()({
+    bash: async ({ command }) => {
+      let output = {};
+      if (command.includes("'submit'")) {
+        submits++;
+        output = { state: "unknown" };
+      } else if (command.includes("'receipt'")) {
+        output = accepted;
+      }
+      return { kind: "foreground", exitCode: 0, stdout: { text: JSON.stringify(output) } };
+    },
+    mcp__smedc__manage_workflow_run: async () => ({
+      actions: [{ actionId: "action", state: "intent", permitted: true }],
+    }),
+    mcp__smedc__record_workflow_action: async ({ operation }) => {
+      if (operation.kind === "intent") {
+        const result = { actionId: "action", permitted, state: permitted ? "intent" : "unknown", identityHash };
+        permitted = false;
+        return { actions: [result] };
+      }
+      if (operation.kind === "get") return { actions: [stored] };
+      receiptLog.push(operation.receipt ?? operation.receipts[0]);
+      return { recorded: 1 };
+    },
+  }, { host: "dsh", localScript: "/private/skill/workflow.py", smtpJournalRoot: "/private/owned-journal",
+    saveOutcome: async () => {} });
+  const mail = { artifactHash, subject: "Weekly", payload: { mime_type: "multipart/mixed", parts: [
+    { mime_type: "text/plain", body: { content: "Report summary" } },
+    { mime_type: "text/html", filename: "weekly.html", content_disposition: "attachment", body: { content } },
+  ] } };
+  assert.equal((await native.sendEmail(session, intent, mail)).state, "unknown");
+  assert.equal((await native.sendEmail(session, intent, mail)).state, "unknown");
+  stored = { ...intent, runId: "run", identityHash, state: "unknown" };
+  assert.equal((await native.reconcileEmail(session, intent, stored)).state, "confirmed");
+  assert.equal(submits, 1);
+  assert.equal(receiptLog[1].evidence, "smtp_accepted");
+  assert.equal(receiptLog[1].smtpAcceptance.identityHash, identityHash);
+});
+
+test("DSH activates the paused task only after live assignment and central enablement", async () => {
+  const sessionId = "session-11111111-2222-4333-8444-555555555555";
+  const input = {
+    enterpriseKey: "synthetic", workflowType: "meituan-daily-ingestion", workflowId: "flow",
+    installationId: "i", model: "deepseek-flash", reasoningEffort: "high",
+    rrule: "DTSTART;TZID=Asia/Shanghai:20261203T090000\nRRULE:FREQ=DAILY",
+    prompt: "Run workflow", handoff: { kind: "no_legacy_tasks", acknowledged: true,
+      proofHash: "b".repeat(64), confirmedAt: new Date().toISOString() },
+  };
+  const journal = { taskId: "schedule-1", workflowId: "flow",
+    hostSnapshot: { taskId: "schedule-1", host: "dsh", state: "paused" } };
+  let task = { id: "schedule-1", kind: "rrule", status: "paused", updatedAt: "v1",
+    prompt: input.prompt, rrule: input.rrule, target: { kind: "session", sessionId } };
+  let state = "paused";
+  const native = factory()({
+    mcp__smedc__query_enterprise_workflows: async () => ({
+      workflowId: "flow", controlState: "active", assignedInstallationId: "i",
+      capability: { id: "enterprise-workflows-v1", version: "1.0.0", configurationSchemaVersion: 1,
+        minimumLauncherVersion: "0.17.0", dshMinimumLauncherVersion: "0.20.1" },
+    }),
+    mcp__smedc__get_workflow_status: async () => ({
+      installations: [{ installationId: "i", host: "dsh", state }],
+    }),
+    mcp__smedc__manage_workflow_installation: async ({ operation }) => {
+      if (operation.kind === "set_state") state = operation.state;
+      return { version: 2 };
+    },
+    schedule_view: async () => task,
+    schedule_edit: async (params) => {
+      assert.equal(state, "enabled");
+      assert.equal(params.active, true);
+      assert.equal(params.expectedUpdatedAt, "v1");
+      task = { ...task, status: "active", updatedAt: "v2" };
+      return task;
+    },
+  }, { host: "dsh", dshSessionId: sessionId });
+  const snapshot = await native.activate(input, journal, async () => {});
+  assert.equal(snapshot.host, "dsh");
+  assert.equal(snapshot.state, "enabled");
+});
