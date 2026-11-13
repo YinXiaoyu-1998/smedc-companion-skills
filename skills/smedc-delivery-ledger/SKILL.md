@@ -23,11 +23,12 @@ This archive workflow also requires service archive delivery enabled.
 
 If the core Skill is missing, stop before ledger/photo access, identify
 <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and install only with employee authorization.
-Never install another companion automatically. Discover all five archive tools from the connected
-host; an absent tool or `LEDGER_PDF_NOT_ENABLED` means the PDF workflow is unavailable/pending.
-`download_ledger_pdf_bundle` requires launcher 0.20.0+; without it the link flow still works.
-Report the blocker; do not promise PDFs or recreate them locally. Existing original uploads and
-photo operations may proceed through the current approved tools when independently requested.
+Never install another companion automatically. Discover the tools needed for the requested
+delivery mode. Local delivery uses `download_ledger_pdf_bundle` on the verified launcher 0.20.0+
+with matching service support. For a clickable download, use `get_ledger_pdf_download_url` and
+give the link to the employee to open. If archive delivery is disabled, report the blocker.
+Original uploads and photo operations may proceed through their approved tools when independently
+requested.
 Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and error semantics.
 
 ## Boundaries
@@ -38,7 +39,7 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
   trigger PDF generation through MCP or another API; do not bypass these boundaries.
 - Do not fabricate, edit, or substitute a ledger: no locally generated PDF/XLSX/CSV standing in
   for an official one, no dynamic row export to rebuild it, no appending to monthly files, and no
-  retired exporter scripts. Extracting a downloaded bundle and using those PDFs is expected. No
+  retired exporter scripts. Use the PDFs extracted by the launcher. No
   OCR, photo conversion/classification, authenticity judgment, business analysis, or sibling
   runtime imports.
 - Do not overwrite or edit existing receipts. `RECEIPT_ID_CONFLICT` stays a conflict; explain it
@@ -93,20 +94,15 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
    date selection, and a stable operation-specific `idempotencyKey`. It packages existing ready PDFs
    only and never renders/repairs PDFs. Poll `get_ledger_pdf_request_status` while queued/running,
    read all partition pages via `nextCursor`, and inspect the terminal result before claiming success.
-7. To deliver the files, call `download_ledger_pdf_bundle` with `requestId`. The launcher signs,
-   downloads, verifies and extracts the bundle itself, and returns `localDirectory`, `fileCount`
-   and relative `files[]`; the signed URL never reaches you. Hand the extracted PDFs over and let
-   the employee open, forward, quote or further process them — no extra restriction applies.
-   Allow up to 10 minutes and 1 GiB per call; above roughly 256 MiB, suggest a narrower store/date
-   scope instead of retrying. On failure, report `LEDGER_PDF_BUNDLE_URL_INVALID`,
-   `LEDGER_PDF_BUNDLE_VERIFY_FAILED`, or `LEDGER_PDF_BUNDLE_DOWNLOAD_TIMEOUT`; service codes such
-   as `LEDGER_PDF_BUNDLE_STALE` and `LEDGER_PDF_NOT_READY` keep their usual meaning.
-8. Only when the employee wants a link to open on their own device, or the launcher has no
-   `download_ledger_pdf_bundle`, call `get_ledger_pdf_download_url` with `requestId` for a fresh
-   `downloadUrl`/`expiresAt` and return the short link with its scope. The signature lasts
-   **15 minutes**; the ZIP is retained **24 hours**. Status contains no URL. Do not cache a link
-   for a later request or emit base64 archive bytes. If only the link expired, ask the service for
-   a fresh URL; if the ZIP expired, prepare again with a new key.
+7. For local files, call `download_ledger_pdf_bundle` with `requestId`. The launcher downloads,
+   verifies and extracts the ZIP, and returns `localDirectory`, `fileCount` and relative paths.
+   Deliver the extracted PDFs; employees can open, forward, quote, or further process them, with
+   no extra restriction. For large batches or size/timeout errors, suggest narrowing the scope.
+8. If the employee wants a link or local delivery is unavailable, call
+   `get_ledger_pdf_download_url` with `requestId`. Return the fresh short link, its expiry, and
+   the covered scope for the employee to open. Do not fetch or extract the ZIP from the link.
+   The link lasts up to **15 minutes**; the ZIP is retained **24 hours**. Request a fresh link
+   if only the signature expired; if the ZIP expired, prepare again with a new key.
 
 Automatic PDF updates are the normal workflow after uploads and photo changes.
 Internal operator CLI backfill/recovery belongs to service operations, not this employee Skill.
@@ -137,7 +133,7 @@ changed scope or new preparation after terminal failure needs a new key.
   Preparation/download never causes rendering; retry only after readiness is established.
 - `LEDGER_PDF_BUNDLE_STALE`: the old prepared bundle cannot be reused. Recheck coverage and wait
   for automatic updates if needed, then prepare with a new key and obtain a fresh URL.
-- `LEDGER_PDF_NOT_ENABLED` / absent tools: stop the PDF workflow and report pending rollout;
+- `LEDGER_PDF_NOT_ENABLED`: stop the PDF workflow and report pending rollout;
   `LEDGER_DETAIL_DISABLED` does not authorize a local detail/export workaround.
 
 Preserve upload idempotency: original uploads reuse a key only for identical bytes/metadata;
