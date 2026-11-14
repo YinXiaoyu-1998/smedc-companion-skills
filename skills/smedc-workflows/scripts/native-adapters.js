@@ -1709,6 +1709,39 @@
       actions,
     };
   }
+  async function finishedCleanupProof(session) {
+    const page = await mcp("get_workflow_status", {
+      workflowId: session.workflowId,
+      runId: session.runId,
+      limit: 100,
+    });
+    const run = page.runs?.find((item) => item.id === session.runId);
+    if (
+      page.workflowId !== session.workflowId ||
+      !run ||
+      run.workflowId !== session.workflowId ||
+      run.installationId !== session.installationId ||
+      run.status !== "succeeded" ||
+      !run.finishedAt ||
+      !Array.isArray(run.summary?.unresolved) ||
+      run.summary.unresolved.length
+    )
+      throw new Error("Completed successful central run required for temporary cleanup");
+
+    // A finished run cannot renew. The run-specific inventory covers all pages,
+    // including unresolved actions beyond the first workflow-wide pending page.
+    const actions = await recoverActions(session, async () => {});
+    if (actions.unresolved)
+      throw new Error("Unresolved central action blocks temporary cleanup");
+    return {
+      workflowId: session.workflowId,
+      workflowType: page.workflowType,
+      runId: session.runId,
+      status: run.status,
+      finishedAt: run.finishedAt,
+      expiresAt: new Date(Date.now() + 30000).toISOString(),
+    };
+  }
   async function closeRun(session, summary) {
     return mcp("manage_workflow_run", {
       workflowId: session.workflowId,
@@ -2085,6 +2118,7 @@
     reconcileEmail,
     closeRun,
     cleanupProof,
+    finishedCleanupProof,
     migrate,
     advanceMigration,
     readMigration,

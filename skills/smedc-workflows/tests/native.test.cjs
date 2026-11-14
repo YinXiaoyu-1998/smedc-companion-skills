@@ -1597,3 +1597,32 @@ test("preserves a structured same-receipt rejection without inferring it from pr
     { code: "TOOL_REJECTED" },
   );
 });
+
+test("finished cleanup uses the original successful run and rejects unresolved later pages", async () => {
+  const session = { workflowId: "flow", runId: "run", installationId: "mac" };
+  const run = {
+    id: "run", workflowId: "flow", installationId: "mac", status: "succeeded",
+    finishedAt: "2026-11-14T01:05:00Z", summary: { unresolved: [] },
+  };
+  let lastState = "confirmed";
+  const native = factory()({
+    mcp__smedc__get_workflow_status: async ({ actionCursor }) => ({
+      workflowId: "flow", workflowType: "meituan-daily-ingestion", runs: [run],
+      runActionRefs: [actionCursor
+        ? { actionId: "b", runId: "run", state: lastState }
+        : { actionId: "a", runId: "run", state: "confirmed" }],
+      nextRunActionCursor: actionCursor ? null : "a",
+    }),
+    mcp__smedc__record_workflow_action: async ({ operation }) => ({
+      actions: operation.actionIds.map((actionId) => {
+        const state = actionId === "a" ? "confirmed" : lastState;
+        return { actionId, runId: "run", state, receipt: { state } };
+      }),
+    }),
+  });
+  assert.equal((await native.finishedCleanupProof(session)).runId, session.runId);
+  lastState = "unknown";
+  await assert.rejects(native.finishedCleanupProof(session), /Unresolved central action/);
+  run.status = "partial";
+  await assert.rejects(native.finishedCleanupProof(session), /successful central run/);
+});

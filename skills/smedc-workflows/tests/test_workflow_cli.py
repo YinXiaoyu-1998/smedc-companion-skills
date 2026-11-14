@@ -80,6 +80,50 @@ class WorkflowCliTests(unittest.TestCase):
             )
             return result, json.loads(result.stdout) if result.returncode == 0 else {}
 
+    def test_finished_cleanup_preserves_progress_and_is_safe_to_retry(self):
+        from datetime import datetime, timedelta, timezone
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve() / "synthetic-run"
+            scratch = root / "temporary"
+            scratch.mkdir(parents=True)
+            original = scratch / "batch.zip"
+            original.write_bytes(b"export")
+            report = root / "report.html"
+            report.write_text("retained output")
+            progress = root / "progress.json"
+            owner = root.parent / "run-lock.json"
+            binding = {"runId": root.name, "workflowId": "synthetic-flow"}
+            owner.write_text(json.dumps(binding))
+            evidence = [{"path": str(original)}]
+            index = {**binding, "completed": {"stage": {"evidence": evidence}}}
+            progress.write_text(json.dumps(index))
+            proof = {
+                **binding, "status": "succeeded", "finishedAt": "2026-11-14T00:00:00Z",
+                "expiresAt": (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(),
+            }
+            files = [{"path": str(original), "sha256": hashlib.sha256(b"export").hexdigest()}]
+            value = {
+                **binding, "runRoot": str(root), "lockOwnerPath": str(owner),
+                "centralProof": proof, "files": files,
+            }
+            rejected, _ = self.run_cli("cleanup-temporary", value)
+            self.assertIn("progress references temporary", rejected.stderr)
+            evidence[0]["path"] = str(report)
+            progress.write_text(json.dumps(index))
+            original.write_bytes(b"changed")
+            rejected, _ = self.run_cli("cleanup-temporary", value)
+            self.assertIn("hash changed", rejected.stderr)
+            self.assertTrue(original.exists())
+            original.write_bytes(b"export")
+            for _ in range(2):
+                completed, result = self.run_cli("cleanup-temporary", value)
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                self.assertEqual(result["deletedFiles"], 1)
+            self.assertFalse(original.exists())
+            self.assertTrue(report.exists())
+
     def test_window_is_frozen_and_resumption_does_not_cross_midnight(self):
         result, value = self.run_cli(
             "window",

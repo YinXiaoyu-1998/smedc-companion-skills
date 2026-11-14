@@ -161,6 +161,7 @@ def main():
             "readiness",
             "install",
             "cleanup",
+            "cleanup-temporary",
             "lock",
             "save",
             "host-read",
@@ -223,6 +224,10 @@ def main():
                 raise ValueError("State output path required")
             atomic(args.output, value)
             result = {"saved": True}
+        elif args.operation == "cleanup-temporary":
+            from lifecycle import cleanup_temporary
+
+            result = cleanup_temporary(value)
         elif args.operation in {"cleanup", "lock"}:
             from lifecycle import cleanup, lock
 

@@ -131,6 +131,132 @@ def cleanup(value):
     return result
 
 
+def cleanup_temporary(value):
+    """Delete only registered scratch files after a successful central finish."""
+    run_id = value["runId"]
+    workflow_id = value["workflowId"]
+    proof = value["centralProof"]
+    expires = datetime.fromisoformat(proof["expiresAt"].replace("Z", "+00:00"))
+    if (
+        proof["runId"] != run_id
+        or proof["workflowId"] != workflow_id
+        or proof["status"] != "succeeded"
+        or not proof["finishedAt"]
+        or expires <= datetime.now(timezone.utc)
+    ):
+        raise ValueError("Fresh successful central finish required")
+
+    root = Path(value["runRoot"])
+    if (
+        not root.is_absolute()
+        or root.name != run_id
+        or root != root.resolve()
+        or not root.is_dir()
+    ):
+        raise ValueError("Canonical run directory required")
+    scratch = root / "temporary"
+    if scratch.is_symlink():
+        raise ValueError("Symlink temporary directory forbidden")
+    result_path = root / "temporary-cleanup-result.json"
+    owner = regular(value["lockOwnerPath"])
+    if owner.is_relative_to(scratch):
+        raise ValueError("Run lock must be outside the temporary directory")
+
+    def check_lock_and_proof():
+        lock_state = load(owner)
+        if (
+            lock_state.get("runId") != run_id
+            or lock_state.get("workflowId") != workflow_id
+        ):
+            raise ValueError("Run does not own the lock")
+        if expires <= datetime.now(timezone.utc):
+            raise ValueError("Central readback expired during cleanup")
+
+    check_lock_and_proof()
+    progress_path = regular(root / "progress.json")
+    progress = load(progress_path)
+    if progress.get("runId") != run_id:
+        raise ValueError("Progress must belong to this run")
+    for stage in progress["completed"].values():
+        if any(
+            Path(item["path"]).resolve().is_relative_to(scratch)
+            for item in stage["evidence"]
+        ):
+            raise ValueError("Retained progress references temporary files")
+
+    files = value["files"]
+    paths = [Path(item["path"]) for item in files]
+    if len(set(paths)) != len(paths) or any(
+        not path.is_absolute()
+        or not path.is_relative_to(scratch)
+        or ".." in path.parts
+        or path == scratch
+        or path.suffix.lower() == ".html"
+        for path in paths
+    ):
+        raise ValueError("Only distinct run temporary files may be deleted")
+
+    result = {
+        "runId": run_id,
+        "workflowId": workflow_id,
+        "files": files,
+        "deleted": [],
+        "retained": [str(path) for path in paths],
+        "status": "running",
+    }
+    if result_path.exists():
+        previous = load(result_path)
+        if any(previous[k] != result[k] for k in ("runId", "workflowId", "files")):
+            raise ValueError("Temporary cleanup manifest differs from the saved result")
+        result["deleted"] = previous["deleted"]
+        result["retained"] = previous["retained"]
+        if "inFlight" in previous:
+            result["inFlight"] = previous["inFlight"]
+
+    def matches(path, item):
+        with regular(path).open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != item["sha256"]:
+                raise ValueError("Temporary file hash changed")
+
+    remaining = []
+    try:
+        for path, item in zip(paths, files):
+            if str(path) in result["deleted"]:
+                if path.exists() or path.is_symlink():
+                    raise ValueError("A previously removed temporary file reappeared")
+                continue
+            if (
+                not path.exists()
+                and not path.is_symlink()
+                and result.get("inFlight") == str(path)
+            ):
+                result["deleted"].append(str(path))
+                result["retained"].remove(str(path))
+                result.pop("inFlight")
+                continue
+            matches(path, item)
+            remaining.append((path, item))
+
+        for path, item in remaining:
+            check_lock_and_proof()
+            matches(path, item)
+            result["inFlight"] = str(path)
+            atomic(result_path, result)
+            path.unlink()
+            result["deleted"].append(str(path))
+            result["retained"].remove(str(path))
+            del result["inFlight"]
+            atomic(result_path, result)
+        result.pop("inFlight", None)
+        result["status"] = "succeeded"
+    except (OSError, ValueError) as error:
+        result.update(status="blocked", error=str(error))
+        atomic(result_path, result)
+        raise
+    atomic(result_path, result)
+    return {"status": result["status"], "deletedFiles": len(result["deleted"])}
+
+
 def save_chunk(value):
     import fcntl
     import re

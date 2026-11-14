@@ -71,7 +71,13 @@ pythonExecutable 先从实际 本地运行环境探测 取得并检查版本，�
 
 `native.cleanupProof(session,actionIds)` 实时读取当前中央未解决动作并分批 get 精确回执，只有当前轮全部指定动作 confirmed 才返回 30 秒有效的证明。保存到 run 外的精确证据路径，所有文件 hash/owner 验证通过才清理；过期刷新。`workflow.py cleanup` 只删明确列举、run 内、未改变且有中央 confirmed 回执的原件；输入包含 runRoot/runId/workflowId/lockOwnerPath/centralProof/files/resultPath，每文件为 path/sha256/actionId。resultPath 必须持久保存逐文件清理结果，不能列入删除名单；中途失败仍保留准确 deleted/retained。不得传家目录、共享目录或最终报告；保留失败／unknown／冲突证据。
 
-评价继续使用原 `review_run.py archive/manifest/cleanup` 的全部七项整轮成功门槛、锁归属、归档证据和逐文件哈希。新工作流 run.json 含 workflowBinding，cleanup gate 须额外提供中央证明路径／哈希及本轮全部 action ID。中央证明不会替代旧门槛。每日按份成功清理，评价整轮成功清理，周报默认保留最终 HTML，不能统一 delete-all。
+评价继续使用原 `review_run.py archive/manifest/cleanup` 的全部七项整轮成功门槛、锁归属、归档证据和逐文件哈希。新工作流 run.json 含 workflowBinding，cleanup gate 须额外提供中央证明路径／哈希及本轮全部 action ID。中央证明不会替代旧门槛。七项门槛未通过时保留需要恢复的本地文件。
+
+### 临时文件清理
+
+1. 新文件在采集或生成时按 [每日](execution.md#每日原件留存)、[评价](execution.md#评价原件留存) 或 [周报](execution.md#周报文件留存) 的规则分流。本轮可丢弃文件放进 `runRoot/temporary/`，逐项登记绝对路径和 SHA-256 至 temporary 外的本轮 `temporary-manifest.json`。原件、文件夹和报告的归属以实际工具返回及本轮登记为准。保留内容放在 temporary 外，执行进度只引用长期保留且已经核对的证据。
+2. 核验各业务的清理条件，完成原执行计划，再执行 `native.closeRun`。关轮后使用 `native.finishedCleanupProof(session)` 核对中央已结束、succeeded 且无本轮未解决动作，获取 30 秒有效的确认。partial、failed、unknown 或证据不足时保留临时文件，记录原因。此步骤使用完成轮的读取接口，无需续租或重开。
+3. 持本轮本机锁，将 `{runRoot,runId,workflowId,lockOwnerPath,centralProof,files}` 交给 `workflow.py cleanup-temporary --input INPUT`，其中 files 是关轮前确认仍存在的已登记项 `[{path,sha256}]`，保存为固定清理清单以便接续。脚本核对中央确认、归属、路径、摘要和进度引用，逐项删除并更新 `runRoot/temporary-cleanup-result.json`。成功后可移除本轮登记的空临时目录。中断后用原清单和新的中央读回接续本地清理，沿用同一轮 ID 并核对本地锁。清理失败不重放已完成的外部动作。
 
 可选聊天归档仅完全成功后使用原生 聊天归档工具（本宿主不可用）；失败保留提示，不删除聊天文件或重跑业务。失败仍有宿主可见反馈，即使 原生邮件连接器（本宿主不可用） 不可用。
 
