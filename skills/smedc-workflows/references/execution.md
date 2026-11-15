@@ -20,12 +20,17 @@
 
 查得零条与无来源／下载失败／缺列分开：保存有证据的 observed_zero，不传空工作簿、不清空分区、不将缺失门店日视为零。已有非空来源与新零结果冲突时留待核查。上传接受请求后继续官方状态查询，只有 published/applied 的 job 回执允许确认及该份清理。已存在的收货单按下节单独处理。
 
+每日入库先用 `native.queryJobHistory({mode:"actions", workflowId, runId, limit:1})` 验证当前服务和 launcher 能读中央 Job，再派发上传。沿用 claim/check/withLease，将 `native.linkedUploadArgs(session, intent, uploadArgs)` 交给原有 `upload_structured_dataset`。服务受理时持久关联原动作和批次。丢失上传响应或恢复旧动作时先用 `native.findUploadJob(session, actionId)` 读回原任务。返回 accepted 仅表示服务受理，继续核对 Job 的终态。找不到关联的未知动作保留 unknown。
+
+已关联的 Job 达到 published/applied 时登记 `confirmed/service_status`；达到 failed/rejected/cancelled/expired 时登记 `failed/service_status`，传真实 jobId。两类回执均写中央。未创建 Job 的明确请求拒绝仍登记 `failed/request_rejected`。换机读取成功和失败历史即可定位待核对动作。
+
 ### 收货单逐单对账
 
-- 每份上传后立即原子保存最小映射：原上传响应 `importBatch.naturalKey`（服务从原件解析的收货单号）、`importBatch.importBatchId`、源账号与门店身份、标准门店、收货日、原文件 SHA-256 和中央 actionId。单号须与原件一致；保存终态 `applied` 读回及中央 confirmed 回执。将映射留在清理范围之外，和运行证据一起保留；不可从文件名或数量补造映射。
-- 每次上传前，从原件读取业务单号，按当前组织及企业已验证的上传响应／归档映射和 applied 回执核对同号单。新导出日期不同仍按同一单号查重。已确认存在时保留 SMEDC 原记录，跳过该单。状态接口只返回进度或本地缺映射时，未知不等于不存在。
-- 无法预先核实的原件走正常上传路径。若官方明确拒绝且返回 RECEIPT_ID_CONFLICT，保留完整脱敏响应，把本轮上传动作登记为 failed/request_rejected，不重试。能核实旧单已入库时归为「SMEDC 已存在，跳过」；若只能证明单号被占用、旧批次状态未核实，保留原件和待核对记录，继续其余单据并按实际结果关轮。原生工具错误从实际 error.code 识别；工具只报 TOOL_REJECTED 时读原始返回，不从错误文案猜测。超时、权限、其他错误或结果未知沿用原恢复规则，不能按已存在处理。
-- 对账分别列出新增、已存在跳过及未完成。已存在跳过计入来源单数，不计作新增、零条或未完成，也不阻塞其他单据和整轮收尾。保存单号、门店、日期及旧单已入库的证据后，只弃置本轮专属工作区中该单已验证的本地副本。ZIP 中也只移除匹配成员，验证保留成员未变。可上传的新原件仍按中央确认门槛清理。
+- 从原始工作簿读取收货单号，核对来源门店并按正常路径上传。保存原上传响应中与原件匹配的 `importBatch.naturalKey`、`importBatch.importBatchId`、原件 SHA-256、终态 `applied` 读回及中央 confirmed 回执。
+- 官方明确返回 `RECEIPT_ID_CONFLICT` 时保留脱敏响应，将本次上传登记为 `failed/request_rejected`，再调 `native.findUploadJob(session, actionId)`。以服务返回的 `receipt_conflict` 关联核对原件单号和旧批次。若关联内的旧单已 applied，中央已核验企业、门店和单号。缺少可信关联时保留待核对。恢复时直接查询，无需再次提交冲突文件。
+- 中央返回同号同门店、状态为 `applied` 时记「SMEDC 已存在，跳过」。旧批次的进货日期允许与本轮采集日期不同。保存中央查询结果、单号、两轮日期和本次动作 ID 作为本轮对账证据。旧批次状态未完成或不可见、门店不符、权限／服务错误、连接版本未支持查询时，保留原件并标明具体待核对原因。继续其余单据；冲突核验无需旧机回执，非冲突错误沿用原恢复规则。
+- 对账分别统计新增、已存在跳过和未完成。跳过计入来源单数，可完成该门店的对账。本次被拒的上传回执仍为 failed。将已验证的跳过证据保存在 temporary 外，原件／ZIP 按整轮清理规则处理。
+- 已核实完整采集范围和逐单对账时，为非空门店日提交中央 observation，带对账证据哈希 `evidenceHash` 和 `receiptCounts: {source, confirmed, skipped, pending}`。有待核对项时标记 incomplete 并列出具体中央 actionId。完整采集证据使获授权管理员可以用 Job API 更正关轮后的对账结论。
 
 ### 每日原件留存
 

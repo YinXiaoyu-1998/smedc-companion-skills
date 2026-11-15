@@ -1081,6 +1081,52 @@
         : { kind: "record_receipts", ...bind(session), receipts: [receipt] },
     });
   }
+  async function queryJobHistory(query) {
+    const response = await mcp("query_jobs", { query });
+    if (!Array.isArray(response.jobs) ||
+      !(response.nextCursor === null || (typeof response.nextCursor === "string" && response.nextCursor)))
+      throw new Error("Invalid central job history response");
+    return response;
+  }
+  function linkedUploadArgs(session, intent, input) {
+    if (intent.identity?.kind !== "upload" || intent.identity.dataset !== input.dataset || !intent.actionId)
+      throw new Error("Claimed upload identity required");
+    return {
+      ...input,
+      workflowAction: { workflowId: session.workflowId, ...bind(session), actionId: intent.actionId },
+    };
+  }
+  async function findUploadJob(session, actionId) {
+    const { jobs, nextCursor } = await queryJobHistory({
+      mode: "action", workflowId: session.workflowId, runId: session.runId, actionId,
+    });
+    if (jobs.length > 1 || nextCursor || (jobs[0] && jobs[0].actionId !== actionId))
+      throw new Error("Unbound central upload job");
+    return jobs[0] ?? null;
+  }
+  async function syncJobHistory(enterpriseKey, savePage) {
+    if (!enterpriseKey || typeof savePage !== "function")
+      throw new Error("Enterprise and durable job history writer required");
+    const counts = {};
+    for (const kind of ["row_import", "partition_import", "workflow_run"]) {
+      counts[kind] = 0;
+      const used = new Set();
+      let page = 0, cursor;
+      do {
+        const result = await queryJobHistory({ mode: "list", enterpriseKey, kind, limit: 100,
+          ...(cursor ? { cursor } : {}) });
+        if (result.jobs.some((job) => job.kind !== kind || job.enterpriseKey !== enterpriseKey) ||
+          (result.nextCursor && used.has(result.nextCursor)))
+          throw new Error("Job history page did not match its scope or advance");
+        if (result.nextCursor) used.add(result.nextCursor);
+        await savePage({ kind, page, jobs: result.jobs, nextCursor: result.nextCursor });
+        counts[kind] += result.jobs.length;
+        page++;
+        cursor = result.nextCursor;
+      } while (cursor);
+    }
+    return counts;
+  }
   function utf8(text) {
     return Array.from(
       encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (_, h) =>
@@ -2114,6 +2160,10 @@
     check,
     claim,
     record,
+    queryJobHistory,
+    linkedUploadArgs,
+    findUploadJob,
+    syncJobHistory,
     sendEmail,
     reconcileEmail,
     closeRun,
