@@ -1598,41 +1598,6 @@ test("preserves a structured same-receipt rejection without inferring it from pr
   );
 });
 
-test("checks the exact receipt and store against central status even for an earlier date", async () => {
-  const lookup = { receiptId: "R1", enterpriseName: "Synthetic", storeName: "Exact Shop " };
-  let batch = {
-    importBatchId: "imp_1",
-    receiptId: "R1",
-    status: "applied",
-    ledgerPartition: { storeName: "Exact Shop ", purchaseDate: "2026-10-01" },
-  };
-  const native = factory()({
-    mcp__smedc__get_import_status: async (input) => {
-      assert.equal(input.receiptId, lookup.receiptId);
-      assert.equal(input.enterpriseName, lookup.enterpriseName);
-      assert.equal(Object.keys(input).length, 2);
-      return batch ? { importBatch: batch } : {
-        isError: true,
-        content: [{ type: "text", text: JSON.stringify({ error: { code: "IMPORT_BATCH_NOT_FOUND" } }) }],
-      };
-    },
-  });
-  const applied = await native.lookupDeliveryReceipt(lookup);
-  assert.equal(applied.importBatchId, "imp_1");
-  assert.equal(applied.status, "applied");
-  assert.equal(applied.ledgerPartition.purchaseDate, "2026-10-01");
-  await assert.rejects(native.lookupDeliveryReceipt({ ...lookup, storeName: "Exact Shop" }), /exact store/);
-  batch.ledgerPartition.officialStoreName = "Renamed Shop";
-  assert.equal((await native.lookupDeliveryReceipt({ ...lookup, storeName: "Renamed Shop" })).status, "applied");
-  batch.receiptId = "R2";
-  await assert.rejects(native.lookupDeliveryReceipt(lookup), /unbound/);
-  batch.receiptId = "R1";
-  batch.status = "pending";
-  assert.equal((await native.lookupDeliveryReceipt(lookup)).status, "pending");
-  batch = null;
-  assert.equal((await native.lookupDeliveryReceipt(lookup)).status, "not_visible");
-});
-
 test("finished cleanup uses the original successful run and rejects unresolved later pages", async () => {
   const session = { workflowId: "flow", runId: "run", installationId: "mac" };
   const run = {
@@ -1660,4 +1625,28 @@ test("finished cleanup uses the original successful run and rejects unresolved l
   await assert.rejects(native.finishedCleanupProof(session), /Unresolved central action/);
   run.status = "partial";
   await assert.rejects(native.finishedCleanupProof(session), /successful central run/);
+});
+
+test("syncs successful and failed central jobs into an empty host's history", async () => {
+  const saved = [];
+  const native = factory()({
+    mcp__smedc__query_jobs: async ({ query }) => {
+      if (query.mode === "action")
+        return { jobs: [{ actionId: "upload", result: "accepted", job: { id: "original-job", status: "failed" } }], nextCursor: null };
+      assert.equal(query.enterpriseKey, "enterprise");
+      if (query.kind !== "partition_import") return { jobs: [], nextCursor: null };
+      const job = { status: query.cursor ? "failed" : "published", kind: query.kind, enterpriseKey: query.enterpriseKey };
+      return { jobs: [job], nextCursor: query.cursor ? null : "page-2" };
+    }
+  });
+  const counts = await native.syncJobHistory("enterprise", async (page) => saved.push(page));
+  assert.equal(counts.partition_import, 2);
+  assert.deepEqual(saved.flatMap((page) => Array.from(page.jobs, (job) => job.status)), ["published", "failed"]);
+  const session = { workflowId: "flow", runId: "run", installationId: "new-mac", assignmentEpoch: 2, controlVersion: 3 };
+  const original = await native.findUploadJob(session, "upload");
+  assert.equal(original.job.id, "original-job");
+  assert.equal(original.job.status, "failed");
+  const args = native.linkedUploadArgs(session, { actionId: "upload", identity: { kind: "upload", dataset: "business" } }, { dataset: "business" });
+  assert.equal(args.workflowAction.runId, "run");
+  assert.equal(args.workflowAction.actionId, "upload");
 });

@@ -47,10 +47,10 @@ Window: previous complete business day. Only the datasets enabled in
 - Upload only through the core skill's contract; only `published`/`applied`
   receipts permit confirmation and per-file cleanup. Receipt-ledger mappings
   (naturalKey / importBatchId / actionId) are retained outside the cleanup set.
-- On `RECEIPT_ID_CONFLICT`, record the rejected upload and use the official MCP
-  `get_import_status({receiptId, enterpriseName})` directly. Verify the returned
-  receipt number, batch ID, exact store and `applied` status before recording the
-  skip in the current reconciliation. Follow upstream evidence and cleanup rules.
+- Bind uploads to the claimed central action with `workflowAction` and read
+  the result through `query_jobs` in action mode after a lost response or receipt
+  conflict. An applied receipt on the verified conflict link can be skipped.
+  Preserve rejected upload receipts and record the terminal outcomes centrally.
 - Zero-result is recorded as `observed_zero` with evidence; it is distinct from
   a missing source, a failed download or a missing column.
 

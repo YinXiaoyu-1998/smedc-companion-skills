@@ -28,7 +28,7 @@
         }
       }
       const code =
-        ["RECEIPT_ID_CONFLICT", "IMPORT_BATCH_NOT_FOUND"].includes(errorCode)
+        errorCode === "RECEIPT_ID_CONFLICT"
           ? errorCode
           : (JSON.stringify(result).match(
               /\b(?:WORKFLOW|ORDER_SCOPE|AUTH|LAUNCHER|SMEDC)_[A-Z_]+\b/,
@@ -1081,43 +1081,51 @@
         : { kind: "record_receipts", ...bind(session), receipts: [receipt] },
     });
   }
-  async function lookupDeliveryReceipt({ receiptId, enterpriseName, storeName }) {
-    const queriedReceiptId = receiptId?.trim();
-    if (!queriedReceiptId || !enterpriseName?.trim() || !storeName?.trim())
-      throw new Error("Receipt number, enterprise and exact store are required");
-    let response;
-    try {
-      response = await mcp("get_import_status", {
-        receiptId: queriedReceiptId,
-        enterpriseName,
-      });
-    } catch (error) {
-      if (error.code === "IMPORT_BATCH_NOT_FOUND") return { status: "not_visible" };
-      throw error;
-    }
-    const batch = response.importBatch;
-    if (
-      batch?.receiptId !== queriedReceiptId ||
-      typeof batch?.importBatchId !== "string" ||
-      !batch.importBatchId.trim() ||
-      !["pending", "validating", "applying", "applied", "failed", "rejected"].includes(batch.status)
-    )
-      throw new Error("Missing or unbound delivery receipt status");
-    if (batch.status !== "applied")
-      return { status: batch.status, importBatchId: batch.importBatchId };
-    const partition = batch.ledgerPartition;
-    if (
-      !partition ||
-      (partition.storeName !== storeName && partition.officialStoreName !== storeName) ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(partition.purchaseDate ?? "")
-    )
-      throw new Error("Applied delivery receipt does not match the exact store and partition");
+  async function queryJobHistory(query) {
+    const response = await mcp("query_jobs", { query });
+    if (!Array.isArray(response.jobs) ||
+      !(response.nextCursor === null || (typeof response.nextCursor === "string" && response.nextCursor)))
+      throw new Error("Invalid central job history response");
+    return response;
+  }
+  function linkedUploadArgs(session, intent, input) {
+    if (intent.identity?.kind !== "upload" || intent.identity.dataset !== input.dataset || !intent.actionId)
+      throw new Error("Claimed upload identity required");
     return {
-      status: "applied",
-      receiptId: batch.receiptId,
-      importBatchId: batch.importBatchId,
-      ledgerPartition: partition,
+      ...input,
+      workflowAction: { workflowId: session.workflowId, ...bind(session), actionId: intent.actionId },
     };
+  }
+  async function findUploadJob(session, actionId) {
+    const { jobs, nextCursor } = await queryJobHistory({
+      mode: "action", workflowId: session.workflowId, runId: session.runId, actionId,
+    });
+    if (jobs.length > 1 || nextCursor || (jobs[0] && jobs[0].actionId !== actionId))
+      throw new Error("Unbound central upload job");
+    return jobs[0] ?? null;
+  }
+  async function syncJobHistory(enterpriseKey, savePage) {
+    if (!enterpriseKey || typeof savePage !== "function")
+      throw new Error("Enterprise and durable job history writer required");
+    const counts = {};
+    for (const kind of ["row_import", "partition_import", "workflow_run"]) {
+      counts[kind] = 0;
+      const used = new Set();
+      let page = 0, cursor;
+      do {
+        const result = await queryJobHistory({ mode: "list", enterpriseKey, kind, limit: 100,
+          ...(cursor ? { cursor } : {}) });
+        if (result.jobs.some((job) => job.kind !== kind || job.enterpriseKey !== enterpriseKey) ||
+          (result.nextCursor && used.has(result.nextCursor)))
+          throw new Error("Job history page did not match its scope or advance");
+        if (result.nextCursor) used.add(result.nextCursor);
+        await savePage({ kind, page, jobs: result.jobs, nextCursor: result.nextCursor });
+        counts[kind] += result.jobs.length;
+        page++;
+        cursor = result.nextCursor;
+      } while (cursor);
+    }
+    return counts;
   }
   function utf8(text) {
     return Array.from(
@@ -2152,7 +2160,10 @@
     check,
     claim,
     record,
-    lookupDeliveryReceipt,
+    queryJobHistory,
+    linkedUploadArgs,
+    findUploadJob,
+    syncJobHistory,
     sendEmail,
     reconcileEmail,
     closeRun,
