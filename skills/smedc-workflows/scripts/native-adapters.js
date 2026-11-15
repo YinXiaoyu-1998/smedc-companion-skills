@@ -28,7 +28,7 @@
         }
       }
       const code =
-        errorCode === "RECEIPT_ID_CONFLICT"
+        ["RECEIPT_ID_CONFLICT", "IMPORT_BATCH_NOT_FOUND"].includes(errorCode)
           ? errorCode
           : (JSON.stringify(result).match(
               /\b(?:WORKFLOW|ORDER_SCOPE|AUTH|LAUNCHER|SMEDC)_[A-Z_]+\b/,
@@ -1081,6 +1081,44 @@
         : { kind: "record_receipts", ...bind(session), receipts: [receipt] },
     });
   }
+  async function lookupDeliveryReceipt({ receiptId, enterpriseName, storeName }) {
+    const queriedReceiptId = receiptId?.trim();
+    if (!queriedReceiptId || !enterpriseName?.trim() || !storeName?.trim())
+      throw new Error("Receipt number, enterprise and exact store are required");
+    let response;
+    try {
+      response = await mcp("get_import_status", {
+        receiptId: queriedReceiptId,
+        enterpriseName,
+      });
+    } catch (error) {
+      if (error.code === "IMPORT_BATCH_NOT_FOUND") return { status: "not_visible" };
+      throw error;
+    }
+    const batch = response.importBatch;
+    if (
+      batch?.receiptId !== queriedReceiptId ||
+      typeof batch?.importBatchId !== "string" ||
+      !batch.importBatchId.trim() ||
+      !["pending", "validating", "applying", "applied", "failed", "rejected"].includes(batch.status)
+    )
+      throw new Error("Missing or unbound delivery receipt status");
+    if (batch.status !== "applied")
+      return { status: batch.status, importBatchId: batch.importBatchId };
+    const partition = batch.ledgerPartition;
+    if (
+      !partition ||
+      (partition.storeName !== storeName && partition.officialStoreName !== storeName) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(partition.purchaseDate ?? "")
+    )
+      throw new Error("Applied delivery receipt does not match the exact store and partition");
+    return {
+      status: "applied",
+      receiptId: batch.receiptId,
+      importBatchId: batch.importBatchId,
+      ledgerPartition: partition,
+    };
+  }
   function utf8(text) {
     return Array.from(
       encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (_, h) =>
@@ -2114,6 +2152,7 @@
     check,
     claim,
     record,
+    lookupDeliveryReceipt,
     sendEmail,
     reconcileEmail,
     closeRun,

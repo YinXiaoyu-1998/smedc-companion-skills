@@ -1598,6 +1598,41 @@ test("preserves a structured same-receipt rejection without inferring it from pr
   );
 });
 
+test("checks the exact receipt and store against central status even for an earlier date", async () => {
+  const lookup = { receiptId: "R1", enterpriseName: "Synthetic", storeName: "Exact Shop " };
+  let batch = {
+    importBatchId: "imp_1",
+    receiptId: "R1",
+    status: "applied",
+    ledgerPartition: { storeName: "Exact Shop ", purchaseDate: "2026-10-01" },
+  };
+  const native = factory()({
+    mcp__smedc__get_import_status: async (input) => {
+      assert.equal(input.receiptId, lookup.receiptId);
+      assert.equal(input.enterpriseName, lookup.enterpriseName);
+      assert.equal(Object.keys(input).length, 2);
+      return batch ? { importBatch: batch } : {
+        isError: true,
+        content: [{ type: "text", text: JSON.stringify({ error: { code: "IMPORT_BATCH_NOT_FOUND" } }) }],
+      };
+    },
+  });
+  const applied = await native.lookupDeliveryReceipt(lookup);
+  assert.equal(applied.importBatchId, "imp_1");
+  assert.equal(applied.status, "applied");
+  assert.equal(applied.ledgerPartition.purchaseDate, "2026-10-01");
+  await assert.rejects(native.lookupDeliveryReceipt({ ...lookup, storeName: "Exact Shop" }), /exact store/);
+  batch.ledgerPartition.officialStoreName = "Renamed Shop";
+  assert.equal((await native.lookupDeliveryReceipt({ ...lookup, storeName: "Renamed Shop" })).status, "applied");
+  batch.receiptId = "R2";
+  await assert.rejects(native.lookupDeliveryReceipt(lookup), /unbound/);
+  batch.receiptId = "R1";
+  batch.status = "pending";
+  assert.equal((await native.lookupDeliveryReceipt(lookup)).status, "pending");
+  batch = null;
+  assert.equal((await native.lookupDeliveryReceipt(lookup)).status, "not_visible");
+});
+
 test("finished cleanup uses the original successful run and rejects unresolved later pages", async () => {
   const session = { workflowId: "flow", runId: "run", installationId: "mac" };
   const run = {
