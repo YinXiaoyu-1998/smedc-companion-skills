@@ -44,19 +44,25 @@
 
 `journal` 在首次创建前经 `save` 原子落盘。未知创建结果留 createPending；按本轮返回 ID 精确恢复，或在用户可见宿主中定位本次创建记录，不能重试制造重复。保存 readback hostSnapshot 到中央 `record_host`。缺项继续保存 PAUSED 任务；准备就绪后按中央配置确认、指定安装／接管、启用状态及宿主原生 update 的顺序激活。实际激活仍需读回，不把 register 当启用。
 
-更新前读当前未完成 run 的包版本；旧包不可用则阻塞旧轮。暂停受影响宿主任务、保留中央设置／完成回执，更新所选子树、检查并按原授权恢复；不重建业务配置。
-
 旧的原始定时 prompt 尚未执行中央租约／控制检查，云端撤销不能停止它们。新电脑预检、中央导入和新任务 PAUSED 安装可先完成；实际启用必须等用户确认的切换窗口，取得旧任务已暂停或旧设备已退役的精确证据。没有旧任务的新企业也须明确确认 no_legacy_tasks。assignment 检查记录此事实，不能仅因为云端没有旧租约就自动启用。
 
 调用 `native.setHostState(input,journal,'enabled',save)` 时，input.handoff 为 kind=legacy_paused/old_device_retired/no_legacy_tasks、acknowledged=true、proofHash 和 confirmedAt；证据来自本轮准确宿主读回／明确退役确认并在私有文件保存。当前中央 assignment/control/installation 也必须允许；函数原生 update 后读回并 record_host。合作式撤销保证只适用于已采用这套协议的新安装，不声称阻止旧原始任务或任意获授权管理员。
+
+## 升级本机定时任务
+
+“升级 SMEDC”包含本机已安装的官方工作流和对应定时任务，覆盖已启用及已暂停的任务。指定工作流升级按指定范围办理。用户在定时任务聊天中显式提出升级时也走本流程。日常调度继续按既有版本锁执行。
+
+1. **准确盘点。** 分页读取中央工作流和安装，对照本机 journal 与 `native.readHost(taskId)` 核对 `workflowId`、`installationId`、实际 `taskId` 及提示词绑定。journal 丢失时，可凭一致的中央登记与本机读回重建。只更新本机归属明确的现有任务，记录原启停状态、RRULE、名称、模型、推理档位、项目、工作目录、时区和通知设置。其他机器、仅有中央配置的项目及无法验证归属的任务按真实情况报告。
+2. **暂停后续触发并完成在途核对。** 在修改共用 launcher、工作流包或任务定义前，通过原生宿主暂停受影响的已启用任务，回读暂停状态。让未结束轮按原固定版本完成或恢复，核对租约和未知动作。若当前聊天正在执行该旧轮，先在旧版本下完成它，再接续升级。旧轮仍需原包时保留版本锁及依赖，待旧轮收尾后切换。将任务清单和原状态写入非秘密接续记录，宿主重启后按该记录接着做。
+3. **原地更新同一任务。** 核心技能验证并接通批准的 launcher 后，按本节前面的安装检查更新已选依赖闭包与安装锁。以原任务实测设置和新包版本／源码 commit／锁路径生成新提示词，携带已有 `journal.taskId` 调用 `native.install(input,journal,save)`，设置 `update:true`，再回读同一个 ID。此路径使用 `failed_runs_only`。如果用户已自定义通知，使用宿主原生更新保留其当前设置，并执行相同的暂停、持久化更新意图和读回检查。
+4. **更新并读回中央登记。** 为原 `installationId` 提交 `register`，填已核实的 launcher／工作流包版本；原任务的实际宿主快照走 `record_host`。重新检查受影响的依赖和就绪项并保存 `record_checks`。版本变化后首次运行状态为 `not_run`，实际执行结果另行登记。当前中央控制与指定安装允许且原任务启用时，按原授权恢复同一任务并回读；原任务已暂停时保留暂停。
+5. **逐任务验收。** 核对本机任务 ID、提示词版本及原设置、实际加载的安装锁与依赖，以及中央版本和宿主状态。只有这些检查通过才算该任务升级完成。报告已更新和待处理的任务及原因；不为验证升级重跑业务或发送通知。
 
 ## 非技术用户的运行组件准备
 
 以上命令／JSON 都由安装代理准备和执行，用户只选择任务、在官方页面登录及审阅准确业务差异，不要求用户写文件、找隐藏目录或手工改命令。代理先调用真实 load_workspace_dependencies，检查返回的 Python >=3.11、Node >=22、openpyxl 导入及 artifact 模块；用返回的解释器路径传给 native 的 pythonExecutable，Node 引擎基础安装仍由核心负责。
 
 有可用 Python 但缺 openpyxl 时，用户已选择该工作流的安装授权内，可在专属工作目录创建当前用户 venv，再安装所选 review skill 的 requirements.txt；不做全局 pip、不修改系统 Python 或其他任务环境。优先复用已验证的 bundled 库。复制原版工作簿 MJS 到专属 builder，核对 SHA，node_modules 只链接当前宿主实际返回的只读库目录。缺 Python、artifact 模块或导出／预览能力且没有宿主支持的安装方式时，精确记录 dependencies=unavailable，向用户说明“当前运行组件不可用，任务保持暂停；请启用或更新相应 Codex 组件后继续”，不能假完成，也不让用户手工编辑 JSON。基础 SMEDC 继续可用。
-
-显式包更新使用现有本机 journal/taskId；先暂停并实际 readHost 回读当前日程／模型，把这些原值带给 native.install 的 update=true，只改已审阅的新版本 prompt，更新同一任务后回读。普通安装／运行不自动更新；不得用默认日程覆盖用户在 Codex 修改的时间。
 
 最终启用统一调用 native.activate。它先验证明确旧任务暂停／退役（或无旧任务）的证据与实际新宿主 PAUSED 状态，再确认当前指定安装和 control.active 权限、记录 assignment 准备检查、set_state enabled，最后原生启用和回读。control.active 本身只是运行许可；只有满足新服务的完整就绪／指定／启用条件且选择店内订单的每日任务才切换来源要求。周报、评价和普通草案不会触发该切换；切换前不得擅自调用 set_state enabled。
 
