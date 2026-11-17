@@ -38,6 +38,7 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def h1_texts(html: str) -> list[str]:
+    html = re.sub(r"<script\b[^>]*>.*?</script>", "", html, flags=re.DOTALL)
     return [re.sub(r"<[^>]+>", "", value).strip() for value in re.findall(r"<h1[^>]*>(.*?)</h1>", html, re.DOTALL)]
 
 

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from generate_business_report_html import public_payload
+from weekly_dashboard import render_dashboard
 from meeting_report_weekly import HTML_TEMPLATE, build_payload, escaped_report_title, serialized_payload_for_html
 
 
@@ -69,7 +70,7 @@ def render(input_dir: Path, report_path: Path, company: str | None = None) -> di
         serialized_payload_for_html(report_payload),
     )
     html = inject_missing_data_notice(html, list(report_payload.get("data_gaps", [])))
-    html = accessible_html(html)
+    html = render_dashboard(accessible_html(html), input_dir, report_payload, set(payload["meta"].get("outputs", [])))
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(html, encoding="utf-8")
     return {

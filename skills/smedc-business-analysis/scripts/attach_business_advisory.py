@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from identity import organization_name_from_metadata
+from weekly_dashboard import bind_dashboard, voice_draft
 
 SUMMARY_FILES = {"diagnosis": "analysis_summary.json", "weekly": "weekly_meeting_summary.json",
                  "monthly": "monthly_meeting_summary.json"}
@@ -37,9 +38,12 @@ def read_table(path: Path) -> list[dict[str, str]]:
 def section_sources(report_type: str) -> dict[str, tuple[str, ...]]:
     if report_type == "diagnosis":
         return {"meal_periods": ("store_meal_period_summary.csv",), "dishes": (), "stalls": ()}
+    dish_sources = (f"{report_type}_store_product_sales_per_10k.csv", f"{report_type}_store_stall_dish_drivers.csv")
+    if report_type == "weekly":
+        dish_sources += ("weekly_store_product_previous.csv",)
     return {
         "meal_periods": (f"{report_type}_store_meal_period_comparison.csv",),
-        "dishes": (f"{report_type}_store_product_sales_per_10k.csv", f"{report_type}_store_stall_dish_drivers.csv"),
+        "dishes": dish_sources,
         "stalls": (f"{report_type}_store_stall_comparison.csv", f"{report_type}_store_stall_metrics.csv"),
     }
 
@@ -94,7 +98,7 @@ def fact_inputs(facts_dir: Path, report_type: str) -> tuple[dict, dict[str, Path
     return summary, sources, digest.hexdigest()
 
 
-def prepare(facts_dir: Path, report_type: str) -> dict[str, Any]:
+def prepare(facts_dir: Path, report_type: str, review_data: dict | None = None) -> dict[str, Any]:
     summary, sources, digest = fact_inputs(facts_dir, report_type)
     meta = summary["meta"]
     source = summary["source"] if report_type == "diagnosis" else meta
@@ -105,7 +109,9 @@ def prepare(facts_dir: Path, report_type: str) -> dict[str, Any]:
         "windows": windows, "store_name_contains": source.get("store_name_contains", []),
         "facts_digest": digest,
         "store_coverage": coverage,
-    }, "store_reviews": [
+    }, **({"dashboard_headline": ""} if report_type == "weekly" else {}),
+        **({"customer_voice": voice_draft(review_data)} if report_type == "weekly" and review_data and review_data["groups"] else {}),
+        "store_reviews": [
         {"store_name": item["store_name"], **{
             section: {"status": "supported" if available else "unavailable", "observation": "" if available else "本期未覆盖该项数据。",
                       "judgment": "", "next_step": "", "evidence": []}
@@ -312,7 +318,7 @@ def render_feedback(advisory: dict) -> str:
     return ''.join(parts)
 
 
-def attach(facts_dir: Path, report_type: str, report_path: Path, advisory: dict) -> dict:
+def attach(facts_dir: Path, report_type: str, report_path: Path, advisory: dict, review_data: dict | None = None, *, verify: bool = False) -> dict:
     expected = prepare(facts_dir, report_type)
     if advisory.get("schema_version") != 2 or advisory.get("context") != expected["context"]:
         raise ValueError("advisory context does not match this report's saved facts; prepare again")
@@ -368,6 +374,10 @@ def attach(facts_dir: Path, report_type: str, report_path: Path, advisory: dict)
                  '#business-advisory details{break-inside:avoid;}'
                  '#business-advisory details>*{display:block!important;}}')
         html = html.replace('</head>', f'<!-- {marker}_START --><style>{style}</style><!-- {marker}_END --></head>', 1)
+    if report_type == "weekly":
+        html = bind_dashboard(html, advisory, review_data, has_current)
+    if verify and (html != original or (report_type == "weekly" and 'id="weekly-dashboard-content"' not in html)):
+        raise ValueError("final report does not match verified facts and advisory; regenerate and attach")
     if html != original:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=report_path.parent, delete=False) as stream:
             temporary = Path(stream.name)
@@ -388,25 +398,27 @@ def attach(facts_dir: Path, report_type: str, report_path: Path, advisory: dict)
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("prepare", "attach"):
+    for command in ("prepare", "attach", "verify"):
         sub = commands.add_parser(command)
         sub.add_argument("--facts-dir", required=True, type=Path)
         sub.add_argument("--report-type", required=True, choices=SUMMARY_FILES)
+        sub.add_argument("--review-facts", type=Path, help="Validated weekly review facts")
         if command == "prepare":
             sub.add_argument("--output", required=True, type=Path)
         else:
             sub.add_argument("--advisory", required=True, type=Path)
             sub.add_argument("--report", required=True, type=Path)
     args = parser.parse_args()
+    review_data = json.loads(args.review_facts.read_text(encoding="utf-8")) if args.review_facts else None
     if args.command == "prepare":
         if args.output.exists():
             raise ValueError("advisory file already exists; preserve it or choose a new draft path")
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(prepare(args.facts_dir, args.report_type), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        args.output.write_text(json.dumps(prepare(args.facts_dir, args.report_type, review_data), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(json.dumps({"advisory": str(args.output), "status": "awaiting_agent_analysis"}, ensure_ascii=False))
     else:
         advisory = json.loads(args.advisory.read_text(encoding="utf-8"))
-        print(json.dumps(attach(args.facts_dir, args.report_type, args.report, advisory), ensure_ascii=False))
+        print(json.dumps(attach(args.facts_dir, args.report_type, args.report, advisory, review_data, verify=args.command == "verify"), ensure_ascii=False))
     return 0
 
 

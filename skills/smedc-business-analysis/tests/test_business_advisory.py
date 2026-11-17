@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from attach_business_advisory import attach, prepare, section_sources, number
+from weekly_dashboard import CONTENT, review_facts
 
 
 class BusinessAdvisoryTests(unittest.TestCase):
@@ -37,6 +38,8 @@ class BusinessAdvisoryTests(unittest.TestCase):
     def draft(self, mode="weekly"):
         directory = self.root / mode
         draft = prepare(directory / "facts", mode)
+        if mode == "weekly":
+            draft["dashboard_headline"] = "先验证收入变化是否由同组门店推动。"
         filename = "store_summary.csv" if mode == "diagnosis" else f"{mode}_store_comparison.csv"
         with (directory / "facts" / filename).open(encoding="utf-8-sig") as source:
             row = next(csv.DictReader(source))
@@ -192,8 +195,9 @@ class BusinessAdvisoryTests(unittest.TestCase):
                 action["steps"] = ["核对营业天数；一致时选一店试行推荐，存在差异时先按营业日重比。"]
                 attach(facts, mode, report, draft)
                 html = report.read_text(encoding="utf-8")
-                self.assertNotIn("其他可能", html)
-                self.assertNotIn("补充说明", html)
+                feedback = html.split("<!-- SMEDC_ADVISORY_START -->")[1].split("<!-- SMEDC_ADVISORY_END -->")[0]
+                self.assertNotIn("其他可能", feedback)
+                self.assertNotIn("补充说明", feedback)
                 # Omitting optional commentary must preserve the useful check,
                 # next decision, metrics, and adjustment condition in each report type.
                 for value in [*action["steps"], action["primary_metric"], action["stop_rule"]]:
@@ -201,6 +205,53 @@ class BusinessAdvisoryTests(unittest.TestCase):
                 draft["findings"][0]["caveat"] = "只比较营业天数相同的门店。"
                 attach(facts, mode, report, draft)
                 self.assertIn(draft["findings"][0]["caveat"], report.read_text(encoding="utf-8"))
+
+    def test_weekly_voice_is_verified_and_keeps_only_approved_excerpts(self):
+        facts, report, draft = self.draft()
+        context = draft["context"]
+        current = context["windows"]["current"]
+        names = [entry["store_name"] for entry in context["store_coverage"]]
+        page = report.with_suffix(".reviews.json")
+        request = {"enterpriseName": "示例餐饮", "storeNames": names,
+                   "reviewedAtFrom": current["start"] + " 00:00:00",
+                   "reviewedAtTo": current["end"] + " 23:59:59"}
+        row = {"id": "internal-review-id", "enterpriseName": request["enterpriseName"],
+               "storeName": names[0], "reviewedAt": current["start"] + "T11:00:00+08:00",
+               "source": "美团", "content": "午餐排队较久。这里还有未引用的正文。"}
+        response = {"rows": [row], "page": {"nextCursor": None}}
+        page.write_text(json.dumps({"request": request, "response": response}, ensure_ascii=False))
+        reviews = review_facts(report, [page])
+        voice = prepare(facts, "weekly", reviews)["customer_voice"]
+        voice["overview"] = "先核对等待较久的环节。"
+        voice["stores"][0].update(headline="午餐先查等待", themes=[{
+            "title": "午餐等待", "tone": "check", "cloud_label": "午餐等待",
+            "observation": "有顾客提到午餐排队。", "judgment": "需要用现场记录定位卡点。",
+            "action": "记录一周午餐候位和出餐时间。",
+            "evidence": [{"review_id": "R1", "excerpt": "午餐排队较久。"}],
+        }])
+        draft["customer_voice"] = voice
+        attach(facts, "weekly", report, draft, reviews)
+        attach(facts, "weekly", report, draft, reviews, verify=True)
+        dashboard = CONTENT.search(report.read_text()).group()
+        self.assertIn("午餐排队较久", dashboard)
+        self.assertNotIn("这里还有未引用的正文", dashboard)
+        self.assertNotIn("internal-review-id", dashboard)
+        with self.assertRaisesRegex(ValueError, "readable review text"):
+            attach(facts, "weekly", report, draft, verify=True)
+        draft["customer_voice"]["stores"][0]["themes"][0]["evidence"][0]["excerpt"] = "晚上服务很差。"
+        with self.assertRaisesRegex(ValueError, "verbatim"):
+            attach(facts, "weekly", report, draft, reviews)
+        response["page"]["nextCursor"] = "more"
+        page.write_text(json.dumps({"request": request, "response": response}, ensure_ascii=False))
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            review_facts(report, [page])
+
+    def test_weekly_verify_rejects_tampered_dashboard_commentary(self):
+        facts, report, draft = self.draft()
+        attach(facts, "weekly", report, draft)
+        report.write_text(report.read_text().replace(draft["dashboard_headline"], "改写后的首页结论。"))
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            attach(facts, "weekly", report, draft, verify=True)
 
     def test_changed_scope_or_stale_facts_are_rejected(self):
         facts, report, draft = self.draft()

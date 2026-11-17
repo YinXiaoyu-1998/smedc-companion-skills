@@ -125,7 +125,7 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
         extracts = manifest["extracts"]
-        self.assertEqual({entry["input"]["dataset"] for entry in extracts}, {"business"})
+        self.assertEqual({entry["input"]["dataset"] for entry in extracts}, {"business", "dishes"})
         self.assertTrue(all(entry["tool"] == "download_structured_partitions" for entry in extracts))
         self.assertTrue(all(entry["input"]["enterpriseName"] == "示例企业" for entry in extracts))
         self.assertEqual(
@@ -193,6 +193,7 @@ class BuildQueryPlanTests(unittest.TestCase):
                 completed, manifest = self.run_plan(empty_dish_catalog=empty)
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 self.assertFalse(any(job["module"] == "stallAttribution" for job in manifest["jobs"]))
+                self.assertIn("dishes_current_product_totals", {job["id"] for job in manifest["jobs"]})
                 self.assertIn(
                     {
                         "code": "CATALOG_ENTERPRISE_SCOPE_UNAVAILABLE",
