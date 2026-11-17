@@ -178,7 +178,7 @@ def registry_by_dataset(registry: dict[str, Any]) -> tuple[dict[str, dict[str, A
         name = dataset.get("dataset")
         fields = dataset.get("fields")
         access_mode = dataset.get("accessMode")
-        if not isinstance(name, str) or not isinstance(fields, list) or access_mode not in {"partition_extract", "row_query"}:
+        if not isinstance(name, str) or not isinstance(fields, list) or access_mode not in {"partition_extract", "row_query", "catalog_query"}:
             raise PlanError("malformed registry envelope: dataset requires dataset, accessMode, and fields")
         if name in by_dataset:
             raise PlanError(f"malformed registry envelope: duplicate dataset {name}")
@@ -949,6 +949,25 @@ def build_plan(
                 [business_store, meal_period, time_slot],
                 f"business_{window_name}_daypart_mix",
             )
+        if report_type == "weekly":
+            dish_groups = [
+                require_field(config, registry, f"dishes.{name}", "group").canonical
+                for name in ("store", "productName", "matchedProductName", "orderCategory")
+            ]
+            dish_date = require_field(config, registry, "dishes.date", "filter").canonical
+            dish_aggregates = [
+                {"op": "sum", "field": require_field(config, registry, f"dishes.{field}", "aggregate").canonical,
+                 "as": alias}
+                for field, alias in (("quantity", "dish_quantity"), ("revenue", "dish_revenue"))
+            ]
+            for window_name in ("current", "previous"):
+                window = windows[window_name]
+                job_id = f"dishes_{window_name}_product_totals"
+                add_if_covered(jobs, notices, coverage, job=aggregate_job(
+                    job_id=job_id, module="productSalesPer10k", dataset_name="dishes", registry=registry,
+                    window=window, date_field=dish_date, group_by=dish_groups, aggregates=dish_aggregates,
+                    output_file=job_id, limits=limits,
+                ), datasets=["dishes"], window=window, module="productSalesPer10k", notice_partial=True)
         # Catalog coverage and rows span all enterprises visible to the account.
         # They cannot be attached to the report's selected enterprise.
         notices.append(make_notice(

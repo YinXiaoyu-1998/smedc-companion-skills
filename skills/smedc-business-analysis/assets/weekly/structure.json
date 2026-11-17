@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 4,
+  "principle": "固定页面树和组件；智能体填写摘要、判断、行动与证据，不决定页面结构。",
+  "invariants": {
+    "singleActiveView": true,
+    "reviewQuotesOnlyInEvidenceView": true,
+    "reviewPercentagesAreNotConclusions": true,
+    "horizontalReadingRequired": false,
+    "tablePresentation": "responsive_metric_or_record_cards",
+    "homeContainsChartsKpisAndOneVerdict": true,
+    "businessAdviceAndVoicesBelowHome": true
+  },
+  "routes": [
+    {
+      "id": "home",
+      "pattern": "home",
+      "depth": 0,
+      "template": "dashboard",
+      "parent": null
+    },
+    {
+      "id": "allstores",
+      "pattern": "allstores",
+      "depth": 0,
+      "template": "store_index",
+      "parent": null
+    },
+    {
+      "id": "store",
+      "pattern": "store/:store",
+      "depth": 1,
+      "template": "store_overview",
+      "parent": "home"
+    },
+    {
+      "id": "meals",
+      "pattern": "meals/:store",
+      "depth": 2,
+      "template": "module_summary",
+      "parent": "store"
+    },
+    {
+      "id": "meal",
+      "pattern": "meals/:store/:meal",
+      "depth": 3,
+      "template": "object_summary",
+      "parent": "meals"
+    },
+    {
+      "id": "meal_advice",
+      "pattern": "meal-advice/:store",
+      "depth": 3,
+      "template": "judgment_and_action",
+      "parent": "meals"
+    },
+    {
+      "id": "slots",
+      "pattern": "slots/:store/:meal",
+      "depth": 4,
+      "template": "record_cards",
+      "parent": "meal"
+    },
+    {
+      "id": "menu",
+      "pattern": "menu/:store",
+      "depth": 2,
+      "template": "module_summary",
+      "parent": "store"
+    },
+    {
+      "id": "category",
+      "pattern": "menu/:store/:category",
+      "depth": 3,
+      "template": "object_index",
+      "parent": "menu"
+    },
+    {
+      "id": "product",
+      "pattern": "menu/:store/:category/:product",
+      "depth": 4,
+      "template": "metric_cards",
+      "parent": "category"
+    },
+    {
+      "id": "orders",
+      "pattern": "orders/:store",
+      "depth": 2,
+      "template": "module_summary",
+      "parent": "store"
+    },
+    {
+      "id": "order_group",
+      "pattern": "orders/:store/:group",
+      "depth": 3,
+      "template": "metric_cards",
+      "parent": "orders"
+    },
+    {
+      "id": "takeaway",
+      "pattern": "takeaway/:store",
+      "depth": 2,
+      "template": "module_summary",
+      "parent": "store"
+    },
+    {
+      "id": "platform",
+      "pattern": "takeaway/:store/:platform",
+      "depth": 3,
+      "template": "metric_cards",
+      "parent": "takeaway"
+    },
+    {
+      "id": "reviews_all",
+      "pattern": "reviews/all",
+      "depth": 1,
+      "template": "voice_overview",
+      "parent": "home"
+    },
+    {
+      "id": "reviews_store",
+      "pattern": "reviews/:store",
+      "depth": 2,
+      "template": "voice_store",
+      "parent": "store"
+    },
+    {
+      "id": "review_topic",
+      "pattern": "review-topic/:store/:topic",
+      "depth": 3,
+      "template": "voice_judgment",
+      "parent": "reviews_store"
+    },
+    {
+      "id": "review_evidence",
+      "pattern": "review-evidence/:store/:topic",
+      "depth": 4,
+      "template": "voice_evidence",
+      "parent": "review_topic"
+    },
+    {
+      "id": "advice",
+      "pattern": "advice/:finding",
+      "depth": 1,
+      "template": "finding_summary",
+      "parent": "home"
+    },
+    {
+      "id": "advice_detail",
+      "pattern": "advice/:finding/:part",
+      "depth": 2,
+      "template": "finding_detail",
+      "parent": "advice"
+    },
+    {
+      "id": "topics",
+      "pattern": "topics",
+      "depth": 1,
+      "template": "topic_index",
+      "parent": "home"
+    },
+    {
+      "id": "benchmark",
+      "pattern": "benchmark",
+      "depth": 1,
+      "template": "topic_index",
+      "parent": "home"
+    },
+    {
+      "id": "chart",
+      "pattern": "chart/:chart",
+      "depth": 2,
+      "template": "chart_or_record_cards",
+      "parent": "benchmark"
+    },
+    {
+      "id": "trends",
+      "pattern": "trends",
+      "depth": 1,
+      "template": "store_index",
+      "parent": "home"
+    },
+    {
+      "id": "trend",
+      "pattern": "trend/:store",
+      "depth": 2,
+      "template": "trend_chart",
+      "parent": "store"
+    },
+    {
+      "id": "hourly",
+      "pattern": "hourly/:store",
+      "depth": 3,
+      "template": "hourly_chart",
+      "parent": "meals"
+    },
+    {
+      "id": "design",
+      "pattern": "design",
+      "depth": 1,
+      "template": "design_notes",
+      "parent": "home"
+    },
+    {
+      "id": "original",
+      "pattern": "original",
+      "depth": 1,
+      "template": "legacy_reference",
+      "parent": "home"
+    },
+    {
+      "id": "priorities",
+      "pattern": "priorities",
+      "depth": 1,
+      "template": "finding_index",
+      "parent": "home"
+    }
+  ],
+  "voiceStoreSlots": [
+    "one_sentence_judgment",
+    "semantic_cloud",
+    "keep_and_check_themes",
+    "one_next_action",
+    "evidence_links"
+  ],
+  "voiceThemeRequired": [
+    "title",
+    "tone",
+    "observation",
+    "judgment",
+    "action",
+    "evidence_ids",
+    "cloud_label"
+  ],
+  "voiceCountsPlacement": "evidence_or_scope_only",
+  "dashboard": {
+    "kpis": [
+      "order_revenue",
+      "positive_orders",
+      "post_discount_aov",
+      "delivery_share"
+    ],
+    "storeEntriesAfterCharts": true,
+    "panels": [
+      {
+        "id": "trend",
+        "title": "收入趋势",
+        "span": 6,
+        "detailChart": 4
+      },
+      {
+        "id": "ranking",
+        "title": "门店收入排名及堂食／外卖结构",
+        "span": 5,
+        "detailChart": 1
+      },
+      {
+        "id": "growth",
+        "title": "门店收入环比 / 同比",
+        "span": 5,
+        "detailChart": 3
+      },
+      {
+        "id": "quadrants",
+        "title": "门店经营四象限",
+        "span": 6,
+        "detailChart": 2
+      },
+      {
+        "id": "platforms",
+        "title": "外卖平台收入",
+        "span": 5,
+        "detailChart": 7
+      },
+      {
+        "id": "hourly",
+        "title": "24小时收入分布",
+        "span": 5,
+        "detailChart": 10
+      }
+    ],
+    "desktopColumns": 16
+  }
+}

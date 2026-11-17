@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from generate_business_report_html import public_payload
+from weekly_dashboard import render_dashboard
 from meeting_report_weekly import HTML_TEMPLATE, build_payload, escaped_report_title, serialized_payload_for_html
 
 
@@ -51,7 +52,7 @@ def inject_missing_data_notice(html: str, messages: list[str]) -> str:
     return html.replace(placeholder, notice)
 
 
-def render(input_dir: Path, report_path: Path, company: str | None = None) -> dict[str, Any]:
+def render(input_dir: Path, report_path: Path, company: str | None = None, *, detail_facts: dict | None = None) -> dict[str, Any]:
     summary_path = input_dir / "weekly_meeting_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     payload = build_payload(input_dir, company)
@@ -69,7 +70,7 @@ def render(input_dir: Path, report_path: Path, company: str | None = None) -> di
         serialized_payload_for_html(report_payload),
     )
     html = inject_missing_data_notice(html, list(report_payload.get("data_gaps", [])))
-    html = accessible_html(html)
+    html = render_dashboard(accessible_html(html), input_dir, report_payload, set(payload["meta"].get("outputs", [])), detail_facts)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(html, encoding="utf-8")
     return {
@@ -87,13 +88,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input-dir", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--company")
+    parser.add_argument("--dashboard-facts", type=Path, help="Optional scoped product and order aggregates.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
-        result = render(args.input_dir, args.report, args.company)
+        detail_facts = json.loads(args.dashboard_facts.read_text(encoding="utf-8")) if args.dashboard_facts else None
+        result = render(args.input_dir, args.report, args.company, detail_facts=detail_facts)
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

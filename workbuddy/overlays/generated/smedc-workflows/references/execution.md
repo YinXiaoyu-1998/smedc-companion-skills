@@ -59,9 +59,11 @@
 
 ## 自然周经营周报
 
-使用 `smedc-business-analysis` 已有链路：build_query_plan → 官方范围下载 → load_partition_extract → assemble_query_bundle → run_weekly_report → attach_business_advisory 的 prepare/attach。报告必须含 agent 撰写并校验事实锚点的经营建议，不能把事实渲染当完成报告。
+使用 `smedc-business-analysis` 已有链路：build_query_plan → 官方范围下载 → load_partition_extract → assemble_query_bundle → run_weekly_report → attach_business_advisory 的 prepare/attach。新版生成器固定驾驶舱结构和图表；智能体填写首页判断、经营建议和有证据的评价总结。按业务技能的周报驾驶舱指引完成 prepare／attach，并在 verify_final 运行同一脚本的 `verify --report-type weekly --facts-dir ... --advisory ... --report ...`。使用评价时三步均传同一 `--review-facts`。只有 verify 通过的离线 HTML 可进入后续阶段。
 
 build_query_plan 的 `--store-names` 传冻结的准确完整名称列表；官方下载使用这些完整名称作已授权候选范围，load_partition_extract 在聚合前再做精确等值过滤，相似长店名不进入结果。不要把 `--store-name-contains` 当精确授权。超过20店时保持最多2000个完整选择，按20个来源筛选分批请求，消费时仍按全体准确名称过滤；覆盖结果也按所有选定分批完整收集，不能覆盖前一批。默认 range 下载，只有原技能明确选择且部署验证通过时才用 bundle。
+
+评价复用授权的 `query_store_reviews` 只读分页，使用本轮已核对的准确企业、门店与周窗口。每页前核对最新配置、权限及租约，使用 `native.withLease` 并保存实际读回；权限或覆盖不齐时记录缺口。读取评价不登记为同步或发布。
 
 周报固定使用业务技能中的关联名称优先匹配、原品项数量保留与餐具收费分列规则；不由企业配置关闭，不复制本机 HTML 替换脚本。
 
