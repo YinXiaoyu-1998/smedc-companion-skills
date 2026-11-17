@@ -59,7 +59,18 @@ def report_details(facts_dir: Path, store_names: set[str], outputs: set[str]) ->
             item["periods"].setdefault(period, {})[row.get("销售分类") or "全渠道"] = {
                 "quantity": row.get("quantity"), "revenue": row.get("dish_income"),
             }
-    return {"meals": meals, "products": list(products.values()), "orders": [], "takeaway": []}
+    return {"meals": meals, "products": list(products.values()), "orders": [], "takeaway": [],
+            "dining": dining_details(facts_dir, store_names, outputs)}
+
+
+def dining_details(facts_dir: Path, store_names: set[str], outputs: set[str]) -> dict:
+    return {
+        name: [row for row in read_optional_csv(facts_dir / filename)
+               if row["scope"] == "all" or row["门店名称"] in store_names] if filename in outputs else []
+        for name, filename in (
+            ("daily", "weekly_dine_in_by_day.csv"), ("weekly", "weekly_dine_in_totals.csv"),
+        )
+    }
 
 
 def supplemental_details(extra: dict, payload: dict, store_names: set[str]) -> dict:
@@ -254,11 +265,13 @@ def render_voice(voice: dict | None, facts: dict | None, context: dict) -> dict 
     return public
 
 
-def bind_dashboard(html: str, advisory: dict, review_data: dict | None, has_current: bool) -> str:
+def bind_dashboard(html: str, advisory: dict, review_data: dict | None, has_current: bool, dining: dict | None = None) -> str:
     match = CONTENT.search(html)
     if not match:
         return html
     body = json.loads(match.group().split(">", 1)[1].rsplit("</script>", 1)[0])
+    if dining and any(dining.values()) and body.get("details", {}).get("dining") != dining:
+        raise ValueError("report dining metrics do not match saved weekly facts; rerender the report")
     body["headline"] = text_field(advisory.get("dashboard_headline"), "dashboard headline", 120) if has_current else ""
     body["customer_voice"] = render_voice(advisory.get("customer_voice"), review_data, advisory["context"])
     # The dashboard only consumes these business fields. Keep filenames, row references and hashes out of its embedded data.
