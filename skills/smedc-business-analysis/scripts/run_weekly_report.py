@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--company")
+    parser.add_argument("--dashboard-facts", type=Path, help="Optional scoped product and order aggregates.")
     parser.add_argument("--store-groups", type=Path, help="Optional named groups with exact full store names.")
     return parser.parse_args()
 
@@ -34,7 +35,8 @@ def main() -> int:
     try:
         organization_name = organization_name_from_current_user_file(args.current_user) if args.current_user else None
         summary = profile(args.bundle, args.output_dir, organization_name, load_store_groups(args.store_groups))
-        result = render(args.output_dir, args.report, args.company)
+        detail_facts = json.loads(args.dashboard_facts.read_text(encoding="utf-8")) if args.dashboard_facts else None
+        result = render(args.output_dir, args.report, args.company, detail_facts=detail_facts)
         result["notices"] = summary.get("data_gaps", [])
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)

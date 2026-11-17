@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from attach_business_advisory import attach, prepare, section_sources, number
-from weekly_dashboard import CONTENT, review_facts
+from weekly_dashboard import CONTENT, PAYLOAD, review_facts, supplemental_details
 
 
 class BusinessAdvisoryTests(unittest.TestCase):
@@ -126,9 +126,10 @@ class BusinessAdvisoryTests(unittest.TestCase):
                 for review in draft["store_reviews"]:
                     self.assertIn(review["store_name"] + '</summary>', html)
                 self.assertNotRegex(html, r'<details class="store-review-card"[^>]*\bopen\b')
-                self.assertEqual(html.count('data-review-section="meal_periods"'), 2)
-                self.assertEqual(html.count('data-review-section="dishes"'), 2)
-                self.assertEqual(html.count('data-review-section="stalls"'), 2)
+                feedback = html.split("<!-- SMEDC_ADVISORY_START -->")[1].split("<!-- SMEDC_ADVISORY_END -->")[0]
+                self.assertEqual(feedback.count('data-review-section="meal_periods"'), 2)
+                self.assertEqual(feedback.count('data-review-section="dishes"'), 2)
+                self.assertEqual(feedback.count('data-review-section="stalls"'), 2)
                 self.assertLess(html.index('逐店基础分析'), html.index('企业层面重点建议'))
                 self.assertIn('grid-template-columns:repeat(3,minmax(0,1fr))', html)
                 self.assertIn('.store-review-card[open]{grid-column:1/-1;min-width:0;}', html)
@@ -205,6 +206,30 @@ class BusinessAdvisoryTests(unittest.TestCase):
                 draft["findings"][0]["caveat"] = "只比较营业天数相同的门店。"
                 attach(facts, mode, report, draft)
                 self.assertIn(draft["findings"][0]["caveat"], report.read_text(encoding="utf-8"))
+
+    def test_weekly_renderer_embeds_accepted_dashboard_structure(self):
+        report = (self.root / "weekly" / "base.html").read_text()
+        structure = json.loads(report.split('<script id="report-structure" type="application/json">')[1].split("</script>")[0])
+        self.assertEqual(structure["dashboard"]["desktopColumns"], 16)
+        self.assertEqual([(panel["id"], panel["span"]) for panel in structure["dashboard"]["panels"]], [
+            ("trend", 6), ("ranking", 5), ("growth", 5), ("quadrants", 6), ("platforms", 5), ("hourly", 5)
+        ])
+        self.assertIn("px-sidebar-toggle", report)
+        self.assertIn("px-voice-lanes", report)
+
+    def test_supplemental_order_rows_cannot_cross_store_or_period_scope(self):
+        report = (self.root / "weekly" / "base.html").read_text()
+        payload = json.loads(PAYLOAD.search(report).group(1))
+        names = {row["门店名称"] for row in payload["comparison"] if row.get("current_rows")}
+        context = {"organization_name": payload["meta"]["organization_name"],
+                   "windows": {p: payload["meta"]["target_windows"][p] for p in ("current", "previous")},
+                   "store_names": sorted(names)}
+        row = {"store": sorted(names)[0], "period": "current", "group": "1–2人", "records": 1, "income": 20}
+        result = supplemental_details({"context": context, "orders": [row]}, payload, names)
+        self.assertEqual(result["orders"][0]["income"], "20")
+        for change in ({"store": "范围外门店"}, {"period": "yoy"}):
+            with self.assertRaisesRegex(ValueError, "unexpected or duplicate"):
+                supplemental_details({"context": context, "orders": [{**row, **change}]}, payload, names)
 
     def test_weekly_voice_is_verified_and_keeps_only_approved_excerpts(self):
         facts, report, draft = self.draft()

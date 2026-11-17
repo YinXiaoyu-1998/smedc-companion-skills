@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -16,11 +17,7 @@ from meeting_report_weekly import read_optional_csv, serialized_payload_for_html
 ASSETS = Path(__file__).resolve().parents[1] / "assets" / "weekly"
 CONTENT = re.compile(r'<script id="weekly-dashboard-content" type="application/json">.*?</script>', re.DOTALL)
 PAYLOAD = re.compile(r'<script type="application/json" id="report-data">(.*?)</script>', re.DOTALL)
-DETAIL_FIELDS = {
-    "meals": ("weekly_store_meal_period_comparison.csv", {"门店名称", "餐段", "current_net_revenue", "previous_net_revenue"}),
-    "stalls": ("weekly_store_stall_comparison.csv", {"门店名称", "档口", "current_income", "previous_income"}),
-    "products": ("weekly_store_product_sales_per_10k.csv", {"门店名称", "档口", "原始品项", "产品名称", "销售分类", "quantity", "dish_income", "units_per_10k", "period_key", "record_kind"}),
-}
+PERIODS = ("current", "previous", "yoy")
 
 
 def content_tag(content: dict) -> str:
@@ -29,33 +26,112 @@ def content_tag(content: dict) -> str:
 
 
 def report_details(facts_dir: Path, store_names: set[str], outputs: set[str]) -> dict:
-    details = {}
-    for key, (filename, fields) in DETAIL_FIELDS.items():
-        results = []
-        rows = read_optional_csv(facts_dir / filename) if filename in outputs else []
-        if key == "products" and "weekly_store_product_previous.csv" in outputs:
-            rows.extend(read_optional_csv(facts_dir / "weekly_store_product_previous.csv"))
-        for row in rows:
-            if row.get("门店名称") not in store_names:
-                continue
-            record = {k: v for k, v in row.items() if k in fields}
-            if key == "stalls":
-                record.update(current_net_revenue=row.get("current_income"), previous_net_revenue=row.get("previous_income"))
-            results.append(record)
-        details[key] = results
-    return details
+    def scoped(filename):
+        if filename not in outputs:
+            return []
+        return [row for row in read_optional_csv(facts_dir / filename) if row.get("门店名称") in store_names]
+
+    meals = [{
+        "store": row["门店名称"], "meal": row["餐段"],
+        "periods": {period: {
+            "revenue": row.get(f"{period}_net_revenue"),
+            "orders": row.get(f"{period}_positive_orders"),
+            "aov": row.get(f"{period}_post_discount_aov"),
+        } for period in PERIODS},
+    } for row in scoped("weekly_store_meal_period_comparison.csv")]
+
+    products = {}
+    for filename, period in (
+        ("weekly_store_product_sales_per_10k.csv", "current"),
+        ("weekly_store_product_previous.csv", "previous"),
+    ):
+        for row in scoped(filename):
+            fee = row.get("record_kind") == "fee"
+            name = row.get("原始品项") or row["产品名称"]
+            linked = row.get("产品名称") or name
+            category = "餐具与收费项" if fee else row.get("档口") or "待确认归类"
+            if category == "未匹配":
+                category = "待确认归类"
+            key = row["门店名称"], name, linked, category, fee
+            item = products.setdefault(key, {
+                "store": key[0], "name": name, "linked": linked, "category": category, "fee": fee, "periods": {},
+            })
+            item["periods"].setdefault(period, {})[row.get("销售分类") or "全渠道"] = {
+                "quantity": row.get("quantity"), "revenue": row.get("dish_income"),
+            }
+    return {"meals": meals, "products": list(products.values()), "orders": [], "takeaway": []}
 
 
-def render_dashboard(html: str, facts_dir: Path, payload: dict, outputs: set[str]) -> str:
+def supplemental_details(extra: dict, payload: dict, store_names: set[str]) -> dict:
+    """Project validated supplemental aggregates into the V4 view contract."""
+    expected = {"organization_name": payload["meta"]["organization_name"],
+                "windows": {p: payload["meta"]["target_windows"][p] for p in ("current", "previous")},
+                "store_names": sorted(store_names)}
+    if extra.get("context") != expected:
+        raise ValueError("supplemental dashboard facts must match the organization, weeks and current stores")
+    if set(extra) - {"context", "products", "orders", "takeaway"}:
+        raise ValueError("unsupported supplemental dashboard fact section")
+
+    def amount(value):
+        if value is None:
+            return None
+        try:
+            converted = Decimal(str(value))
+        except InvalidOperation as exc:
+            raise ValueError("invalid supplemental amount") from exc
+        if not converted.is_finite():
+            raise ValueError("non-finite supplemental amount")
+        return str(converted)
+
+    out = {}
+    for section, fields in {
+        "orders": ("records", "income", "discount"),
+        "takeaway": ("records", "income", "platform_fee", "promotion", "refund", "customer_paid"),
+    }.items():
+        if section not in extra:
+            continue
+        out[section] = []
+        seen = set()
+        for row in extra[section]:
+            key = row["store"], row["period"], row["group"]
+            if key[0] not in store_names or key[1] not in {"current", "previous"} or key in seen:
+                raise ValueError("unexpected or duplicate supplemental order aggregate")
+            seen.add(key)
+            item = {"store": key[0], "period": key[1], "group": text_field(key[2], "order group", 120)}
+            item.update({field: amount(row.get(field)) for field in fields})
+            if section == "takeaway":
+                item["statuses"] = {text_field(label, "order status", 120): amount(value)
+                                    for label, value in row.get("statuses", {}).items()}
+            out[section].append(item)
+    if "products" in extra:
+        out["products"] = []
+        for row in extra["products"]:
+            if row["store"] not in store_names:
+                raise ValueError("supplemental product is outside the report scope")
+            item = {field: text_field(row.get(field), field, 255) for field in ("name", "category")}
+            item.update(store=row["store"], linked=str(row.get("linked") or "")[:255],
+                        fee=row["fee"] is True, match=row.get("match") if row.get("match") in {"unique", "ambiguous"} else None)
+            item["periods"] = {period: {
+                text_field(channel, "product channel", 120): {
+                    key: amount(values.get(key)) for key in ("quantity", "revenue")
+                } for channel,values in channels.items()
+            } for period,channels in row["periods"].items() if period in {"current", "previous"}}
+            out["products"].append(item)
+    return out
+
+
+def render_dashboard(html: str, facts_dir: Path, payload: dict, outputs: set[str], extra: dict | None = None) -> str:
     names = {row["门店名称"] for row in payload["comparison"] if row.get("current_rows")}
-    content = {"headline": "", "advisory": None, "customer_voice": None, "details": report_details(facts_dir, names, outputs)}
+    details = report_details(facts_dir, names, outputs)
+    if extra is not None:
+        details.update(supplemental_details(extra, payload, names))
+    content = {"headline": "", "advisory": None, "customer_voice": None, "details": details}
     style = (ASSETS / "dashboard.css").read_text(encoding="utf-8")
     script = (ASSETS / "dashboard.js").read_text(encoding="utf-8")
-    for part in ("charts", "details"):
-        marker = f"/*__WEEKLY_{part.upper()}__*/"
-        script = script.replace(marker, (ASSETS / f"{part}.js").read_text(encoding="utf-8"), 1)
+    structure = json.loads((ASSETS / "structure.json").read_text(encoding="utf-8"))
+    embedded_structure = '<script id="report-structure" type="application/json">' + serialized_payload_for_html(structure) + '</script>'
     return html.replace("</head>", f"<style>{style}</style></head>", 1).replace(
-        "</body>", f"{content_tag(content)}<script>{script}</script></body>", 1
+        "</body>", f"{content_tag(content)}{embedded_structure}<script>{script}</script></body>", 1
     )
 
 
@@ -158,7 +234,7 @@ def render_voice(voice: dict | None, facts: dict | None, context: dict) -> dict 
         result = {"store_name": name, "headline": text_field(entry["headline"], "store voice judgment", 180), "themes": []}
         if not 0 <= len(entry["themes"]) <= 4:
             raise ValueError("use at most four review themes per store")
-        for theme in entry["themes"]:
+        for index, theme in enumerate(entry["themes"], 1):
             safe_theme = {key: text_field(theme.get(key), key, limit) for key, limit in (
                 ("title", 62), ("cloud_label", 18), ("observation", 240), ("judgment", 240), ("action", 240)
             )}
@@ -173,7 +249,7 @@ def render_voice(voice: dict | None, facts: dict | None, context: dict) -> dict 
                     raise ValueError("review excerpt must be verbatim, distinct and from the same store")
                 ids.add(key)
                 evidence.append({"source": row["source"], "date": row["date"], "excerpt": excerpt})
-            result["themes"].append({**safe_theme, "tone": theme["tone"], "evidence": evidence})
+            result["themes"].append({**safe_theme, "id": f"t{index}", "tone": theme["tone"], "evidence": evidence})
         public["stores"].append(result)
     return public
 
