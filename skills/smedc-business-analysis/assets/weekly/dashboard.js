@@ -717,14 +717,14 @@
     const days = daily.map((row) => `<tr><th scope="row">${esc(shortDate(row.business_date))}</th>${
       measures.map(([, field, key, , digits]) => {
         const note = coverage(row, key);
-        return `<td>${show(row, field, digits)}${note ? `<small class="px-muted"> · ${esc(note)}</small>` : ''}</td>`;
+        return `<td>${show(row, field, digits)}${note ? `<small class="px-muted">${esc(note)}</small>` : ''}</td>`;
       }).join('')
     }</tr>`).join('');
     const dialog = document.createElement('dialog');
     dialog.className = 'px-dining-dialog';
     dialog.setAttribute('aria-labelledby', 'px-dining-title');
     dialog.innerHTML = `<div class="px-dining-header"><h2 id="px-dining-title">堂食客流与翻台 · 逐日明细</h2><form method="dialog"><button type="submit" autofocus>关闭</button></form></div>
-      <div class="px-table-wrap"><table class="px-table"><thead><tr><th scope="col">营业日</th><th scope="col">客流（人次）</th><th scope="col">估算翻台（轮/桌/天）</th></tr></thead><tbody>${days}</tbody></table></div>
+      <div class="px-table-wrap"><table class="px-table"><thead><tr><th scope="col">营业日</th><th scope="col">客流<small>人次</small></th><th scope="col">估算翻台<small>轮/桌/天</small></th></tr></thead><tbody>${days}</tbody></table></div>
       ${exceptions}<p class="px-small-note">客流取已结账堂食订单的登记人数。翻台按堂食桌台使用次数除以系统配置桌日，含第一轮接待。</p>`;
     dialog.addEventListener('close', () => dialog.remove(), { once: true });
     document.body.append(dialog);

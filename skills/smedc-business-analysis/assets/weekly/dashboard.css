@@ -1626,6 +1626,31 @@ body.px-sidebar-collapsed {
   border-radius: 12px;
   color: var(--px-ink);
 }
+.px-dining-dialog .px-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+.px-dining-dialog .px-table th,
+.px-dining-dialog .px-table td {
+  padding: 7px 8px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.px-dining-dialog .px-table th {
+  position: static;
+  cursor: default;
+}
+.px-dining-dialog .px-table thead th:first-child {
+  width: 24%;
+}
+.px-dining-dialog .px-table small {
+  display: block;
+  font-size: 0.875em;
+}
+.px-dining-dialog .px-small-note {
+  margin: 12px 0 0;
+}
 .px-dining-dialog::backdrop {
   background: rgb(24 45 40 / 48%);
 }
