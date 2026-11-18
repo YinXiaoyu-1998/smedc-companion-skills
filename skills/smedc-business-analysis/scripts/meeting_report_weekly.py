@@ -913,6 +913,7 @@ HTML_TEMPLATE = r'''<!doctype html>
   </style>
 </head>
 <body>
+<!-- standalone-report:start -->
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand"><span class="mark"></span><span>__REPORT_TITLE__</span></div>
@@ -930,7 +931,9 @@ HTML_TEMPLATE = r'''<!doctype html>
       </nav>
     </div>
   </header>
+<!-- standalone-report:end -->
   <main>
+<!-- standalone-report:start -->
     <section class="hero">
       <div>
         <div class="kicker">Weekly Operating Review</div>
@@ -947,6 +950,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       </aside>
     </section>
 
+<!-- standalone-report:end -->
     <div id="missingDataNotice" class="callout" hidden></div>
 
     <section class="section" id="summary">
@@ -1138,6 +1142,7 @@ HTML_TEMPLATE = r'''<!doctype html>
   <script id="payload" type="application/json">__PAYLOAD__</script>
   <script>
     const data = JSON.parse(document.getElementById('payload').textContent);
+    const weeklyDashboard = Boolean(document.getElementById('weekly-panel-source'));
     const stores = data.comparison;
     const fmtWan = v => {
       const raw = Number(v || 0) / 10000;
@@ -1214,9 +1219,11 @@ HTML_TEMPLATE = r'''<!doctype html>
     }
     function renderKpis() {
       const k = data.kpis;
-      setText('heroRevenue', fmtWan(k.current_revenue));
-      setText('heroWow', fmtPct(k.wow_pct));
-      setText('heroYoy', fmtPct(k.yoy_pct));
+      if (!weeklyDashboard) {
+        setText('heroRevenue', fmtWan(k.current_revenue));
+        setText('heroWow', fmtPct(k.wow_pct));
+        setText('heroYoy', fmtPct(k.yoy_pct));
+      }
       const cards = [
         ['业务收入', fmtWan(k.current_revenue), `环比 ${fmtPct(k.wow_pct)} / 同比 ${fmtPct(k.yoy_pct)}`],
         ['客流量', fmtNum(k.current_customers), `环比 ${fmtPct(k.wow_customer_pct)} / 同比 ${fmtPct(k.yoy_customer_pct)}`],
@@ -1556,12 +1563,29 @@ HTML_TEMPLATE = r'''<!doctype html>
       navigator.addEventListener('pointercancel', endDrag);
       navigator.addEventListener('lostpointercapture', endDrag);
     }
+    function trendExtremes(values) {
+      const min = Math.min(...values), max = Math.max(...values);
+      return value => min === max ? 'normal' : value === min ? 'low' : value === max ? 'high' : 'normal';
+    }
+    const trendBarColors = {normal: colors.yellowFill, low: colors.minimum, high: colors.maximum};
+    const trendValuePresent = value => value !== null && value !== undefined && value !== '';
     function renderTrendNavigator(rows, currentField, priorField) {
       const el = document.getElementById('trendNavigator');
       const root = svg('svg', {viewBox:'0 0 1120 64', preserveAspectRatio:'none', 'aria-hidden':'true'});
       root.appendChild(svg('rect', {x:0, y:0, width:1120, height:64, rx:6, fill:'#f4f7fa', 'data-drag':'select'}));
       const max = Math.max(1, ...rows.flatMap(row => [Number(row[currentField] || 0), Number(row[priorField] || 0)]));
-      [currentField, priorField].forEach((field, series) => {
+      if (weeklyDashboard) {
+        const width = 1120 / rows.length;
+        const priorValues = rows.map(row => row[priorField]).filter(trendValuePresent).map(Number);
+        const extreme = trendExtremes(priorValues);
+        rows.forEach((row, index) => {
+          if (!trendValuePresent(row[priorField])) return;
+          const value = Number(row[priorField]);
+          const height = Math.max(0, value / max * 48);
+          root.appendChild(svg('rect', {x:(index + .15) * width, y:56-height, width:width*.7, height, fill:trendBarColors[extreme(value)], 'pointer-events':'none'}));
+        });
+      }
+      (weeklyDashboard ? [currentField] : [currentField, priorField]).forEach((field, series) => {
         let segment = [];
         const flush = () => {
           if (segment.length) root.appendChild(svg('polyline', {points:segment.join(' '), fill:'none', stroke:colors.yellow, 'stroke-width':2, ...(series ? {'stroke-dasharray':'5 4'} : {}), 'pointer-events':'none'}));
@@ -1636,7 +1660,8 @@ HTML_TEMPLATE = r'''<!doctype html>
       const units = {day:'天', week:'周', month:'个月'};
       const basis = {day:'每日', week:'完整周', month:'完整自然月'}[selectedTrendGrain];
       document.getElementById('trendTitle').textContent = `最近一年收入趋势（${allRows.length} ${units[selectedTrendGrain]}）`;
-      document.getElementById('trendMetricLabel').textContent = `${basis} · ${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；实线=${currentLabel}，虚线=${priorLabel}同期`;
+      const comparisonLabel = weeklyDashboard ? '折线＝本期，柱状＝同期' : `实线=${currentLabel}，虚线=${priorLabel}同期`;
+      document.getElementById('trendMetricLabel').textContent = `${basis} · ${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；${comparisonLabel}`;
       document.getElementById('trendControls').hidden = false;
       const w = 1120, h = 360, left = 82, right = 84, top = 34, bottom = 78;
       const hasComparisonShape = rows.some(r => Object.prototype.hasOwnProperty.call(r, 'current_net_revenue') || Object.prototype.hasOwnProperty.call(r, 'prior_net_revenue'));
@@ -1648,6 +1673,11 @@ HTML_TEMPLATE = r'''<!doctype html>
       const step = magnitude / 2;
       const yMax = Math.ceil(max / step) * step;
       const yScale = v => h - bottom - Number(v || 0) / yMax * (h-top-bottom);
+      const plotWidth = w - left - right;
+      const barWidth = Math.min(44, plotWidth / rows.length * .66);
+      const xScale = i => weeklyDashboard || rows.length === 1
+        ? left + (i + .5) * plotWidth / rows.length
+        : left + i / (rows.length - 1) * plotWidth;
       const root = svg('svg', {viewBox:`0 0 ${w} ${h}`});
       [0, .25, .5, .75, 1].forEach(t => {
         const value = yMax * t;
@@ -1661,11 +1691,32 @@ HTML_TEMPLATE = r'''<!doctype html>
       function trendPoints(field) {
         return rows.map((r,i) => {
           const raw = r[field];
-          if (raw === null || raw === undefined || raw === '') return null;
-          const x = rows.length === 1 ? (w+left-right)/2 : left + i / (rows.length - 1) * (w-left-right);
+          if (!trendValuePresent(raw)) return null;
+          const x = xScale(i);
           const y = yScale(Number(raw || 0));
           return [x,y,r,Number(raw || 0),i];
         }).filter(Boolean);
+      }
+      const priorBars = new Map();
+      function drawPriorBars() {
+        const points = trendPoints(priorField);
+        const extreme = trendExtremes(points.map(point => point[3]));
+        const baseline = yScale(0);
+        points.forEach(([x, y, , value, index]) => {
+          const level = extreme(value);
+          const bar = svg('rect', {
+            x:x-barWidth/2, y:Math.min(baseline, y),
+            width:barWidth, height:Math.abs(baseline-y),
+            fill:trendBarColors[level], 'fill-opacity':.62,
+            'data-trend-prior-bar':level
+          });
+          priorBars.set(index, bar);
+          root.appendChild(bar);
+        });
+        const last = points.at(-1);
+        if (last) {
+          root.appendChild(svg('text', {x:last[0]-7, y:last[1]+19, 'text-anchor':'end', 'font-size':'11', fill:colors.yellow, 'font-weight':'800'})).textContent = fmtWan(last[3]);
+        }
       }
       function drawTrendLine(field, color, dash, rangeField) {
         const points = trendPoints(field);
@@ -1708,11 +1759,12 @@ HTML_TEMPLATE = r'''<!doctype html>
           }
         });
       }
+      if (weeklyDashboard && hasComparisonShape) drawPriorBars();
       drawTrendLine(currentField, colors.yellow, '', hasComparisonShape ? 'current_week_range' : 'week_label');
-      if (hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', 'prior_week_range');
+      if (!weeklyDashboard && hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', 'prior_week_range');
 
       rows.forEach((r, i) => {
-        const x = rows.length === 1 ? (w+left-right)/2 : left + i / (rows.length - 1) * (w-left-right);
+        const x = xScale(i);
         if (i % Math.max(1, Math.ceil(rows.length / 10)) === 0 || i === rows.length - 1) {
           const anchor = i === rows.length - 1 ? 'end' : 'middle';
           const tx = i === rows.length - 1 ? x - 4 : x;
@@ -1720,10 +1772,14 @@ HTML_TEMPLATE = r'''<!doctype html>
         }
       });
       root.appendChild(svg('line', {x1:left+190, y1:15, x2:left+232, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-linecap':'round'}));
-      root.appendChild(svg('text', {x:left+240, y:19, 'font-size':'11', fill:'#657386'})).textContent = currentLabel;
+      root.appendChild(svg('text', {x:left+240, y:19, 'font-size':'11', fill:'#657386'})).textContent = weeklyDashboard ? `本期 · ${currentLabel}` : currentLabel;
       if (hasComparisonShape) {
-        root.appendChild(svg('line', {x1:left+362, y1:15, x2:left+404, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-dasharray':'7 5', 'stroke-linecap':'round'}));
-        root.appendChild(svg('text', {x:left+412, y:19, 'font-size':'11', fill:'#657386'})).textContent = `${priorLabel}同期`;
+        if (weeklyDashboard) {
+          root.appendChild(svg('rect', {x:left+386, y:9, width:16, height:12, fill:trendBarColors.normal, 'fill-opacity':.62}));
+        } else {
+          root.appendChild(svg('line', {x1:left+362, y1:15, x2:left+404, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-dasharray':'7 5', 'stroke-linecap':'round'}));
+        }
+        root.appendChild(svg('text', {x:left+412, y:19, 'font-size':'11', fill:'#657386'})).textContent = weeklyDashboard ? `同期 · ${priorLabel}` : `${priorLabel}同期`;
       }
       root.appendChild(svg('text', {x:left, y:18, 'font-size':'12', fill:'#657386', 'font-weight':'700'})).textContent = '业务收入（万元）';
       el.innerHTML = '';
@@ -1731,6 +1787,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const guide = svg('line', {x1:left, x2:left, y1:top, y2:h-bottom, stroke:'#657386', 'stroke-width':1, 'stroke-dasharray':'4 4', visibility:'hidden', 'pointer-events':'none', 'data-trend-guide':'true'});
       root.appendChild(guide);
       const markers = [currentField, priorField].map((field, series) => {
+        if (weeklyDashboard && series) return null;
         const marker = svg('circle', {r:6, fill:series ? 'white' : colors.yellowFill, stroke:colors.yellow, 'stroke-width':3, visibility:'hidden', 'pointer-events':'none', 'data-trend-marker':field});
         root.appendChild(marker); return marker;
       });
@@ -1740,12 +1797,17 @@ HTML_TEMPLATE = r'''<!doctype html>
       const showIndex = (index, visible = true) => {
         activeIndex = Math.max(0, Math.min(rows.length - 1, index));
         const row = rows[activeIndex];
-        const x = rows.length === 1 ? (w+left-right)/2 : left + activeIndex / (rows.length - 1) * (w-left-right);
+        const x = xScale(activeIndex);
+        if (weeklyDashboard) {
+          root.querySelector('[data-active-trend-bar]')?.removeAttribute('data-active-trend-bar');
+          if (visible) priorBars.get(activeIndex)?.setAttribute('data-active-trend-bar', '');
+        }
         guide.setAttribute('x1', x); guide.setAttribute('x2', x);
         guide.setAttribute('visibility', visible ? 'visible' : 'hidden');
         [currentField, priorField].forEach((field, series) => {
+          if (!markers[series]) return;
           const value = row[field];
-          const present = value !== null && value !== undefined && value !== '';
+          const present = trendValuePresent(value);
           markers[series].setAttribute('cx', x);
           markers[series].setAttribute('cy', yScale(value));
           markers[series].setAttribute('visibility', visible && present ? 'visible' : 'hidden');
@@ -1763,7 +1825,8 @@ HTML_TEMPLATE = r'''<!doctype html>
         const bounds = root.getBoundingClientRect();
         const matrix = root.getScreenCTM?.();
         const x = matrix ? (event.clientX - matrix.e) / matrix.a : (event.clientX - bounds.left) / bounds.width * w;
-        showIndex(Math.round((x-left) / (w-left-right) * (rows.length - 1)));
+        const fraction = (x - left) / plotWidth;
+        showIndex(weeklyDashboard ? Math.floor(fraction * rows.length) : Math.round(fraction * (rows.length - 1)));
       });
       overlay.addEventListener('pointerleave', () => showIndex(rows.length - 1, false));
       overlay.addEventListener('focus', () => showIndex(activeIndex));
@@ -2264,7 +2327,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       };
       const availability = data.availability || {};
       if (!availability.current) {
-        document.querySelector('.hero .summary').hidden = true;
+        if (!weeklyDashboard) document.querySelector('.hero .summary').hidden = true;
         ['summary', 'ranking', 'stores', 'channels', 'stall-mix', 'product-sales-per-10k', 'drivers', 'stall-drivers', 'daypart-drivers', 'dayparts'].forEach(hideSection);
         return;
       }
@@ -2276,7 +2339,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       if (!data.daypart_attribution?.enabled) hideSection('daypart-drivers');
       if (!availability.dayparts) hideSection('dayparts');
     }
-    renderMeta();
+    if (!weeklyDashboard) renderMeta();
     renderKpis();
     renderRules();
     renderBucketedRevenueRanking();
@@ -2305,12 +2368,9 @@ HTML_TEMPLATE = r'''<!doctype html>
 
 
 def generate(input_dir: Path, output: Path, company: str | None = None) -> None:
-    payload = build_payload(input_dir, company)
-    title = escaped_report_title(payload["meta"]["title"])
-    html = HTML_TEMPLATE.replace("__TITLE__", title).replace("__REPORT_TITLE__", title)
-    html = html.replace("__PAYLOAD__", serialized_payload_for_html(payload))
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(html, encoding="utf-8")
+    from generate_weekly_report_html import render
+
+    render(input_dir, output, company)
     print(output)
 
 

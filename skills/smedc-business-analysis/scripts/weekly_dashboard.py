@@ -15,6 +15,7 @@ from assemble_query_bundle import is_error_envelope, unwrap_success_envelope
 from meeting_report_weekly import read_optional_csv, serialized_payload_for_html
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets" / "weekly"
+PANEL_SOURCE = '<div id="weekly-panel-source" hidden>'
 CONTENT = re.compile(r'<script id="weekly-dashboard-content" type="application/json">.*?</script>', re.DOTALL)
 PAYLOAD = re.compile(r'<script type="application/json" id="report-data">(.*?)</script>', re.DOTALL)
 PERIODS = ("current", "previous", "yoy")

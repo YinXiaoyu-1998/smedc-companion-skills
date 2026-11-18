@@ -27,10 +27,9 @@
     });
   }
   const rows = D.comparison.filter((row) => row.current_rows);
-  const original = document.querySelector('body>main');
-  const app = document.createElement('div');
+  const app = document.createElement('main');
   app.id = 'px-app';
-  document.body.insertBefore(app, original);
+  document.body.prepend(app);
   const esc = (v) =>
     String(v ?? '').replace(
       /[&<>"']/g,
@@ -71,8 +70,18 @@
       })
       .join('')}</div>`;
 
-  const kpis = (items) =>
-    `<div class="px-kpis">${items.map((x) => `<div class="px-kpi"><label>${esc(x[0])}</label><strong>${esc(x[1])}</strong><small>${esc(x[2] || '')}</small></div>`).join('')}</div>`;
+  function kpis(items, dining = null) {
+    const cardText = ([label, value, note]) =>
+      `<span class="px-kpi-label">${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note || '')}</small>`;
+    const cards = items.map((item) => `<div class="px-kpi">${cardText(item)}</div>`);
+    if (dining) {
+      cards.push(
+        `<button type="button" class="px-kpi px-kpi-action" data-dining-detail aria-haspopup="dialog">${cardText(dining.cards[0])}<span class="px-kpi-detail-label">逐日明细 <span aria-hidden="true">↗</span></span></button>`,
+        `<div class="px-kpi">${cardText(dining.cards[1])}</div>`,
+      );
+    }
+    return `<div class="px-kpis${dining ? ' px-kpis-six' : ''}">${cards.join('')}</div>`;
+  }
   const summary = (text, label = '本周判断') =>
     `<div class="px-summary"><label>${esc(label)}</label><p>${esc(text)}</p></div>`;
   const heading = (title, sub = '', eyebrow = 'WEEKLY REVIEW') =>
@@ -118,14 +127,13 @@
       mark.remove();
     }
     mounted = [];
-    original.classList.remove('px-full');
   }
   function mount(node, target = 'px-mount') {
     const mark = document.createComment('panel-position');
     node.before(mark);
     mounted.push({ node, mark });
     document.getElementById(target).append(node);
-    convertLegacyTables(node);
+    if (!['stall-mix', 'product-sales-per-10k', 'stall-drivers'].includes(node.id)) convertLegacyTables(node);
   }
   function convertLegacyTables(root) {
     for (const t of root.querySelectorAll('table')) {
@@ -160,6 +168,14 @@
           node,
         });
     else charts.push({ section: id, title: sec.querySelector('h2')?.textContent, node: sec });
+  }
+  for (const [id, title] of [
+    ['stall-mix', '档口占比'],
+    ['product-sales-per-10k', '产品万元销量'],
+    ['stall-drivers', '档口归因'],
+  ]) {
+    const node = document.getElementById(id);
+    if (node) charts.push({ section: id, title, node });
   }
   const trendNode = document.getElementById('trend').closest('.panel');
   const hourlyNode = document.getElementById('hourlyRevenueBar').closest('.panel');
@@ -228,7 +244,7 @@
    <a href="${route('home')}">${esc(company)}经营周报</a>
   </header>
   ${body}
-  <footer class="px-footer"><span>${esc(dateRange('current', true))} · 订单营业收入</span><span><a href="${route('design')}">数据说明</a> · <a href="${route('original')}">原版完整报告</a></span></footer>`;
+  <footer class="px-footer"><span>${esc(dateRange('current', true))} · 订单营业收入</span><span><a href="${route('design')}">数据说明</a></span></footer>`;
     document.body.classList.add('px-has-sidebar');
     mobileNavOpen = false;
     syncSidebar();
@@ -669,11 +685,10 @@
         hourly: D.availability.dayparts,
       })[panel.id],
   );
-  function diningSection(store = null) {
+  function diningMetrics(store = null) {
     const matches = (row) => store ? row.scope === 'store' && row['门店名称'] === store : row.scope === 'all';
     const total = X.dining?.weekly.find(matches);
-    if (!total) return '';
-    const cells = X.dining.daily.filter(matches);
+    if (!total) return null;
     const measures = [
       ['堂食客流', 'dine_in_headcount', 'traffic_days', '人次', 0],
       ['估算翻台率', 'estimated_table_turnover', 'turnover_days', '轮/桌/天', 2],
@@ -686,19 +701,34 @@
       coverage(total, key) || '本周',
     ]);
     if (total.dine_in_headcount == null && total.estimated_table_turnover == null
-        && !Number(total.excluded_orders)) return '';
+        && !Number(total.excluded_orders)) return null;
+    return { cards, total, daily: X.dining.daily.filter(matches), measures, show, coverage };
+  }
+
+  function bindDiningDetail(dining) {
+    if (!dining) return;
+    app.querySelector('[data-dining-detail]').onclick = () => openDiningDetail(dining);
+  }
+
+  function openDiningDetail({ total, daily, measures, show, coverage }) {
     const exceptions = Number(total.excluded_orders)
       ? `<p class="px-small-note">本周有 ${num(total.excluded_orders, 0)} 笔订单人数异常或不可用，已从客流剔除。${Number(total.excluded_registered_headcount) ? `可核对的原登记人数合计 ${num(total.excluded_registered_headcount, 0)} 人次。` : ''}</p>`
       : '';
-    const days = cells.map((row) => `<tr><th scope="row">${esc(shortDate(row.business_date))}</th>${
+    const days = daily.map((row) => `<tr><th scope="row">${esc(shortDate(row.business_date))}</th>${
       measures.map(([, field, key, , digits]) => {
         const note = coverage(row, key);
         return `<td>${show(row, field, digits)}${note ? `<small class="px-muted"> · ${esc(note)}</small>` : ''}</td>`;
       }).join('')
     }</tr>`).join('');
-    return `<section class="px-section"><h2>堂食客流与翻台</h2>${kpis(cards)}${exceptions}${
-      detail('逐日明细', `<div class="px-table-wrap"><table class="px-table" aria-label="堂食客流与翻台逐日明细"><thead><tr><th scope="col">营业日</th><th scope="col">客流（人次）</th><th scope="col">估算翻台（轮/桌/天）</th></tr></thead><tbody>${days}</tbody></table></div>`)
-    }<p class="px-small-note">客流取已结账堂食订单的登记人数。翻台按堂食桌台使用次数除以系统配置桌日，含第一轮接待。</p></section>`;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'px-dining-dialog';
+    dialog.setAttribute('aria-labelledby', 'px-dining-title');
+    dialog.innerHTML = `<div class="px-dining-header"><h2 id="px-dining-title">堂食客流与翻台 · 逐日明细</h2><form method="dialog"><button type="submit" autofocus>关闭</button></form></div>
+      <div class="px-table-wrap"><table class="px-table"><thead><tr><th scope="col">营业日</th><th scope="col">客流（人次）</th><th scope="col">估算翻台（轮/桌/天）</th></tr></thead><tbody>${days}</tbody></table></div>
+      ${exceptions}<p class="px-small-note">客流取已结账堂食订单的登记人数。翻台按堂食桌台使用次数除以系统配置桌日，含第一轮接待。</p>`;
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    document.body.append(dialog);
+    dialog.showModal();
   }
 
   function home(onlyStores = false) {
@@ -735,9 +765,11 @@
         `较上周 ${share - previousShare >= 0 ? '+' : ''}${num((share - previousShare) * 100, 1)} 个百分点`,
       ],
     ];
+    const dining = diningMetrics();
     shell(
-      `<div class="dash-title"><h1 tabindex="-1">周经营驾驶舱</h1><span>${esc(dateRange('current', true))} · ${rows.length} 家门店</span></div><div class="dash-verdict"><span>本周判断</span><p>${esc(content.headline)}</p><a href="${route('priorities')}">看依据 →</a></div>${D.availability.current ? kpis(cards) : '<p>本周暂无可用经营数据。</p>'}${diningSection()}<div class="dash-grid" style="--dash-columns:${STRUCTURE.dashboard.desktopColumns}">${panels.map(dashPanel).join('')}</div><section class="dash-store-section"><div class="dash-section-heading"><h2>进入门店</h2></div><div class="dash-store-links">${rows.map((r, i) => `<a href="${route('store', i)}"><b>${esc(short(r['门店名称']))}</b><span class="${r.wow_net_revenue_pct < 0 ? 'px-down' : 'px-up'}">${pct(r.wow_net_revenue_pct)} <i>环比</i></span><span aria-hidden="true">↗</span></a>`).join('')}</div></section>`,
+      `<div class="dash-title"><h1 tabindex="-1">周经营驾驶舱</h1><span>${esc(dateRange('current', true))} · ${rows.length} 家门店</span></div><div class="dash-verdict"><span>本周判断</span><p>${esc(content.headline)}</p><a href="${route('priorities')}">看依据 →</a></div>${D.availability.current ? kpis(cards, dining) : '<p>本周暂无可用经营数据。</p>'}<div class="dash-grid" style="--dash-columns:${STRUCTURE.dashboard.desktopColumns}">${panels.map(dashPanel).join('')}</div><section class="dash-store-section"><div class="dash-section-heading"><h2>进入门店</h2></div><div class="dash-store-links">${rows.map((r, i) => `<a href="${route('store', i)}"><b>${esc(short(r['门店名称']))}</b><span class="${r.wow_net_revenue_pct < 0 ? 'px-down' : 'px-up'}">${pct(r.wow_net_revenue_pct)} <i>环比</i></span><span aria-hidden="true">↗</span></a>`).join('')}</div></section>`,
     );
+    if (D.availability.current) bindDiningDetail(dining);
     if (document.getElementById('dash-trend-host')) {
       mount(trendNode, 'dash-trend-host');
       const select = document.getElementById('trendStoreSelect');
@@ -786,6 +818,7 @@
   function store(i) {
     const r = rows[i],
       name = r['门店名称'];
+    const dining = diningMetrics(name);
     shell(
       `${storeCrumbs(i)}${heading(name, '先选择一个经营维度。详细表格与判断留在下一层。', 'STORE / 门店概览')}${kpis(
         [
@@ -794,8 +827,10 @@
           ['正向订单', num(r.current_positive_orders, 0) + ' 单', '营业分组表口径'],
           ['折后单均', num(r.current_post_discount_aov) + ' 元', '同口径收入 / 正向订单'],
         ],
-      )}${diningSection(name)}${summary(ptext(mealNode(name), 1))}<div class="px-modules">${link(route('meals', i), '餐段经营', '早餐、午餐、晚餐等餐段 → 关键指标 → 时段依据', '◷')}${link(route('menu', i), '菜品结构', '品类 → 具体菜品 → 原品项销量与渠道', '≋')}${link(route('orders', i), '堂食订单结构', '用餐人数分组 → 订单与收入变化', '▤')}${link(route('takeaway', i), '外卖渠道与费用', '平台 → 收入、单量、活动支出与退款', '↗')}${link(route('reviews', i), '顾客声音', '先读一句经营判断，再看主题与建议', '◎')}${link(route('trend', i), '收入趋势', '进入后查看本店完整历史，并缩放时间范围', '⌁')}</div>`,
+        dining,
+      )}${summary(ptext(mealNode(name), 1))}<div class="px-modules">${link(route('meals', i), '餐段经营', '早餐、午餐、晚餐等餐段 → 关键指标 → 时段依据', '◷')}${link(route('menu', i), '菜品结构', '品类 → 具体菜品 → 原品项销量与渠道', '≋')}${link(route('orders', i), '堂食订单结构', '用餐人数分组 → 订单与收入变化', '▤')}${link(route('takeaway', i), '外卖渠道与费用', '平台 → 收入、单量、活动支出与退款', '↗')}${link(route('reviews', i), '顾客声音', '先读一句经营判断，再看主题与建议', '◎')}${link(route('trend', i), '收入趋势', '进入后查看本店完整历史，并缩放时间范围', '⌁')}</div>`,
     );
+    bindDiningDetail(dining);
   }
   function evidenceGroups(name) {
     const n = mealNode(name),
@@ -1195,12 +1230,12 @@
  ${t.evidence.map((item) => `<article class="px-quote-card"><div class="px-muted">${esc(item.source)} · ${esc(item.date)}</div><blockquote class="px-review-quote">${esc(item.excerpt)}</blockquote></article>`).join('')}`);
   }
 
-  function originalChart(kind, i) {
+  function chartPage(kind, i) {
     const isTrend = kind === 'trend',
       node = isTrend ? trendNode : hourlyNode;
     const title = isTrend ? '收入趋势' : '全天时段收入';
     shell(
-      `${i === 'all' ? crumbs([[title]]) : storeCrumbs(Number(i), [title])}${heading(title, '可使用图表中的门店与时间控件继续探索。')}<div id="px-mount" class="px-original"></div>`,
+      `${i === 'all' ? crumbs([[title]]) : storeCrumbs(Number(i), [title])}${heading(title, '可使用图表中的门店与时间控件继续探索。')}<div id="px-mount" class="px-mounted-panel"></div>`,
     );
     mount(node);
     const select = document.getElementById(isTrend ? 'trendStoreSelect' : 'hourlyStoreSelect');
@@ -1228,6 +1263,7 @@
  )}`);
   }
   function navigate() {
+    document.querySelector('.px-dining-dialog[open]')?.close();
     if (lastRoute)
       saved.set(lastRoute, {
         scroll: scrollY,
@@ -1259,7 +1295,7 @@
       else if (page === 'reviews') customerReviews(arg);
       else if (page === 'review-topic') voiceTopic(Number(arg), arg2);
       else if (page === 'review-evidence') voiceTopic(Number(arg), arg2, true);
-      else if (page === 'trend' || page === 'hourly') originalChart(page, arg);
+      else if (page === 'trend' || page === 'hourly') chartPage(page, arg);
       else if (page === 'design') design();
       else if (page === 'topics')
         shell(`${crumbs([['经营专题']])}${heading('跨店看经营', '先选问题，再进入对应图表。')}${topics()}`);
@@ -1275,18 +1311,9 @@
       else if (page === 'chart') {
         const c = charts[Number(arg)];
         shell(
-          `${crumbs([['跨店经营专题', route('benchmark')], [c.title]])}${heading(c.title)}<div class="px-original" id="px-mount"></div>`,
+          `${crumbs([['跨店经营专题', route('benchmark')], [c.title]])}${heading(c.title)}<div class="px-mounted-panel" id="px-mount"></div>`,
         );
         mount(c.node);
-      } else if (page === 'original') {
-        shell(
-          `${crumbs([['原版完整报告']])}${heading('原版完整报告', '保留原始内容、图表与交互，供对照。')}<div class="px-full-tools"><button id="px-expand-all">展开原版全部内容</button><button id="px-collapse-all">收起原版详情</button></div>`,
-        );
-        original.classList.add('px-full');
-        document.getElementById('px-expand-all').onclick = () =>
-          original.querySelectorAll('details').forEach((d) => (d.open = true));
-        document.getElementById('px-collapse-all').onclick = () =>
-          original.querySelectorAll('details').forEach((d) => (d.open = false));
       } else home();
       app.dataset.page = routeRule.id;
       app.dataset.depth = routeRule.depth;
@@ -1316,28 +1343,5 @@
     window.scrollTo(0, state?.scroll || 0);
   }
   window.addEventListener('hashchange', navigate);
-  document.addEventListener('click', (e) => {
-    const a = e.target.closest('a[href^="#"]');
-    if (a && a.closest('main') && !a.hash.startsWith('#/alpha/')) {
-      const target = document.getElementById(a.hash.slice(1));
-      if (target) {
-        e.preventDefault();
-        for (let n = target; n; n = n.parentElement) if (n.tagName === 'DETAILS') n.open = true;
-        target.scrollIntoView({ block: 'start' });
-      }
-    }
-  });
-  let printState = [];
-  window.addEventListener('beforeprint', () => {
-    restore();
-    document.body.classList.add('px-print');
-    printState = [...original.querySelectorAll('details')].map((d) => d.open);
-    original.querySelectorAll('details').forEach((d) => (d.open = true));
-  });
-  window.addEventListener('afterprint', () => {
-    document.body.classList.remove('px-print');
-    original.querySelectorAll('details').forEach((d, i) => (d.open = printState[i]));
-    navigate();
-  });
   navigate();
 })();

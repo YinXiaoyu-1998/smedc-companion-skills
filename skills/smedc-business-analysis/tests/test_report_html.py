@@ -140,7 +140,10 @@ class ReportHtmlTests(unittest.TestCase):
         )
 
         assert_self_contained(self, html)
-        self.assertIn("<h1>示例餐饮管理有限公司周经营会报</h1>", html)
+        self.assertIn("<title>示例餐饮管理有限公司周经营会报</title>", html)
+        self.assertIn('id="weekly-panel-source" hidden', html)
+        self.assertNotIn('class="topbar"', html)
+        self.assertNotIn('原版完整报告', html)
         self.assertNotIn("示例餐饮管理有限公司周会经营报告", html)
         self.assertIn("2026-07-20", html)
         self.assertIn("2026-07-26", html)
@@ -297,6 +300,8 @@ class Element {
   replaceChildren(...nodes) { this.children=nodes; }
   setAttribute(key,value) { this.attrs[key]=String(value); }
   getAttribute(key) { return this.attrs[key]; }
+  removeAttribute(key) { delete this.attrs[key]; }
+  querySelector(selector) { return this.children.find(node=>selector.slice(1,-1) in node.attrs); }
   addEventListener(key,fn) { (this.listeners[key] ||= []).push(fn); }
   getBoundingClientRect() { return {left:200,width:1000}; }
   getScreenCTM() { return {a:.5,e:200}; }
@@ -316,7 +321,7 @@ let selectedTrendKey='__all__', selectedTrendGrain='week', trendStart=0, trendEn
 const colors={yellow:'#aa0',yellowFill:'#ff0',minimum:'#f00',minimumStroke:'#a00',maximum:'#00f',maximumStroke:'#00a'};
 const currentTrendYear='2026',yoyTrendYear='2025',cleanName=String,fmtWan=v=>`${v/10000}万`,fmtYuan=v=>`${v}元`;
 """
-                script += functions + r"""
+                script += f"const weeklyDashboard = {json.dumps(grain == 'weekly')};\n" + functions + r"""
 renderTrendSelector(); renderTrend();
 assert.equal(elements.trendGrainSelect.children.length,3);
 const root=elements.trend.children[0];
@@ -331,13 +336,24 @@ assert.equal(guide.attrs.visibility,'visible');
 assert.match(elements.trendReadout.children[0].textContent,/2026-07-02.*0元/);
 assert.match(elements.trendReadout.children[1].textContent,/2025-07-02.*暂无记录/);
 assert.equal(markers[0].attrs.visibility,'visible');
-assert.equal(markers[1].attrs.visibility,'hidden');
+const bars = root.children.filter(n=>'data-trend-prior-bar' in n.attrs);
+if (weeklyDashboard) {
+  assert.equal(markers.length,1);
+  assert.deepEqual(bars.map(n=>[n.tag,n.attrs['data-trend-prior-bar'],n.attrs.fill]), [
+    ['rect','low',colors.minimum], ['rect','high',colors.maximum]
+  ]);
+  assert.ok(root.children.some(n=>n.tag === 'polyline'));
+} else {
+  assert.equal(bars.length,0);
+  assert.equal(markers[1].attrs.visibility,'hidden');
+}
 const text=elements.trendReadout.children[0].textContent;
 overlay.fire('pointermove',{clientX:480,clientY:9999});
 assert.equal(elements.trendReadout.children[0].textContent,text);
 overlay.fire('keydown',{key:'End',preventDefault(){}});
 assert.match(elements.trendReadout.children[0].textContent,/102元/);
 assert.match(elements.trendReadout.children[1].textContent,/52元/);
+if (weeklyDashboard) assert.ok('data-active-trend-bar' in bars[1].attrs);
 overlay.fire('pointerleave'); assert.equal(guide.attrs.visibility,'hidden');
 setTrendRange(1,2);
 elements.trendStoreSelect.value='x';elements.trendStoreSelect.onchange();
@@ -377,7 +393,8 @@ assert.equal(elements.trendNavigator.listeners.pointerdown.length,1);
         self.assertEqual(rendered.returncode, 0, rendered.stderr)
         html = report_path.read_text(encoding="utf-8")
         payload = embedded_payload(html)
-        self.assertIn(f"<h1>{ORG_NAME}周经营会报</h1>", html)
+        self.assertIn(f"<title>{ORG_NAME}周经营会报</title>", html)
+        self.assertIn('id="weekly-panel-source" hidden', html)
         self.assertEqual(payload["meta"]["title"], f"{ORG_NAME}周经营会报")
         self.assertEqual(payload["meta"]["organization_name"], ORG_NAME)
 
@@ -402,7 +419,7 @@ assert.equal(elements.trendNavigator.listeners.pointerdown.length,1);
         override_html = report_path.read_text(encoding="utf-8")
         override_payload = embedded_payload(override_html)
 
-        self.assertIn("<h1>董事会展示名称周经营会报</h1>", override_html)
+        self.assertIn("<title>董事会展示名称周经营会报</title>", override_html)
         self.assertEqual(override_payload["meta"]["title"], "董事会展示名称周经营会报")
         self.assertEqual(override_payload["meta"]["organization_name"], ORG_NAME)
         self.assertEqual(override_payload["meta"]["target_windows"], default_payload["meta"]["target_windows"])
@@ -775,7 +792,7 @@ assert.equal(elements.trendNavigator.listeners.pointerdown.length,1);
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 html = report_path.read_text(encoding="utf-8")
                 payload = embedded_payload(html)
-                self.assertIn(f"<h1>董事会展示名称{suffix}</h1>", html)
+                self.assertIn(f"<title>董事会展示名称{suffix}</title>", html)
                 self.assertEqual(payload["meta"]["title"], f"董事会展示名称{suffix}")
                 self.assertEqual(payload["meta"]["organization_name"], ORG_NAME)
 

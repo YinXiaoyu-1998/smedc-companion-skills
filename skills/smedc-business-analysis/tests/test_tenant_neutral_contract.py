@@ -62,7 +62,7 @@ class TenantNeutralContractTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         return report_path.read_text(encoding="utf-8")
 
-    def test_current_user_fixture_organization_name_reaches_all_report_h1_titles(self) -> None:
+    def test_current_user_fixture_organization_name_reaches_all_report_titles(self) -> None:
         cases = [
             ("run_business_report.py", "diagnosis_bundle.json"),
             ("run_weekly_report.py", "weekly_bundle.json"),
@@ -71,7 +71,7 @@ class TenantNeutralContractTests(unittest.TestCase):
         for runner, fixture_name in cases:
             with self.subTest(runner=runner):
                 html = self.render_report(runner, fixture_name)
-                headings = h1_texts(html)
+                headings = re.findall(r"<title>(.*?)</title>", html.split("</head>", 1)[0]) if runner == "run_weekly_report.py" else h1_texts(html)
                 self.assertTrue(headings, html[:500])
                 self.assertTrue(all(ORG_NAME in heading for heading in headings), headings)
 

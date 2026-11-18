@@ -201,13 +201,6 @@
       "parent": "home"
     },
     {
-      "id": "original",
-      "pattern": "original",
-      "depth": 1,
-      "template": "legacy_reference",
-      "parent": "home"
-    },
-    {
       "id": "priorities",
       "pattern": "priorities",
       "depth": 1,

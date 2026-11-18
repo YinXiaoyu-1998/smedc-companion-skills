@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from generate_business_report_html import public_payload
-from weekly_dashboard import render_dashboard
+from weekly_dashboard import PANEL_SOURCE, render_dashboard
 from meeting_report_weekly import HTML_TEMPLATE, build_payload, escaped_report_title, serialized_payload_for_html
 
 
@@ -58,8 +58,9 @@ def render(input_dir: Path, report_path: Path, company: str | None = None, *, de
     payload = build_payload(input_dir, company)
     report_payload = presentation_payload(payload)
     title = escaped_report_title(payload["meta"]["title"])
-    html = HTML_TEMPLATE.replace("__TITLE__", title)
-    html = html.replace("__REPORT_TITLE__", title)
+    html = re.sub(r"<!-- standalone-report:start -->.*?<!-- standalone-report:end -->\n", "", HTML_TEMPLATE, flags=re.DOTALL)
+    html = html.replace("__TITLE__", title)
+    html = html.replace("<main>", PANEL_SOURCE, 1).replace("</main>", "</div>", 1)
     html = html.replace(
         '<script id="payload" type="application/json">',
         '<script type="application/json" id="report-data">',
