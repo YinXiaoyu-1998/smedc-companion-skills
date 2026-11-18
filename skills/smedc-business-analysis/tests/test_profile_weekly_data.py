@@ -65,7 +65,7 @@ const html=fs.readFileSync(process.argv[1],'utf8');
 const data=JSON.parse(html.match(/<script type="application\/json" id="report-data">([\s\S]*?)<\/script>/)[1]);
 const source=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const nodes={kpiCards:{innerHTML:''},table:{innerHTML:''},actionList:{innerHTML:''}};
-const context=vm.createContext({data,stores:data.comparison,segmentGroups:data.segment_groups,document:{getElementById:id=>nodes[id],querySelector:()=>nodes.table,querySelectorAll:()=>[]},setText:()=>{}});
+const context=vm.createContext({data,weeklyDashboard:true,stores:data.comparison,segmentGroups:data.segment_groups,document:{getElementById:id=>nodes[id],querySelector:()=>nodes.table,querySelectorAll:()=>[]},setText:()=>{}});
 vm.runInContext(source.slice(source.indexOf('const fmtWan'),source.indexOf('const colors')),context);
 vm.runInContext(source.slice(source.indexOf('function renderKpis'),source.indexOf('function ruleColor')),context);
 vm.runInContext(source.slice(source.indexOf('function renderTable'),source.indexOf('function renderActions')),context);

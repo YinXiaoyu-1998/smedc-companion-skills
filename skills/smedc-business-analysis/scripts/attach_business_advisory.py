@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from identity import organization_name_from_metadata
-from weekly_dashboard import bind_dashboard, voice_draft
+from weekly_dashboard import PANEL_SOURCE, bind_dashboard, dining_details, voice_draft
 
 SUMMARY_FILES = {"diagnosis": "analysis_summary.json", "weekly": "weekly_meeting_summary.json",
                  "monthly": "monthly_meeting_summary.json"}
@@ -351,7 +351,10 @@ def attach(facts_dir: Path, report_type: str, report_path: Path, advisory: dict,
     if advisory["findings"] or advisory.get("store_reviews"):
         marker = MARKERS[0]
         block = f'<!-- {marker}_START -->{render_feedback(advisory)}<!-- {marker}_END -->'
-        position = html.index('</section>', html.index('<main')) + len('</section>')
+        if report_type == "weekly" and PANEL_SOURCE in html:
+            position = html.index(PANEL_SOURCE) + len(PANEL_SOURCE)
+        else:
+            position = html.index('</section>', html.index('<main')) + len('</section>')
         html = html[:position] + block + html[position:]
         marker = MARKERS[1]
         style = ('#business-advisory details{border:1px solid #d9e1e7;border-radius:12px;padding:16px;margin:12px 0;}'
@@ -375,7 +378,9 @@ def attach(facts_dir: Path, report_type: str, report_path: Path, advisory: dict,
                  '#business-advisory details>*{display:block!important;}}')
         html = html.replace('</head>', f'<!-- {marker}_START --><style>{style}</style><!-- {marker}_END --></head>', 1)
     if report_type == "weekly":
-        html = bind_dashboard(html, advisory, review_data, has_current)
+        names = {item["store_name"] for item in context["store_coverage"]}
+        html = bind_dashboard(html, advisory, review_data, has_current,
+                              dining_details(facts_dir, names, set(sources)))
     if verify and (html != original or (report_type == "weekly" and 'id="weekly-dashboard-content"' not in html)):
         raise ValueError("final report does not match verified facts and advisory; regenerate and attach")
     if html != original:

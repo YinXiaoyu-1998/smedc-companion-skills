@@ -28,7 +28,7 @@
 - configuration：实时兼容服务、已保存精确企业／来源账号／来源集团品牌绑定、门店映射和独立任务选择。未知门店 needs_configuration；不是闭店。
 - permissions：当前 admin 及对应内容权限。未通过前不读本地待上传业务原件。
 - meituan_erp / meituan_reviews：先按 [浏览器选择与恢复](browser.md) 选择实际可用的 bsk Agent Window 或本机 Chrome，再分别检查正确来源账号和真实会话；不搬 Cookie。bsk Agent Window 不可用时必须检查 Chrome，不能提前停止整轮准备检查。
-- download / file_format：每日入库按原技能对当前授权范围作小样本导出，核对筛选、原件完整列、行数及来源身份；周报检查官方范围下载。评价导出是可选采集路径，不支持当天导出或零样本时保留真实 download 状态，另验证 meituan_reviews 的逐页读取；file_format 验证审阅表生成和独立重开。页面打开不是导出验证。sampleStatus 只用 verified、no_sample、not_checked；具体方法（如合成审阅表回读）放 nextStep，无样本不伪称导出成功。准备检查与首次实际运行分开。
+- download / file_format：每日入库按原技能对当前授权范围作小样本导出，核对筛选、原件完整列、行数及来源身份；周报检查官方范围下载，并按[周报取数范围](execution.md#自然周经营周报)核对定时任务的营业、菜品和店内订单下载授权。评价导出是可选采集路径，不支持当天导出或零样本时保留真实 download 状态，另验证 meituan_reviews 的逐页读取；file_format 验证审阅表生成和独立重开。页面打开不是导出验证。sampleStatus 只用 verified、no_sample、not_checked；具体方法（如合成审阅表回读）放 nextStep，无样本不伪称导出成功。准备检查与首次实际运行分开。
 - workspace：实际可写的专属本地工作目录、文件权限和精确清理归属；不把家目录或共享 Downloads 当 run 根。
 - dependencies：所选技能完整子树、版本／哈希及运行依赖。表格和文档依赖通过宿主 `本地运行环境探测` 获取，不硬编码库路径。评价解析需 openpyxl；工作簿复用 本地工作簿依赖 构建器。
 - host_schedule / host_timezone / host_model：原生独立本地 cron、系统 Asia/Shanghai、实际支持的模型与推理选项；缺失就暂停。迁移保留旧任务模型和推理设置，不擅自降级。

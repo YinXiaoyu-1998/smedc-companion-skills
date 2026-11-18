@@ -13,6 +13,7 @@ from typing import Any
 from build_query_plan import WEEKLY_TREND_WEEKS, weekly_trend_window
 
 from revenue_trend import write_revenue_views
+from weekly_dining import FACT_FIELDS, TRAFFIC, TURNOVER, dining_facts
 from identity import organization_name_from_current_user_file, organization_name_from_metadata
 from report_common import (
     aggregate_rows,
@@ -146,7 +147,19 @@ def profile(bundle_path: Path, output_dir: Path, organization_name: str | None =
     write_csv(output_dir / "store_driver_summary.csv", drivers, list(drivers[0]) if drivers else ["门店名称", "basis"])
     write_csv(output_dir / "star_problem_stores.csv", store_segments, list(store_segments[0]) if store_segments else ["门店名称", "segment"])
 
+    dining_outputs = []
+    daily, weekly = dining_facts(
+        rows_for(bundle, TRAFFIC), rows_for(bundle, TURNOVER),
+        sorted(row["门店名称"] for row in comparisons if row.get("current_rows")),
+        bundle["report"]["windows"]["current"],
+    )
+    for filename, rows in (("weekly_dine_in_by_day.csv", daily), ("weekly_dine_in_totals.csv", weekly)):
+        if rows:
+            write_csv(output_dir / filename, rows, FACT_FIELDS)
+            dining_outputs.append(filename)
+
     outputs = [
+        *dining_outputs,
         *trend_outputs,
         "weekly_store_meal_period_comparison.csv",
         "weekly_store_metrics.csv",

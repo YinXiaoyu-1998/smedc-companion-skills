@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from assemble_query_bundle import dump_json_exact, is_error_envelope, unwrap_success_envelope
+from weekly_dining import METRICS, DiningAccumulator, reviewed_exclusions
 
 
 class ExtractError(ValueError):
@@ -86,6 +87,8 @@ def registry_maps(registry_response: dict[str, Any]) -> dict[str, dict[str, dict
 
 
 def required_fields(job: dict[str, Any]) -> set[str]:
+    if metric := job.get("localMetric"):
+        return set(METRICS[metric][1])
     query = job["input"]
     names = set(query.get("groupBy", []))
     filter_spec = query.get("filter")
@@ -248,7 +251,7 @@ def process_file(
     directory: Path,
     file_spec: dict[str, Any],
     fields: dict[str, dict[str, Any]],
-    accumulators: list[JobAccumulator],
+    accumulators: list[JobAccumulator | DiningAccumulator],
     store_name_contains: list[str],
     validate_service_scope: bool = False,
     store_names: list[str] | None = None,
@@ -291,7 +294,7 @@ def process_file(
         raise ExtractError(f"partition {file_name} row count mismatch")
 
 
-def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], responses_dir: Path) -> None:
+def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], responses_dir: Path, exclusions: Any = None) -> None:
     from partition_download_plan import resolve_shared_report
     manifest = resolve_shared_report(manifest)
     jobs = manifest.get("jobs")
@@ -310,7 +313,11 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         raise ExtractError("manifest report storeNames must contain exact nonblank names")
     local_jobs = [job for job in jobs if isinstance(job, dict) and job.get("tool") == "local_partition_aggregate"]
     fields_by_dataset = registry_maps(registry_response)
-    accumulators = {job["id"]: JobAccumulator(job) for job in local_jobs}
+    reviewed = reviewed_exclusions(exclusions)
+    accumulators = {
+        job["id"]: DiningAccumulator(job, reviewed) if job.get("localMetric") else JobAccumulator(job)
+        for job in local_jobs
+    }
     seen_directories: set[Path] = set()
     seen_partitions: dict[tuple[str, str, str, str], tuple[str, int]] = {}
     for extract_spec in extracts:
@@ -353,6 +360,10 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
             seen_partitions[identity] = (checksum, metadata_count(file_spec.get("rowCount"), "rowCount"))
             process_file(dataset, directory, file_spec, fields_by_dataset[dataset], dataset_accumulators, store_name_contains, "storeNameContains" in extract_spec["input"], store_names)
 
+    if reviewed and not any(
+        item.matched == reviewed for item in accumulators.values() if isinstance(item, DiningAccumulator)
+    ):
+        raise ExtractError("reviewed headcount exclusions must each match an in-scope settled dine-in order")
     for accumulator in accumulators.values():
         job = accumulator.job
         output = safe_response_path(responses_dir, job["outputFile"])
@@ -395,6 +406,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--registry-response", type=Path)
     parser.add_argument("--responses-dir", required=True, type=Path)
+    parser.add_argument("--headcount-exclusions", type=Path, help="Optional reviewed store/date/order identities for this weekly report.")
     parser.add_argument("--cleanup-only", action="store_true", help="Delete only launcher-owned extract directories named by saved responses.")
     return parser.parse_args(argv)
 
@@ -409,7 +421,8 @@ def main(argv: list[str]) -> int:
         if args.registry_response is None:
             raise ExtractError("--registry-response is required unless --cleanup-only is used")
         registry = require_object(load_json(args.registry_response, "registry response"), "registry response")
-        materialize(manifest, registry, args.responses_dir)
+        exclusions = load_json(args.headcount_exclusions, "reviewed headcount exclusions") if args.headcount_exclusions else None
+        materialize(manifest, registry, args.responses_dir, exclusions)
     except (ExtractError, ValueError, OSError, KeyError, TypeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

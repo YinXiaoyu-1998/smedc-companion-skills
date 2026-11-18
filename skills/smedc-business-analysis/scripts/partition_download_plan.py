@@ -68,7 +68,7 @@ def normalize_exact_store_names(values: list[str] | None) -> list[str]:
 
 
 def split_download_windows(dataset: str, windows: list[Any]) -> list[dict[str, str]]:
-    if dataset not in {'business', 'dishes'}:
+    if dataset not in {'business', 'dishes', 'in_store_orders'}:
         raise ValueError(f'unsupported partition dataset: {dataset}')
     ranges = []
     for window in windows:

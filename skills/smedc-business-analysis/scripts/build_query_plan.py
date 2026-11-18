@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from identity import ORGANIZATION_ERROR, organization_name_from_current_user_file
+from weekly_dining import METRICS
 from partition_download_plan import BUNDLE_RELEASE_GATE, RELEASE_GATE, make_extract, normalize_store_names, normalize_exact_store_names, split_download_windows
 
 
@@ -254,10 +255,14 @@ def load_coverage(
     registry: dict[str, dict[str, Any]],
     coverage_dir: Path,
     enterprise_name: str,
+    include_weekly_orders: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
     coverage: dict[str, dict[str, Any]] = {}
     notices: list[dict[str, str]] = []
-    for dataset_name, dataset_config in config["datasets"].items():
+    datasets = dict(config["datasets"])
+    if include_weekly_orders and registry.get("in_store_orders", {}).get("accessMode") == "partition_extract":
+        datasets["in_store_orders"] = {"metadataPolicy": "window"}
+    for dataset_name, dataset_config in datasets.items():
         path = coverage_path(coverage_dir, dataset_name)
         if not path.exists():
             coverage[dataset_name] = {
@@ -267,6 +272,13 @@ def load_coverage(
                 "readable": False,
             }
             continue
+        # An explicit denied optional capability still produces a partial weekly report.
+        if dataset_name == "in_store_orders":
+            raw = load_json(path, "coverage response")
+            if isinstance(raw, dict) and raw.get("isError") is True:
+                coverage[dataset_name] = {"sources": [], "readable": False}
+                notices.append(make_notice("ORDER_COVERAGE_READ_ERROR", dataset_name, "current", "weeklyDining"))
+                continue
         envelope = load_mcp_json(path, "coverage response")
         if envelope.get("dataset") != dataset_name:
             raise PlanError(f"malformed coverage envelope for {dataset_name}")
@@ -573,6 +585,12 @@ def validate_job(job: dict[str, Any], registry: dict[str, dict[str, Any]], limit
     if job["tool"] != expected_tool:
         raise PlanError(f"job {job['id']} must use {expected_tool} for {dataset_name}")
     fields = registry[dataset_name]["_fields"]
+    if metric := job.get("localMetric"):
+        metric_dataset, metric_fields = METRICS[metric]
+        if (job["tool"] != "local_partition_aggregate" or dataset_name != metric_dataset
+                or not metric_fields <= fields.keys()):
+            raise PlanError(f"registry cannot support {metric}")
+        return
     allowed_query_keys = {"dataset", "filter", "groupBy", "aggregates", "select", "sort", "page"}
     unknown_keys = set(query) - allowed_query_keys
     if unknown_keys:
@@ -839,6 +857,22 @@ def build_plan(
                 f"business_{window_name}_store_totals",
             )
 
+    if report_type == "weekly":
+        for metric, (dataset_name, metric_fields) in METRICS.items():
+            dataset = registry.get(dataset_name, {})
+            if (dataset.get("accessMode") != "partition_extract"
+                    or not metric_fields <= dataset["_fields"].keys() or dataset_name not in coverage):
+                continue
+            job = aggregate_job(
+                job_id=metric, module="weeklyDining", dataset_name=dataset_name, registry=registry,
+                window=windows["current"], date_field="business_date", group_by=["store_name", "business_date"],
+                aggregates=[], output_file=metric, limits=limits,
+            )
+            add_if_covered(
+                jobs, notices, coverage, job={**job, "localMetric": metric},
+                datasets=[dataset_name], window=windows["current"], module="weeklyDining",
+            )
+
     if report_type == "diagnosis":
         diagnosis_jobs = [
             (
@@ -1003,7 +1037,10 @@ def build_plan(
                 "dataset": dataset, "enterpriseName": enterprise_name,
                 **({"storeNameContains": names} if names else {}),
             }, "releaseGate": RELEASE_GATE}
-            for dataset in ("business", "dishes")
+            for dataset in ("business", "dishes", *(
+                ("in_store_orders",) if report_type == "weekly"
+                and registry.get("in_store_orders", {}).get("accessMode") == "partition_extract" else ()
+            ))
             for names in ([store_names[index:index+20] for index in range(0,len(store_names),20)] if store_names else [store_name_contains])
         ],
         "jobs": ordered_jobs,
@@ -1066,7 +1103,7 @@ def main(argv: list[str]) -> int:
         registry_response = load_mcp_json(args.registry_response, "registry response")
         registry, limits = registry_by_dataset(registry_response)
         validate_config_fields(config, registry)
-        coverage, coverage_notices = load_coverage(config, registry, args.coverage_dir, args.enterprise_name)
+        coverage, coverage_notices = load_coverage(config, registry, args.coverage_dir, args.enterprise_name, args.report_type == "weekly")
         if args.store_names and args.store_name_contains:
             raise PlanError("Choose exact store names or substring scope")
         store_name_contains = normalize_store_names(args.store_name_contains)
