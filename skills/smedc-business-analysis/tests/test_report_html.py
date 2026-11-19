@@ -335,16 +335,24 @@ assert.equal(guide.attrs['stroke-dasharray'],'4 4');
 assert.equal(guide.attrs.visibility,'visible');
 assert.match(elements.trendReadout.children[0].textContent,/2026-07-02.*0元/);
 assert.match(elements.trendReadout.children[1].textContent,/2025-07-02.*暂无记录/);
-assert.equal(markers[0].attrs.visibility,'visible');
-const bars = root.children.filter(n=>'data-trend-prior-bar' in n.attrs);
+const bars = root.children.filter(n=>'data-trend-current-bar' in n.attrs);
 if (weeklyDashboard) {
   assert.equal(markers.length,1);
-  assert.deepEqual(bars.map(n=>[n.tag,n.attrs['data-trend-prior-bar'],n.attrs.fill]), [
-    ['rect','low',colors.minimum], ['rect','high',colors.maximum]
+  assert.equal(markers[0].attrs['data-trend-marker'],'prior_net_revenue');
+  assert.equal(markers[0].attrs.visibility,'hidden');
+  assert.deepEqual(bars.map(n=>[n.tag,n.attrs['data-trend-current-bar'],n.attrs.fill]), [
+    ['rect','normal',colors.yellowFill], ['rect','low',colors.minimum], ['rect','high',colors.maximum]
   ]);
-  assert.ok(root.children.some(n=>n.tag === 'polyline'));
+  assert.equal(bars[1].attrs.height,'0');
+  assert.ok('data-active-trend-bar' in bars[1].attrs);
+  const lines = root.children.filter(n=>n.tag === 'polyline');
+  assert.equal(lines.length,2);
+  assert.ok(lines.every(line=>!line.attrs.points.includes(' ')));
+  const overview = elements.trendNavigator.children[0];
+  assert.equal(overview.children.filter(n=>n.tag === 'rect' && n.attrs.fill === colors.yellowFill).length,1);
 } else {
   assert.equal(bars.length,0);
+  assert.equal(markers[0].attrs.visibility,'visible');
   assert.equal(markers[1].attrs.visibility,'hidden');
 }
 const text=elements.trendReadout.children[0].textContent;
@@ -353,7 +361,10 @@ assert.equal(elements.trendReadout.children[0].textContent,text);
 overlay.fire('keydown',{key:'End',preventDefault(){}});
 assert.match(elements.trendReadout.children[0].textContent,/102元/);
 assert.match(elements.trendReadout.children[1].textContent,/52元/);
-if (weeklyDashboard) assert.ok('data-active-trend-bar' in bars[1].attrs);
+if (weeklyDashboard) {
+  assert.ok('data-active-trend-bar' in bars[2].attrs);
+  assert.equal(markers[0].attrs.visibility,'visible');
+}
 overlay.fire('pointerleave'); assert.equal(guide.attrs.visibility,'hidden');
 setTrendRange(1,2);
 elements.trendStoreSelect.value='x';elements.trendStoreSelect.onchange();

@@ -4,7 +4,7 @@
 
 ## 固定模板与补充事实
 
-正式周报和定时周报共用 `assets/weekly` 中的 v4 模板。首页六张图、侧栏与下探页由固定结构生成。收入趋势用折线点显示本期，用柱状图显示同期，最低点为红色，最高点为蓝色。用户有同组织、同店、同周的授权订单和可核验品类汇总时，可在渲染命令加 `--dashboard-facts`。输入为排除原始订单号、个人信息和正文的汇总 JSON，`context` 包含 `organization_name`、排序后的 `store_names`，以及与报告完全一致的 `windows.current`、`windows.previous`（`start/end`）。仅传已用官方读取结果核验的可选 `orders`（按用餐人数）、`takeaway`（按平台）或 `products`（按品项和渠道）汇总。正式定时任务只消费其现有授权覆盖的事实；明细未覆盖时仍可从相同入口看营业汇总。
+正式周报和定时周报共用 `assets/weekly` 中的 v4 模板。首页六张图、侧栏与下探页由固定结构生成。收入趋势用柱状图显示本期，用点线图显示同期。两组数据都用红色标记最低值、蓝色标记最高值。用户有同组织、同店、同周的授权订单和可核验品类汇总时，可在渲染命令加 `--dashboard-facts`。输入为排除原始订单号、个人信息和正文的汇总 JSON，`context` 包含 `organization_name`、排序后的 `store_names`，以及与报告完全一致的 `windows.current`、`windows.previous`（`start/end`）。仅传已用官方读取结果核验的可选 `orders`（按用餐人数）、`takeaway`（按平台）或 `products`（按品项和渠道）汇总。正式定时任务只消费其现有授权覆盖的事实；明细未覆盖时仍可从相同入口看营业汇总。
 
 ## 堂食客流与估算翻台
 
