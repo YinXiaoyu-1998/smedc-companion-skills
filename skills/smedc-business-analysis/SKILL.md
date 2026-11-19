@@ -1,6 +1,6 @@
 ---
 name: smedc-business-analysis
-description: Use when generating tenant-neutral SMEDC diagnosis, weekly, or monthly operating reports with evidence-backed, agent-authored operating advice from structured business datasets.
+description: 根据企业智脑（SMEDC）的结构化经营数据生成经营诊断、周报或月报，并由智能体给出有数据依据的经营建议。 Use for tenant-neutral operating reports and evidence-backed advice.
 ---
 
 # SMEDC Business Analysis

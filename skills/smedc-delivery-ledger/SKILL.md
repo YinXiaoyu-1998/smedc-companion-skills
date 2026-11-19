@@ -1,6 +1,6 @@
 ---
 name: smedc-delivery-ledger
-description: Use when uploading original SMEDC delivery receipts, checking automatically updated daily ledger PDF readiness and coordinating ZIP download, or managing receipt-linked quarantine-certificate photos.
+description: 向企业智脑（SMEDC）上传原始配送收货单、查询每日台账 PDF 的生成状态和 ZIP 下载，或管理关联的检疫照片。 Use for daily delivery ledger archives and receipt-linked certificates.
 ---
 
 # SMEDC Delivery Ledger

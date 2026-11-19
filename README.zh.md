@@ -1,6 +1,6 @@
-# SMEDC 配套 Skills
+# 企业智脑配套 Skills
 
-面向企业资料中枢（Small and Medium Enterprises Data Center）的独立工作流。
+面向企业智脑（SMEDC）的独立工作流。
 每个 `skills/<name>/` 子目录维护自己的指导、引用、脚本、配置与测试。[English](README.md)。
 
 ## 技能目录
@@ -8,7 +8,7 @@
 | Skill | 用途与前置条件 |
 | --- | --- |
 | [smedc-workflows](skills/smedc-workflows/SKILL.md) | 分别选择每日入库、评价或自然周周报；包含版本化 Codex／Gmail 适配、准备检查、完整分批迁移与恢复。需要兼容服务与 launcher 已发布；安装不会启用任务。 |
-| [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | 基于受权 SMEDC 数据生成经营诊断、周报和月报 HTML；需要核心 Skill 和已认证会话。 |
+| [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | 基于受权的企业智脑数据生成经营诊断、周报和月报 HTML；需要核心 Skill 和已认证会话。 |
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | 原始收货单上传、关联检疫照片、服务端每日 PDF／ZIP 交付；需要核心 Skill 及归档交付启用，不在本地生成台账。 |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | 导出原始营业 XLSX。 |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | 导出原始菜品销售 XLSX。 |
@@ -18,9 +18,11 @@
 | [reply-meituan-reviews](skills/reply-meituan-reviews/SKILL.md) | 采集九列评价表，保留已有回复，只为未回复且有正文的评价起草；仅发布明确获批的新稿，需要本仓库的定制回复文案 Skill。 |
 | [review-responder](skills/review-responder/SKILL.md) | 定制中文餐饮商家回复文案；原始归属信息保留在 Skill 内。 |
 
-仅操作美团需要浏览器能力及用户自行完成的美团登录，不需要 SMEDC 账号。
-上传 SMEDC 另需用户明确要求、核心 Skill 及已认证 admin。浏览器选择、下载处理和回复审批细则
+仅操作美团需要浏览器能力及用户自行完成的美团登录，不需要企业智脑账号。
+上传到企业智脑 另需用户明确要求、核心 Skill 及已认证 admin。浏览器选择、下载处理和回复审批细则
 只在所链接的 Skills 中维护，README 不重复操作手册。
+
+如需按新中文名发现已安装的配套 Skill，可说“更新我已安装的 smedc-business-analysis 这个 Skill”。将示例 ID 换成所用技能，在宿主中重载已更新的副本。
 
 ## 通用流程与企业配置
 
@@ -47,7 +49,7 @@ Skill 修订以来源 Git commit 和子目录标识，不使用 launcher 版本�
 使用 `~/.agents/skills`（Windows 为 `%USERPROFILE%\.agents\skills`）。以下仅为**首次安装示例**，
 只执行用户请求的 Skill 对应命令，目标目录必须不存在；临时 checkout 路径已存在时另选新路径。
 
-需要 SMEDC 访问时，只安装核心子目录：
+需要访问企业智脑时，只安装核心子目录：
 
 ```bash
 mkdir -p ~/.agents/skills
