@@ -537,6 +537,63 @@ class WorkflowCliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(value["installed"], [])
 
+    def test_refresh_updates_standalone_companions_without_installing_or_writing_task_locks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            destination = root / "skills"
+            recovery = root / "recovery"
+            names = ["smedc-business-analysis", "smedc-delivery-ledger"]
+            old_skill = "---\nname: {}\ndescription: Old copy\n---\n"
+            for name in [*names, "private-skill"]:
+                skill = destination / name / "SKILL.md"
+                skill.parent.mkdir(parents=True)
+                skill.write_text(old_skill.format(name))
+            request = {
+                "installedSkillIds": names,
+                "sourceRevision": "a" * 40,
+                "sourceSkillsRoot": str(ROOT.parent),
+                "destinationRoot": str(destination),
+                "recoveryRoot": str(recovery),
+            }
+            operation = "refresh-installed"
+            result, preview = self.run_cli(operation, {**request, "planOnly": True})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(preview["toReplace"], names)
+            self.assertFalse(recovery.exists())
+            observed = {**request, "expectedInstalledHashes": preview["currentSkillHashes"]}
+            result, _ = self.run_cli(
+                operation, {**observed, "installedSkillIds": [*names, "smedc-workflows"]}
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(recovery.exists())
+            (destination / names[1] / "SKILL.md").write_text("Edited after preview")
+            result, _ = self.run_cli(operation, observed)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("needs_review", result.stderr)
+            self.assertFalse(recovery.exists())
+            (destination / names[1] / "SKILL.md").write_text(old_skill.format(names[1]))
+            result, refreshed = self.run_cli(operation, observed)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(refreshed["installed"], names)
+            for name in names:
+                self.assertEqual(
+                    (destination / name / "SKILL.md").read_bytes(),
+                    (ROOT.parent / name / "SKILL.md").read_bytes(),
+                )
+                self.assertEqual(
+                    (Path(refreshed["recoveryCopies"][name]) / "SKILL.md").read_text(),
+                    old_skill.format(name),
+                )
+            self.assertEqual({entry.name for entry in destination.iterdir()}, {*names, "private-skill"})
+            self.assertEqual(
+                (destination / "private-skill" / "SKILL.md").read_text(),
+                old_skill.format("private-skill"),
+            )
+            self.assertFalse((recovery / "installation.json").exists())
+            result, repeated = self.run_cli(operation, request)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(repeated["reused"], names)
+
     def test_cleanup_refuses_unknown_receipt_and_preserves_the_original(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
