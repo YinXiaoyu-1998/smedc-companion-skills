@@ -22,7 +22,7 @@
 上传到企业智脑 另需用户明确要求、核心 Skill 及已认证 admin。浏览器选择、下载处理和回复审批细则
 只在所链接的 Skills 中维护，README 不重复操作手册。
 
-如需按新中文名发现已安装的配套 Skill，可说“更新我已安装的 smedc-business-analysis 这个 Skill”。将示例 ID 换成所用技能，在宿主中重载已更新的副本。
+如需按新中文名发现已安装的配套 Skill，可说“更新我已安装的 smedc-business-analysis 这个 Skill”。将示例 ID 换成所用技能，在宿主中重载已更新的副本。WorkBuddy 的适用覆盖文件按[宿主安装流程](workbuddy/INSTALL.md)同步。
 
 ## 通用流程与企业配置
 

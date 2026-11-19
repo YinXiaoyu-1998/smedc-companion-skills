@@ -24,6 +24,8 @@ SMEDC account. SMEDC uploads additionally require an explicit upload request, th
 an authenticated admin. Browser selection, export handling and reply approval rules live in the
 linked Skills, not in a second copy here.
 
+To use the new Chinese brand with an installed companion, ask to update that Skill by ID (for example, `smedc-business-analysis`) and reload the installed copy in its host. For WorkBuddy, follow the [host installation procedure](workbuddy/INSTALL.md) for the applicable overlay.
+
 ## Shared workflows and enterprise settings
 
 Distributed skills carry no tenant names, store rosters, source accounts, recipient addresses,
