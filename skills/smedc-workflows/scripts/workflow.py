@@ -13,7 +13,6 @@ import tomllib
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-TZ = ZoneInfo("Asia/Shanghai")
 
 
 def encoded(value):
@@ -72,7 +71,7 @@ def window(value):
         current = datetime.fromisoformat(value["now"])
         if current.tzinfo is None:
             raise ValueError("Timezone-aware clock required")
-        today = current.astimezone(TZ).date()
+        today = current.astimezone(ZoneInfo("Asia/Shanghai")).date()
         if kind == "weekly-business-report":
             end = today - timedelta(days=today.weekday() + 1)
             start = end - timedelta(days=6)
@@ -160,6 +159,7 @@ def main():
             "migration",
             "readiness",
             "install",
+            "refresh-installed",
             "cleanup",
             "cleanup-temporary",
             "lock",
@@ -236,10 +236,10 @@ def main():
             from migration import build
 
             result = build(value)
-        elif args.operation == "install":
-            from installation import install
+        elif args.operation in {"install", "refresh-installed"}:
+            from installation import install, refresh_installed
 
-            result = install(value)
+            result = install(value) if args.operation == "install" else refresh_installed(value)
         elif args.operation == "readiness":
             result = readiness(value)
         else:

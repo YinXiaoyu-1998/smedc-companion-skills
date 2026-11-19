@@ -1,4 +1,4 @@
-"""Bounded selected-subtree installer; no launcher/host/account configuration edits."""
+"""Bounded companion skill installer and refresher; no launcher/host/account configuration edits."""
 
 from __future__ import annotations
 import hashlib
@@ -17,6 +17,8 @@ def tree_hash(path):
     root = Path(path)
     if any(p.is_symlink() for p in [root, *root.parents]):
         raise ValueError("Symlink skill root forbidden")
+    if not root.is_dir():
+        raise ValueError("Expected a skill directory")
     entries = []
     for item in sorted(root.rglob("*")):
         if any(part in IGNORED for part in item.relative_to(root).parts):
@@ -43,8 +45,46 @@ def install(value):
         if name not in package["workflows"]:
             raise ValueError("Unknown requested workflow")
         wanted.update(package["workflows"][name]["dependencies"])
-    source = Path(value["sourceSkillsRoot"])
-    destination = Path(value["destinationRoot"])
+    result = replace_subtrees(value, wanted)
+    recovery = Path(
+        value.get(
+            "recoveryRoot", Path(value["destinationRoot"]).parent / ".smedc-workflow-recovery"
+        )
+    )
+    lock = {
+        "packageVersion": package["packageVersion"],
+        "sourceRevision": value["sourceRevision"],
+        "selected": selected,
+        "skillHashes": result["skillHashes"],
+        "recoveryCopies": result["recoveryCopies"],
+        "hostReload": "pending",
+    }
+    atomic(recovery / "installation.json", lock)
+    return {**lock, "installed": result["installed"], "reused": result["reused"], "tasksCreated": False}
+
+
+def refresh_installed(value):
+    names = value["installedSkillIds"]
+    if (
+        not isinstance(names, list)
+        or len(set(names)) != len(names)
+        or any(not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name) for name in names)
+    ):
+        raise ValueError("Expected unique installed companion skill IDs")
+    official = Path(__file__).resolve().parents[2]
+    for name in names:
+        regular(official / name / "SKILL.md")
+    return {
+        "sourceRevision": value["sourceRevision"],
+        **replace_subtrees(
+            value, names, installed_only=True, plan_only=value.get("planOnly", False)
+        ),
+    }
+
+
+def replace_subtrees(value, wanted, *, installed_only=False, plan_only=False):
+    source = Path(os.path.abspath(value["sourceSkillsRoot"]))
+    destination = Path(os.path.abspath(value["destinationRoot"]))
     if not re.fullmatch("[0-9a-f]{40}", value["sourceRevision"]):
         raise ValueError("Verified source Git commit required")
     if any(
@@ -58,9 +98,9 @@ def install(value):
         or destination in source.parents
     ):
         raise ValueError("Source and installation must be separate")
-    recovery = Path(
+    recovery = Path(os.path.abspath(
         value.get("recoveryRoot", destination.parent / ".smedc-workflow-recovery")
-    )
+    ))
     if (
         recovery == destination
         or destination in recovery.parents
@@ -75,20 +115,34 @@ def install(value):
         regular(source / name / "SKILL.md")
         regular(source / name / "agents" / "openai.yaml")
         hashes[name] = tree_hash(source / name)
-        if (destination / name).exists():
-            current = tree_hash(destination / name)
+        target = destination / name
+        if installed_only or target.exists() or target.is_symlink():
+            if installed_only:
+                regular(target / "SKILL.md")
+            current = tree_hash(target)
             existing_hashes[name] = current
             if current == hashes[name]:
                 reused.append(name)
                 continue
-            if value.get("expectedInstalledHashes", {}).get(name) != current:
+            if (
+                not plan_only
+                and value.get("expectedInstalledHashes", {}).get(name) != current
+            ):
                 raise ValueError(
                     "needs_review: installed subtree differs; compare and preserve changes before approved replacement: "
                     + name
                 )
         changed.append(name)
+    if plan_only:
+        return {
+            "skillHashes": hashes,
+            "currentSkillHashes": existing_hashes,
+            "toReplace": changed,
+        }
+    if installed_only and not changed:
+        return {"skillHashes": hashes, "recoveryCopies": {}, "installed": [], "reused": reused}
     # All conflicts are checked before any mutation. Retain recovery through host reload verification.
-    recovery.mkdir(parents=True, exist_ok=True)
+    recovery.mkdir(mode=0o700, parents=True, exist_ok=True)
     destination.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix="stage-", dir=recovery))
     installed = []
@@ -102,7 +156,9 @@ def install(value):
                 raise ValueError("Staged subtree content mismatch")
         for name in changed:
             target = destination / name
-            if target.exists():
+            if name in existing_hashes:
+                if not target.is_dir():
+                    raise ValueError("Installed subtree disappeared during staging")
                 if tree_hash(target) != existing_hashes[name]:
                     raise ValueError("Installed subtree changed during staging")
                 backup = recovery / (name + "-" + existing_hashes[name][:16])
@@ -112,6 +168,8 @@ def install(value):
                     )
                 os.rename(target, backup)
                 backups[name] = str(backup)
+            elif target.exists() or target.is_symlink():
+                raise ValueError("Target appeared during staging")
             try:
                 os.rename(stage / name, target)
             except BaseException:
@@ -123,13 +181,9 @@ def install(value):
             installed.append(name)
     finally:
         shutil.rmtree(stage)
-    lock = {
-        "packageVersion": package["packageVersion"],
-        "sourceRevision": value["sourceRevision"],
-        "selected": selected,
+    return {
         "skillHashes": hashes,
         "recoveryCopies": backups,
-        "hostReload": "pending",
+        "installed": installed,
+        "reused": reused,
     }
-    atomic(recovery / "installation.json", lock)
-    return {**lock, "installed": installed, "reused": reused, "tasksCreated": False}

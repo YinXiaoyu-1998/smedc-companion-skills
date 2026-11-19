@@ -21,7 +21,7 @@ class ContractFixtureTests(unittest.TestCase):
     def test_openai_yaml_loads(self) -> None:
         data = yaml.safe_load((ROOT / "agents" / "openai.yaml").read_text(encoding="utf-8"))
 
-        self.assertEqual(data["interface"]["display_name"], "SMEDC Business Analysis")
+        self.assertEqual(data["interface"]["display_name"], "企业智脑经营分析")
         self.assertIn("$smedc-business-analysis", data["interface"]["default_prompt"])
         self.assertGreaterEqual(len(data["interface"]["short_description"]), 25)
         self.assertLessEqual(len(data["interface"]["short_description"]), 64)

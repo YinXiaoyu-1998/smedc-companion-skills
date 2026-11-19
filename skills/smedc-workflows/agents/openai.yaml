@@ -1,4 +1,4 @@
 interface:
-  display_name: "SMEDC 企业工作流"
-  short_description: "安装、检查、恢复和完整迁移三个可独立选择的企业工作流"
+  display_name: "企业智脑工作流"
+  short_description: "安装、更新或恢复企业智脑（SMEDC）每日入库、评价处理和周报任务"
   default_prompt: "Use $smedc-workflows to install selected enterprise workflows."

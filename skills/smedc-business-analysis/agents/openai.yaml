@@ -1,5 +1,5 @@
 interface:
-  display_name: "SMEDC Business Analysis"
-  short_description: "SMEDC reports with evidence-backed operating advice"
+  display_name: "企业智脑经营分析"
+  short_description: "用企业智脑（SMEDC）经营数据生成诊断、周报和月报并给出建议"
   default_prompt: "Use $smedc-business-analysis to generate a diagnosis, weekly, or monthly report from SMEDC MCP data, review its facts, and embed operating advice written directly to the restaurant owner. Review every current-period store across meal periods, dishes, and stalls in expandable store cards, then select enterprise priorities. Turn useful analysis checks into concrete recommendations with practical verification and next decisions."
   brand_color: "#2563EB"

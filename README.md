@@ -24,6 +24,8 @@ SMEDC account. SMEDC uploads additionally require an explicit upload request, th
 an authenticated admin. Browser selection, export handling and reply approval rules live in the
 linked Skills, not in a second copy here.
 
+Ask your agent to “Upgrade SMEDC” to refresh all official companion Skills already installed on this computer.
+
 ## Shared workflows and enterprise settings
 
 Distributed skills carry no tenant names, store rosters, source accounts, recipient addresses,
@@ -84,6 +86,15 @@ subtree. Do not overlay it, leave obsolete files, or create backup Skills inside
 Verify file contents and the host's loaded copy before removing recovery copies and reporting
 success. Report pending host reloads. Install no unrequested companions or dependencies silently.
 The core Skill has its own [replacement procedure](https://github.com/YinXiaoyu-1998/smedc-mcp-skill/blob/main/skills/smedc-mcp/references/update-skill.md).
+
+### Refresh installed companions during a general upgrade
+
+1. Fetch the default branch of [the official companion repository](https://github.com/YinXiaoyu-1998/smedc-companion-skills) into a temporary checkout and record its exact commit. Use this revision for all companion copies and any existing scheduled workflows in the same upgrade.
+2. Inventory the current user's effective companion copies in the hosts' actual discovery roots. Match each installed Skill ID and complete subtree to the official checkout and verify its provenance using its installed source record or a known official revision. Exclude source checkouts, backups, uninstalled Skills and unrelated Skills. Report ambiguous origins or conflicting local changes and continue with the verified copies. Refresh host-managed copies through their supported update mechanism. Resolve path aliases to avoid updating a physical directory twice.
+3. Finish or reconcile any active work that needs the old files. Update verified scheduled tasks and their selected dependencies through the [task upgrade procedure](skills/smedc-workflows/references/installation.md#升级本机定时任务). Refresh the remaining installed companions per target discovery root with the official checkout's `python3 skills/smedc-workflows/scripts/workflow.py refresh-installed --input <request.json>`. Use the platform's equivalent Python 3.11+ invocation if needed. If Python is unavailable, apply the same verified whole-directory replacement and readback through the host's supported Skill update mechanism.
+4. Supply `sourceRevision` (the recorded Git SHA), `sourceSkillsRoot` (the checkout's absolute `skills/` directory), `destinationRoot` (the absolute physical discovery root), `installedSkillIds` (the verified names already present there) and a private absolute `recoveryRoot` outside all discovery roots. For WorkBuddy, prepare the effective source trees by applying the matching [generated overlays](workbuddy/INSTALL.md) in a temporary staging directory from the same revision, then use that directory as `sourceSkillsRoot`. Keep executing the helper from the official checkout.
+5. Run with `planOnly: true` to obtain `toReplace` and `currentSkillHashes`. Compare each changed installed tree with its known official source to preserve local customizations. For verified copies covered by the upgrade request, supply their observed hashes in `expectedInstalledHashes` and run without `planOnly`. The command rejects missing targets and verifies complete replacements. It does not write task installation locks. If a multi-Skill refresh stops partway, rerun the preview to reconcile the actual installed trees and retained recovery copies before retrying.
+6. Verify the installed bytes and loaded path for each updated or already-current copy in its host. Record revision, loaded paths, and any blocked or pending reload. Keep recovery copies outside discovery until reload succeeds.
 
 ## Development
 
