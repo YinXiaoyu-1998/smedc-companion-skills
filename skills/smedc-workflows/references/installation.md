@@ -50,7 +50,7 @@
 
 ## 升级本机定时任务
 
-“升级 SMEDC”包含本机已安装的官方工作流和对应定时任务，覆盖已启用及已暂停的任务。指定工作流升级按指定范围办理。通用升级还要按[已安装配套 Skill 更新流程](https://github.com/YinXiaoyu-1998/smedc-companion-skills/blob/main/README.md#refresh-installed-companions-during-a-general-upgrade)覆盖独立安装的官方副本，包括这台电脑没有任何定时任务的情况。用户在定时任务聊天中显式提出升级时也走本流程。日常调度继续按既有版本锁执行。
+“升级 SMEDC”包含本机已安装的官方工作流和对应定时任务，覆盖已启用及已暂停的任务。指定工作流升级按指定范围办理。通用升级还要按[已安装配套 Skill 更新流程](https://github.com/YinXiaoyu-1998/smedc-companion-skills/blob/main/README.md#refresh-installed-companions-during-a-general-upgrade)更新本机所有已安装的官方配套 Skill。用户在定时任务聊天中显式提出升级时也走本流程。日常调度继续按既有版本锁执行。
 
 1. **准确盘点。** 分页读取中央工作流和安装，对照本机 journal 与 `native.readHost(taskId)` 核对 `workflowId`、`installationId`、实际 `taskId` 及提示词绑定。journal 丢失时，可凭一致的中央登记与本机读回重建。只更新本机归属明确的现有任务，记录原启停状态、RRULE、名称、模型、推理档位、项目、工作目录、时区和通知设置。其他机器、仅有中央配置的项目及无法验证归属的任务按真实情况报告。
 2. **暂停后续触发并完成在途核对。** 在修改共用 launcher、工作流包或任务定义前，通过原生宿主暂停受影响的已启用任务，回读暂停状态。让未结束轮按原固定版本完成或恢复，核对租约和未知动作。若当前聊天正在执行该旧轮，先在旧版本下完成它，再接续升级。旧轮仍需原包时保留版本锁及依赖，待旧轮收尾后切换。将任务清单和原状态写入非秘密接续记录，宿主重启后按该记录接着做。
