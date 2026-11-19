@@ -1581,10 +1581,23 @@ body.px-sidebar-collapsed {
   }
 }
 
+#px-app:is([data-template='dashboard'], [data-template='store_overview']) .px-kpi {
+  padding: 7px 10px;
+  line-height: 1.25;
+}
+#px-app:is([data-template='dashboard'], [data-template='store_overview']) .px-kpi strong {
+  margin-block: 2px;
+  font-size: clamp(19px, 2vw, 22px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+#px-app[data-template='store_overview'] .px-kpis {
+  margin: 12px 0 16px;
+}
 #px-app .px-kpis.px-kpis-six {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-@media (min-width: 1460px) {
+@media (min-width: 1040px) {
   #px-app .px-kpis.px-kpis-six {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }

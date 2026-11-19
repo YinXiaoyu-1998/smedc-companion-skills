@@ -1576,16 +1576,16 @@ HTML_TEMPLATE = r'''<!doctype html>
       const max = Math.max(1, ...rows.flatMap(row => [Number(row[currentField] || 0), Number(row[priorField] || 0)]));
       if (weeklyDashboard) {
         const width = 1120 / rows.length;
-        const priorValues = rows.map(row => row[priorField]).filter(trendValuePresent).map(Number);
-        const extreme = trendExtremes(priorValues);
+        const currentValues = rows.map(row => row[currentField]).filter(trendValuePresent).map(Number);
+        const extreme = trendExtremes(currentValues);
         rows.forEach((row, index) => {
-          if (!trendValuePresent(row[priorField])) return;
-          const value = Number(row[priorField]);
+          if (!trendValuePresent(row[currentField])) return;
+          const value = Number(row[currentField]);
           const height = Math.max(0, value / max * 48);
           root.appendChild(svg('rect', {x:(index + .15) * width, y:56-height, width:width*.7, height, fill:trendBarColors[extreme(value)], 'pointer-events':'none'}));
         });
       }
-      (weeklyDashboard ? [currentField] : [currentField, priorField]).forEach((field, series) => {
+      (weeklyDashboard ? [priorField] : [currentField, priorField]).forEach((field, series) => {
         let segment = [];
         const flush = () => {
           if (segment.length) root.appendChild(svg('polyline', {points:segment.join(' '), fill:'none', stroke:colors.yellow, 'stroke-width':2, ...(series ? {'stroke-dasharray':'5 4'} : {}), 'pointer-events':'none'}));
@@ -1660,7 +1660,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const units = {day:'天', week:'周', month:'个月'};
       const basis = {day:'每日', week:'完整周', month:'完整自然月'}[selectedTrendGrain];
       document.getElementById('trendTitle').textContent = `最近一年收入趋势（${allRows.length} ${units[selectedTrendGrain]}）`;
-      const comparisonLabel = weeklyDashboard ? '折线＝本期，柱状＝同期' : `实线=${currentLabel}，虚线=${priorLabel}同期`;
+      const comparisonLabel = weeklyDashboard ? '柱状＝本期，点线＝同期' : `实线=${currentLabel}，虚线=${priorLabel}同期`;
       document.getElementById('trendMetricLabel').textContent = `${basis} · ${isAllStores ? '整体' : cleanName(entity.label)}业务收入（万元）；${comparisonLabel}`;
       document.getElementById('trendControls').hidden = false;
       const w = 1120, h = 360, left = 82, right = 84, top = 34, bottom = 78;
@@ -1697,9 +1697,9 @@ HTML_TEMPLATE = r'''<!doctype html>
           return [x,y,r,Number(raw || 0),i];
         }).filter(Boolean);
       }
-      const priorBars = new Map();
-      function drawPriorBars() {
-        const points = trendPoints(priorField);
+      const currentBars = new Map();
+      function drawCurrentBars() {
+        const points = trendPoints(currentField);
         const extreme = trendExtremes(points.map(point => point[3]));
         const baseline = yScale(0);
         points.forEach(([x, y, , value, index]) => {
@@ -1708,14 +1708,14 @@ HTML_TEMPLATE = r'''<!doctype html>
             x:x-barWidth/2, y:Math.min(baseline, y),
             width:barWidth, height:Math.abs(baseline-y),
             fill:trendBarColors[level], 'fill-opacity':.62,
-            'data-trend-prior-bar':level
+            'data-trend-current-bar':level
           });
-          priorBars.set(index, bar);
+          currentBars.set(index, bar);
           root.appendChild(bar);
         });
         const last = points.at(-1);
         if (last) {
-          root.appendChild(svg('text', {x:last[0]-7, y:last[1]+19, 'text-anchor':'end', 'font-size':'11', fill:colors.yellow, 'font-weight':'800'})).textContent = fmtWan(last[3]);
+          root.appendChild(svg('text', {x:last[0], y:last[1]-9, 'text-anchor':'middle', 'font-size':'11', fill:colors.yellow, 'font-weight':'800'})).textContent = fmtWan(last[3]);
         }
       }
       function drawTrendLine(field, color, dash, rangeField) {
@@ -1759,9 +1759,9 @@ HTML_TEMPLATE = r'''<!doctype html>
           }
         });
       }
-      if (weeklyDashboard && hasComparisonShape) drawPriorBars();
-      drawTrendLine(currentField, colors.yellow, '', hasComparisonShape ? 'current_week_range' : 'week_label');
-      if (!weeklyDashboard && hasComparisonShape) drawTrendLine(priorField, colors.yellow, '7 5', 'prior_week_range');
+      if (weeklyDashboard) drawCurrentBars();
+      else drawTrendLine(currentField, colors.yellow, '', hasComparisonShape ? 'current_week_range' : 'week_label');
+      if (hasComparisonShape) drawTrendLine(priorField, colors.yellow, weeklyDashboard ? '' : '7 5', 'prior_week_range');
 
       rows.forEach((r, i) => {
         const x = xScale(i);
@@ -1771,14 +1771,15 @@ HTML_TEMPLATE = r'''<!doctype html>
           root.appendChild(svg('text', {x:tx, y:h-42, 'text-anchor':anchor, 'font-size':'10', fill:'#657386', transform:`rotate(-32 ${tx} ${h-42})`})).textContent = r.current_week_range ? String(r.current_week_range).slice(0, 10) : String(r.week_label);
         }
       });
-      root.appendChild(svg('line', {x1:left+190, y1:15, x2:left+232, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-linecap':'round'}));
+      if (weeklyDashboard) {
+        root.appendChild(svg('rect', {x:left+203, y:9, width:16, height:12, fill:trendBarColors.normal, 'fill-opacity':.62}));
+      } else {
+        root.appendChild(svg('line', {x1:left+190, y1:15, x2:left+232, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-linecap':'round'}));
+      }
       root.appendChild(svg('text', {x:left+240, y:19, 'font-size':'11', fill:'#657386'})).textContent = weeklyDashboard ? `本期 · ${currentLabel}` : currentLabel;
       if (hasComparisonShape) {
-        if (weeklyDashboard) {
-          root.appendChild(svg('rect', {x:left+386, y:9, width:16, height:12, fill:trendBarColors.normal, 'fill-opacity':.62}));
-        } else {
-          root.appendChild(svg('line', {x1:left+362, y1:15, x2:left+404, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-dasharray':'7 5', 'stroke-linecap':'round'}));
-        }
+        root.appendChild(svg('line', {x1:left+362, y1:15, x2:left+404, y2:15, stroke:colors.yellow, 'stroke-width':3, 'stroke-linecap':'round', ...(!weeklyDashboard ? {'stroke-dasharray':'7 5'} : {})}));
+        if (weeklyDashboard) root.appendChild(svg('circle', {cx:left+383, cy:15, r:4, fill:colors.yellowFill, stroke:colors.yellow}));
         root.appendChild(svg('text', {x:left+412, y:19, 'font-size':'11', fill:'#657386'})).textContent = weeklyDashboard ? `同期 · ${priorLabel}` : `${priorLabel}同期`;
       }
       root.appendChild(svg('text', {x:left, y:18, 'font-size':'12', fill:'#657386', 'font-weight':'700'})).textContent = '业务收入（万元）';
@@ -1787,7 +1788,7 @@ HTML_TEMPLATE = r'''<!doctype html>
       const guide = svg('line', {x1:left, x2:left, y1:top, y2:h-bottom, stroke:'#657386', 'stroke-width':1, 'stroke-dasharray':'4 4', visibility:'hidden', 'pointer-events':'none', 'data-trend-guide':'true'});
       root.appendChild(guide);
       const markers = [currentField, priorField].map((field, series) => {
-        if (weeklyDashboard && series) return null;
+        if (weeklyDashboard && !series) return null;
         const marker = svg('circle', {r:6, fill:series ? 'white' : colors.yellowFill, stroke:colors.yellow, 'stroke-width':3, visibility:'hidden', 'pointer-events':'none', 'data-trend-marker':field});
         root.appendChild(marker); return marker;
       });
@@ -1800,7 +1801,7 @@ HTML_TEMPLATE = r'''<!doctype html>
         const x = xScale(activeIndex);
         if (weeklyDashboard) {
           root.querySelector('[data-active-trend-bar]')?.removeAttribute('data-active-trend-bar');
-          if (visible) priorBars.get(activeIndex)?.setAttribute('data-active-trend-bar', '');
+          if (visible) currentBars.get(activeIndex)?.setAttribute('data-active-trend-bar', '');
         }
         guide.setAttribute('x1', x); guide.setAttribute('x2', x);
         guide.setAttribute('visibility', visible ? 'visible' : 'hidden');
