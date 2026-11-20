@@ -13,6 +13,7 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | Original receipt uploads, linked quarantine photos and service-generated daily PDF/ZIP delivery; requires the core Skill and enabled archive delivery. No local ledger generation. |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | Export original business XLSX files. |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | Export original dish-sales XLSX files. |
+| [download-meituan-combo-sales](skills/download-meituan-combo-sales/SKILL.md) | Export and verify original single-day combo item sales XLSX files. |
 | [download-meituan-delivery-ledger](skills/download-meituan-delivery-ledger/SKILL.md) | Export receipt ZIP batches and validate one original XLSX per receipt. |
 | [meituan-order-details-download](skills/meituan-order-details-download/SKILL.md) | Export original in-store order XLSX files by date basis, store and order status; supports asynchronous downloads and time-range splitting. |
 | [meituan-takeout-order-details-download](skills/meituan-takeout-order-details-download/SKILL.md) | Export original platform takeout order XLSX files by date basis, store and order filters; supports direct and asynchronous downloads. |

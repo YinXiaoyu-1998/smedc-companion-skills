@@ -39,7 +39,7 @@ Window: previous complete business day. Only the datasets enabled in
 `snapshot.configuration.datasets`, each independently recoverable.
 
 - `business` / `dishes` / `in_store_orders` / `takeaway_orders` /
-  `delivery_ledger` map to the same five source skills as upstream. Keep the
+  `combo_sales` / `delivery_ledger` map to the same source skills as upstream. Keep the
   `settled_only` order scope, `全量数据` / `全量菜品` selections, full result
   exports, async export IDs, bounded waits and per-page reconciliation.
 - Verify exact columns, row counts, filter evidence, SHA-256 and original

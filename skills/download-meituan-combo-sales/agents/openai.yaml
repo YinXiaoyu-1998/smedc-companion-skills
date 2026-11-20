@@ -1,0 +1,4 @@
+interface:
+  display_name: "美团套餐销售统计下载"
+  short_description: "按营业日逐日导出按门店、带规格的套餐子菜销售原始 XLSX，并用工作簿内日期核验"
+  default_prompt: "使用 $download-meituan-combo-sales 下载指定营业日和门店的美团套餐子菜销售明细。"

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "1.0.11",
+  "packageVersion": "1.0.12",
   "minimumServiceCapability": "enterprise-workflows-v1",
   "minimumLauncherVersion": "0.17.0",
   "launcherInstallationOwner": "smedc-mcp",
@@ -26,6 +26,7 @@
       "dependencies": [
         "download-meituan-business-data",
         "download-meituan-dish-sales",
+        "download-meituan-combo-sales",
         "meituan-order-details-download",
         "meituan-takeout-order-details-download",
         "download-meituan-delivery-ledger",
@@ -33,7 +34,7 @@
       ],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.11"
+        "workflowPackageVersion": "1.0.12"
       },
       "window": "previous-complete-business-day",
       "capabilities": [
@@ -63,7 +64,7 @@
       "dependencies": ["reply-meituan-reviews", "review-responder"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.11"
+        "workflowPackageVersion": "1.0.12"
       },
       "window": "previous-day-and-today",
       "capabilities": [
@@ -105,7 +106,7 @@
       "dependencies": ["smedc-business-analysis"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.11"
+        "workflowPackageVersion": "1.0.12"
       },
       "window": "previous-natural-week",
       "capabilities": [
