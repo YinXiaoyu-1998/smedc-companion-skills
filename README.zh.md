@@ -12,6 +12,7 @@
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | 原始收货单上传、关联检疫照片、服务端每日 PDF／ZIP 交付；需要核心 Skill 及归档交付启用，不在本地生成台账。 |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | 导出原始营业 XLSX。 |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | 导出原始菜品销售 XLSX。 |
+| [download-meituan-combo-sales](skills/download-meituan-combo-sales/SKILL.md) | 逐营业日导出并校验带规格的套餐子菜销售原始 XLSX。 |
 | [download-meituan-delivery-ledger](skills/download-meituan-delivery-ledger/SKILL.md) | 分批导出收货单 ZIP，验证每单一份原始 XLSX。 |
 | [meituan-order-details-download](skills/meituan-order-details-download/SKILL.md) | 按日期口径、门店和订单状态导出店内订单明细原始 XLSX，处理异步下载及超量分段。 |
 | [meituan-takeout-order-details-download](skills/meituan-takeout-order-details-download/SKILL.md) | 按日期口径、门店和订单条件导出平台外卖订单明细原始 XLSX，处理直接下载与异步下载清单。 |

@@ -48,6 +48,10 @@ FORBIDDEN_PATTERNS = (
 # session", or a Codex-only cua.createBrowserTab call).
 REPLACEMENTS = (
     (
+        "如果环境提供覆盖此报表的专用导出工具，可优先使用。否则在 Codex 内置浏览器中复用美团标签或打开 `https://pos.meituan.com/web/operation/main#/`。用户指定本机浏览器，或内置浏览器确实缺少必需能力时，在指定或具备能力的本机浏览器操作。登录或验证码由用户在页面完成。",
+        "使用 `bsk` 的 Chrome Agent Window 复用美团标签或打开 `https://pos.meituan.com/web/operation/main#/`。登录或验证码由用户在页面完成。",
+    ),
+    (
         '- 在 Codex 中，优先使用内置 Chromium 浏览器（`iab`）：先查找该浏览器内的美团标签，'
         '没有则在 `iab` 新开页面。使用 `cua_repl` 时，按当前文档调用 '
         '`cua.createBrowserTab("iab", "https://pos.meituan.com/web/operation/main#/", { visible: true })`。'

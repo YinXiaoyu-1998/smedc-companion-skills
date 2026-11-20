@@ -9,10 +9,11 @@
 
 ## 每日美团入库
 
-仅处理 snapshot.configuration.datasets 中启用的五类，各类独立检查／恢复。来源产品为 meituan_erp，核对 sourceAccounts 中账号、集团／品牌与企业的显式对应，以及每个来源店稳定 ID／精确全名。只读匹配和排除原因；新增未映射店列为 needs_configuration，不自动扩大范围。
+仅处理 snapshot.configuration.datasets 中明确启用的报表，各类独立检查／恢复。来源产品为 meituan_erp，核对 sourceAccounts 中账号、集团／品牌与企业的显式对应，以及每个来源店稳定 ID／精确全名。只读匹配和排除原因；新增未映射店列为 needs_configuration，不自动扩大范围。
 
 - business：`download-meituan-business-data`。
 - dishes：`download-meituan-dish-sales`。
+- combo_sales：`download-meituan-combo-sales`，逐营业日导出按门店、带规格的套餐明细。
 - in_store_orders：`meituan-order-details-download`，完整已结账营业日，显式 settled_only。
 - takeaway_orders：`meituan-takeout-order-details-download`。
 - delivery_ledger：`download-meituan-delivery-ledger`，上传／后续服务台账复用 `smedc-delivery-ledger`。
@@ -20,6 +21,8 @@
 对每个实际选择的来源门店回读完整筛选。营业用已核验的 `全量数据`，菜品用已核验的 `全量菜品`；先选常用方案再设冻结营业日。店内订单用营业日期＋已结账、其他筛选不缩小范围，导出全部查询结果。外卖用营业日期＋有效订单、状态和平台均全部，清除残留条件并导出全部查询结果。收货单用收货日期＋已收货，逐页导出并按唯一单号及查询总数对账，不执行收货操作。每份保留原文件和来源范围证据；传店内订单 `orderScope: settled_only`，收货单逐原始 XLSX 提交且省略日期参数，具体入参由核心契约核验。
 
 按各技能原有筛选回读、异步导出 ID、分段与有界等待规则取得原件。上传前核对实际列、行数、筛选证据、SHA 和原始来源门店；原文件不改字节、不按映射重写门店。ERP 名称与授权来源店不一致时阻塞该类上传并校正配置，不能本地改表绕过。
+
+套餐销售仅在「每日美团入库」的采集数据和当前持续上传授权都包含 `combo_sales` 时执行。已部署服务须支持工作流绑定的套餐上传，launcher 至少 0.22.2，工作流包至少 1.0.12。按来源账号、实际门店和每个冻结营业日导出一份原始 XLSX。先从工作簿内核对单日营业日期、筛选、规格列及实际门店。默认文件名的日期是导出时间。用已核对门店及同一天的起止日期构建上传动作；向 `combo_sales` 上传的 `startDate` 和 `endDate` 取该营业日。用官方 Job 回读确认 `published` 后才完成动作和清理该份文件。读取权限仍沿用同门店 `dishes`。
 
 新工作流的店内订单只有在实际 launcher／服务支持 orderScope 且首个发布版本已验证时才上传 settled_only；仅安装新 skill 或旧路径允许省略参数都不算兼容。原30列契约缺结账时间整列仍拒绝，不补造。不同／unknown 来源范围替换须服务受控预览和明确确认，ORDER_SCOPE_CONFLICT 时不强行上传或改键。历史未知口径继续 unknown。
 
