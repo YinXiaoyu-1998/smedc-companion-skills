@@ -26,7 +26,7 @@
 读取运行环境真实工具文档。检查结果用 `workflow.py readiness`，`checks` 按 manifest capability 名给出 `status/nextStep`，另给 `checkedAt/workflowType/mailEnabled`。状态只能是 ready、needs_configuration、needs_login、permission_denied、unsupported、unavailable。未实际检查的能力是 unavailable，不能填 ready。
 
 - configuration：实时兼容服务、已保存精确企业／来源账号／来源集团品牌绑定、门店映射和独立任务选择。未知门店 needs_configuration；不是闭店。
-- permissions：从 `get_my_permissions` 核对当前有效 admin。每日采集入库另从 `query_enterprise_workflows` 的任务详情核对启用中的持续上传授权，覆盖要采的报表和门店。`combo_sales` 是任务上传授权中的数据集，资料权限卡中的类别键为 `dishes`。需要读取套餐明细时，用同企业、同门店的 `dishes` 密级和授权判断。资料权限卡里缺少独立 `combo_sales` 类别属于正常结果。权限校验未通过时记录具体缺失的管理员资格、任务上传范围或资料读取范围，先核对再读取本地待上传原件。
+- permissions：用 `get_my_permissions` 核对当前有效 admin，以及任务实际需要读取的资料范围和密级。从所选任务详情核对当前持续授权的操作种类和门店。每日入库用 `query_enterprise_workflows` 的 detail 读取目标企业的每日任务、采集范围和持续授权。对每个选定门店和报表，找到一条仍有效（`revokedAt: null`）的 `upload` 记录，同时包含该门店和所需类别。套餐销售可用同店的 `dishes` 或历史 `combo_sales`，普通菜品销售需要 `dishes`，其他报表按原数据集匹配。任一组合缺失即记 `permission_denied` 并列出门店和报表；无法读回记为 `unavailable`。全部覆盖后才继续读取原件。依靠 `dishes` 采集套餐的任务还须核实宿主实际锁定的工作流包至少为 1.0.14。运行时仍按服务端动作检查执行。
 - meituan_erp / meituan_reviews：先按 [浏览器选择与恢复](browser.md) 选择实际可用的 bsk Agent Window 或本机 Chrome，再分别检查正确来源账号和真实会话；不搬 Cookie。bsk Agent Window 不可用时必须检查 Chrome，不能提前停止整轮准备检查。
 - download / file_format：每日入库按原技能对当前授权范围作小样本导出，核对筛选、原件完整列、行数及来源身份；周报检查官方范围下载，并按[周报取数范围](execution.md#自然周经营周报)核对定时任务的营业、菜品和店内订单下载授权。评价导出是可选采集路径，不支持当天导出或零样本时保留真实 download 状态，另验证 meituan_reviews 的逐页读取；file_format 验证审阅表生成和独立重开。页面打开不是导出验证。sampleStatus 只用 verified、no_sample、not_checked；具体方法（如合成审阅表回读）放 nextStep，无样本不伪称导出成功。准备检查与首次实际运行分开。
 - workspace：实际可写的专属本地工作目录、文件权限和精确清理归属；不把家目录或共享 Downloads 当 run 根。
