@@ -102,8 +102,8 @@ score before presenting the draft. After explicit approval, call `activate` with
 Re-preview after changes. On explicit direction, `deactivate` with the current revision to
 stop creating sheets from the template.
 
-For an explicit sheet replacement, use `preview_replacement` and show the retained, cleared,
-added, and removed questions. Submit `replace` only after authorization for that comparison,
+For an explicit sheet replacement, use `preview_replacement` with `includeTitles: true`. Show the retained,
+cleared, added, and removed questions by title, including the previous and current titles for renamed items. Submit `replace` only after authorization for that comparison,
 using both previewed versions, `expectedActiveRevision`, `expectedSheetRevision`, and
 `requestId`. Void only on explicit direction with the current `expectedSheetRevision` and
 `requestId`.
