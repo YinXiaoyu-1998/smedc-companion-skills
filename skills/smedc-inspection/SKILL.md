@@ -61,9 +61,12 @@ with `set`, `clear`, or `removePhotos`.
   verifies the original and returns `localPath` with `photoId`, `mediaType`, `byteLength`,
   and `sha256`. Open that file if available to the agent. An upload takes `filePath`.
 - If the model can see the image but the launcher cannot read the original, save the supported
-  textual findings. Leave the photo component open and give the employee its `sheetId`,
-  `questionId`, and `componentId` for adding the original in the web app. A path, filename,
-  or upload receipt alone provides no visual evidence.
+  textual findings and leave the photo component open. Give the employee the official store
+  name, inspection date, sheet name (or the template title for an unnamed sheet), question
+  title, and photo component label so they can find the field in the web app. When titles or
+  labels repeat, include the question's position across the full ordered sheet and the
+  component's position within that question. Include `sheetId`, `questionId`, and
+  `componentId` for traceability. Base observations on the evidence you could actually see.
 
 ### Save and reconcile
 
