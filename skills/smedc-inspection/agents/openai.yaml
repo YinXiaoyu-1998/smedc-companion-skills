@@ -1,0 +1,4 @@
+interface:
+  display_name: "企业智脑门店巡检"
+  short_description: "查询企业智脑（SMEDC）门店巡检卷、按证据填报补图或整理模板草稿"
+  default_prompt: "Use $smedc-inspection to fill an authorized store inspection sheet from my evidence and identify what still needs a photo."
