@@ -11,6 +11,7 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 | [smedc-workflows](skills/smedc-workflows/SKILL.md) | Independently select daily ingestion, review operations or weekly reports; versioned Codex/Gmail adapters, readiness, bounded migration and recovery. Requires compatible released service/launcher; installation does not enable tasks. |
 | [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | Operating diagnosis, weekly and monthly HTML reports from authorized SMEDC data; requires the core Skill and an authenticated session. |
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | Original receipt uploads, linked quarantine photos and service-generated daily PDF/ZIP delivery; requires the core Skill and enabled archive delivery. No local ledger generation. |
+| [smedc-inspection](skills/smedc-inspection/SKILL.md) | Read and fill authorized store inspection sheets or prepare template drafts. Candidate source. Live use requires the four inspection tools, a compatible launcher and service, and current permissions. |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | Export original business XLSX files. |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | Export original dish-sales XLSX files. |
 | [download-meituan-combo-sales](skills/download-meituan-combo-sales/SKILL.md) | Export and verify original single-day combo item sales XLSX files. |
@@ -21,9 +22,10 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 | [review-responder](skills/review-responder/SKILL.md) | Customized Chinese restaurant-owner reply writing; original attribution is retained in the Skill. |
 
 Meituan-only workflows require browser capabilities and a user-completed Meituan login, not an
-SMEDC account. SMEDC uploads additionally require an explicit upload request, the core Skill and
-an authenticated admin. Browser selection, export handling and reply approval rules live in the
-linked Skills, not in a second copy here.
+SMEDC account. SMEDC structured-data uploads additionally require an explicit upload request, the
+core Skill and an authenticated admin. Inspection photo uploads require current store fill
+permission. Browser selection, export handling and reply approval rules live in the linked Skills,
+not in a second copy here.
 
 Ask your agent to “Upgrade SMEDC” to refresh all official companion Skills already installed on this computer.
 
@@ -71,6 +73,7 @@ git clone https://github.com/YinXiaoyu-1998/smedc-companion-skills.git /tmp/smed
 cp -R /tmp/smedc-companion-skills/skills/smedc-workflows ~/.agents/skills/smedc-workflows
 cp -R /tmp/smedc-companion-skills/skills/smedc-business-analysis ~/.agents/skills/smedc-business-analysis
 cp -R /tmp/smedc-companion-skills/skills/smedc-delivery-ledger ~/.agents/skills/smedc-delivery-ledger
+cp -R /tmp/smedc-companion-skills/skills/smedc-inspection ~/.agents/skills/smedc-inspection
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-business-data ~/.agents/skills/download-meituan-business-data
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-dish-sales ~/.agents/skills/download-meituan-dish-sales
 cp -R /tmp/smedc-companion-skills/skills/download-meituan-delivery-ledger ~/.agents/skills/download-meituan-delivery-ledger
