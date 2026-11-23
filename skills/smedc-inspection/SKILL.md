@@ -8,9 +8,8 @@ description: 使用企业智脑（SMEDC）查询门店巡检卷、按现场证�
 ## Check the connection
 
 Use the employee's authenticated `smedc` MCP connection. Follow `smedc-mcp` for installation,
-login, repair, and the approved launcher pin. This companion is candidate source. Live use
-requires a compatible launcher and service, all four tools below, and current access to the
-target. If any prerequisite fails, identify the missing tool, unavailable service, or denied
+login, repair, and the approved launcher pin. The published launcher 0.23.0 includes all four
+inspection tools. Live use requires the matching service and current access to the target. If any prerequisite fails, identify the missing tool, unavailable service, or denied
 scope. Use the inspection tools for inspection data and photos.
 
 | Tool | Actions |
