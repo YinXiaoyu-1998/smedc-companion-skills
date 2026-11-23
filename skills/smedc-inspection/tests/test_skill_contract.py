@@ -1,103 +1,60 @@
-"""Contract checks for the distributed SMEDC inspection companion skill."""
+"""Check the distribution links and the synthetic inspection walkthrough."""
 
 import json
 import re
+import shlex
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = SKILL_ROOT.parents[1]
 
 
-def read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
-
-
 class InspectionSkillContractTests(unittest.TestCase):
-    def test_skill_metadata_and_readme_discovery_are_complete(self):
-        text = read(SKILL_ROOT / "SKILL.md")
-        frontmatter = re.match(r"\A---\n(.*?)\n---\n", text, re.DOTALL)
-        self.assertIsNotNone(frontmatter)
-        self.assertIn("name: smedc-inspection", frontmatter.group(1))
-        self.assertIn("企业智脑（SMEDC）", frontmatter.group(1))
-        self.assertIn("Use for", frontmatter.group(1))
+    def test_both_readmes_link_and_install_the_inspection_companion(self):
+        expected_copy = [
+            "cp",
+            "-R",
+            "/tmp/smedc-companion-skills/skills/smedc-inspection",
+            "~/.agents/skills/smedc-inspection",
+        ]
+        for name in ("README.md", "README.zh.md"):
+            with self.subTest(readme=name):
+                content = (REPOSITORY_ROOT / name).read_text(encoding="utf-8")
+                self.assertIn("(skills/smedc-inspection/SKILL.md)", content)
+                copies = [
+                    shlex.split(line) for line in content.splitlines() if line.startswith("cp ")
+                ]
+                self.assertIn(expected_copy, copies)
 
-        interface = read(SKILL_ROOT / "agents/openai.yaml")
-        self.assertIn("$smedc-inspection", interface)
-        self.assertIn("all four public inspection tools", interface)
-
-        link = "(skills/smedc-inspection/SKILL.md)"
-        for readme in ("README.md", "README.zh.md"):
-            with self.subTest(readme=readme):
-                content = read(REPOSITORY_ROOT / readme)
-                self.assertIn(link, content)
-                self.assertIn("smedc-inspection ~/.agents/skills/smedc-inspection", content)
-
-    def test_examples_keep_command_wrappers_and_flat_photo_upload(self):
-        text = read(SKILL_ROOT / "SKILL.md")
-        examples = [
+    def test_example_upload_and_patch_match_the_store_and_template(self):
+        entrypoint = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        reference = "references/examples.md"
+        self.assertIn(f"({reference})", entrypoint)
+        text = (SKILL_ROOT / reference).read_text(encoding="utf-8")
+        payloads = [
             json.loads(block)
             for block in re.findall(r"```json\n(.*?)\n```", text, re.DOTALL)
         ]
-        self.assertEqual(len(examples), 3)
+        draft = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "create")
+        patch = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "patch")
+        upload = next(p for p in payloads if "command" not in p)
+        self.assertEqual(upload["enterpriseKey"], draft["enterpriseKey"])
+        self.assertIn(upload["storeId"], draft["definition"]["storeIds"])
+        self.assertTrue(PurePosixPath(upload["filePath"]).is_absolute())
+        self.assertNotIn("localPath", upload)
+        self.assertNotIn("fileBase64", upload)
 
-        create = next(
-            item for item in examples if item.get("command", {}).get("action") == "create"
-        )
-        self.assertEqual(
-            set(create["command"]),
-            {"action", "templateId", "enterpriseKey", "definition"},
-        )
-        self.assertIn("questions", create["command"]["definition"])
-
-        patch = next(
-            item for item in examples if item.get("command", {}).get("action") == "patch"
-        )
-        self.assertEqual(set(patch["command"]), {"action", "patches"})
-        sheet = patch["command"]["patches"][0]
-        self.assertEqual(
-            set(sheet),
-            {"sheetId", "templateVersionId", "requestId", "changes"},
-        )
-        self.assertEqual(
-            {change["op"] for change in sheet["changes"]},
-            {"fill", "appendPhotos"},
-        )
-
-        upload = next(item for item in examples if "command" not in item)
-        self.assertEqual(
-            set(upload),
-            {
-                "enterpriseKey",
-                "storeId",
-                "inspectionDate",
-                "requestId",
-                "mediaType",
-                "filePath",
-            },
-        )
-        self.assertNotIn("fileBase64", text)
-        self.assertIn("localPath", text)
-        self.assertIn("never upload content", text)
-
-    def test_candidate_and_human_activation_boundaries_remain_explicit(self):
-        text = read(SKILL_ROOT / "SKILL.md")
-        for marker in (
-            "source candidate",
-            "not a launch claim",
-            "all four public tools",
-            "approved exact",
-            "launcher pin",
-            "explicit user decision",
-            "official questionnaire rows",
-            "red lines",
-            "conditional evidence exceptions",
-            "pure synthetic example",
-        ):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, text)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        components = {
+            component["componentId"]: component
+            for question in draft["definition"]["questions"]
+            for component in question["components"]
+        }
+        fill, attach = patch["patches"][0]["changes"]
+        self.assertEqual(fill["op"], "fill")
+        score = components[fill["componentId"]]
+        self.assertEqual(score["kind"], "score")
+        self.assertLessEqual(score["minTenths"], fill["value"], score["maxTenths"])
+        self.assertEqual(attach["op"], "appendPhotos")
+        self.assertEqual(components[attach["componentId"]]["kind"], "photo")

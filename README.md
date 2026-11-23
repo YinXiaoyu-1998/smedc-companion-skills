@@ -11,7 +11,7 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 | [smedc-workflows](skills/smedc-workflows/SKILL.md) | Independently select daily ingestion, review operations or weekly reports; versioned Codex/Gmail adapters, readiness, bounded migration and recovery. Requires compatible released service/launcher; installation does not enable tasks. |
 | [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | Operating diagnosis, weekly and monthly HTML reports from authorized SMEDC data; requires the core Skill and an authenticated session. |
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | Original receipt uploads, linked quarantine photos and service-generated daily PDF/ZIP delivery; requires the core Skill and enabled archive delivery. No local ledger generation. |
-| [smedc-inspection](skills/smedc-inspection/SKILL.md) | Read and fill authorized store inspection sheets with evidence and photo references, or prepare a template draft for explicit preview and activation; requires all four public inspection tools, a compatible service, and current store or template permission. Source candidate; no launch claim. |
+| [smedc-inspection](skills/smedc-inspection/SKILL.md) | Read and fill authorized store inspection sheets or prepare template drafts. Candidate source. Live use requires the four inspection tools, a compatible launcher and service, and current permissions. |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | Export original business XLSX files. |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | Export original dish-sales XLSX files. |
 | [download-meituan-combo-sales](skills/download-meituan-combo-sales/SKILL.md) | Export and verify original single-day combo item sales XLSX files. |
@@ -23,7 +23,7 @@ Each `skills/<name>/` subtree owns its guidance, references, scripts, configurat
 
 Meituan-only workflows require browser capabilities and a user-completed Meituan login, not an
 SMEDC account. SMEDC structured-data uploads additionally require an explicit upload request, the
-core Skill and an authenticated admin; inspection photo evidence instead uses current store fill
+core Skill and an authenticated admin. Inspection photo uploads require current store fill
 permission. Browser selection, export handling and reply approval rules live in the linked Skills,
 not in a second copy here.
 

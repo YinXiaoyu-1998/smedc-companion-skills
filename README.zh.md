@@ -10,7 +10,7 @@
 | [smedc-workflows](skills/smedc-workflows/SKILL.md) | 分别选择每日入库、评价或自然周周报；包含版本化 Codex／Gmail 适配、准备检查、完整分批迁移与恢复。需要兼容服务与 launcher 已发布；安装不会启用任务。 |
 | [smedc-business-analysis](skills/smedc-business-analysis/SKILL.md) | 基于受权的企业智脑数据生成经营诊断、周报和月报 HTML；需要核心 Skill 和已认证会话。 |
 | [smedc-delivery-ledger](skills/smedc-delivery-ledger/SKILL.md) | 原始收货单上传、关联检疫照片、服务端每日 PDF／ZIP 交付；需要核心 Skill 及归档交付启用，不在本地生成台账。 |
-| [smedc-inspection](skills/smedc-inspection/SKILL.md) | 读取并填报授权门店巡检卷、按证据补图，或准备草稿并显式预览、启用；需要四个公开巡检工具、兼容服务和当前门店或模板权限。源码候选，不表示已上线。 |
+| [smedc-inspection](skills/smedc-inspection/SKILL.md) | 读取和填报授权门店巡检卷，或准备模板草稿。源码候选。实际使用需要四个巡检工具、兼容的 launcher 与服务，以及当前权限。 |
 | [download-meituan-business-data](skills/download-meituan-business-data/SKILL.md) | 导出原始营业 XLSX。 |
 | [download-meituan-dish-sales](skills/download-meituan-dish-sales/SKILL.md) | 导出原始菜品销售 XLSX。 |
 | [download-meituan-combo-sales](skills/download-meituan-combo-sales/SKILL.md) | 逐营业日导出并校验带规格的套餐子菜销售原始 XLSX。 |
@@ -21,7 +21,7 @@
 | [review-responder](skills/review-responder/SKILL.md) | 定制中文餐饮商家回复文案；原始归属信息保留在 Skill 内。 |
 
 仅操作美团需要浏览器能力及用户自行完成的美团登录，不需要企业智脑账号。
-结构化数据上传到企业智脑 另需用户明确要求、核心 Skill 及已认证 admin；巡检照片证据改用当前门店填写权限。
+上传结构化数据另需用户明确要求、核心 Skill 及已认证的管理员。上传巡检照片需要当前门店的填写权限。
 浏览器选择、下载处理和回复审批细则只在所链接的 Skills 中维护，README 不重复操作手册。
 
 说“给我升级一下 SMEDC”即可刷新这台电脑上所有已安装的官方配套 Skill。代理按[已安装配套 Skill 更新流程](README.md#refresh-installed-companions-during-a-general-upgrade)核验来源、替换并验证宿主加载。WorkBuddy 按同一来源提交同步适用的覆盖文件。
