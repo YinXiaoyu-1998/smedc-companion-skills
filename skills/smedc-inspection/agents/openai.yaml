@@ -1,0 +1,5 @@
+interface:
+  display_name: "企业智脑门店巡检"
+  short_description: "读取并填报企业智脑（SMEDC）授权门店巡检卷，按证据补图或准备模板草稿"
+  default_prompt: "Use $smedc-inspection to read an authorized SMEDC inspection sheet, fill blank components with evidence, attach verified local photos, or prepare a template draft for explicit preview and activation. This is a source candidate; require all four public inspection tools, a compatible service, and current store or template permission."
+  brand_color: "#B45309"
