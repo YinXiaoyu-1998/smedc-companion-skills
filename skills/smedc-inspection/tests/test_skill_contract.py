@@ -40,6 +40,7 @@ class InspectionSkillContractTests(unittest.TestCase):
         draft = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "create_active")
         patch = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "patch")
         upload = next(p for p in payloads if "command" not in p)
+        self.assertTrue(all("category" not in q for q in draft["definition"]["questions"]))
         self.assertEqual(upload["enterpriseKey"], draft["enterpriseKey"])
         self.assertIn(upload["storeId"], draft["definition"]["storeIds"])
         self.assertTrue(PurePosixPath(upload["filePath"]).is_absolute())

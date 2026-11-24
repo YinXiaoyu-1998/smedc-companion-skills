@@ -24,7 +24,6 @@ Call `manage_inspection_templates` with a new template ID.
         {
           "questionId": "33333333-3333-4333-8333-333333333333",
           "title": "合成检查项",
-          "category": "合成分类",
           "components": [
             {
               "componentId": "44444444-4444-4444-8444-444444444444",
