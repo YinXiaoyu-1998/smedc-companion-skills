@@ -16,7 +16,7 @@ scope. Use the inspection tools for inspection data and photos.
 | --- | --- |
 | `query_inspections` | `context`, `day`, `sheet`, `photo` |
 | `write_inspections` | `create`, `patch`, `void`, `preview_replacement`, `replace` |
-| `manage_inspection_templates` | `list`, `preview`, `create`, `save`, `activate`, `deactivate` |
+| `manage_inspection_templates` | `list`, `preview`, `create_active`, `create_draft`, `save`, `activate`, `deactivate` |
 | `upload_inspection_photo` | Flat upload input, with no action |
 
 Put `action` and its fields inside `command` for the first three tools. See
@@ -93,13 +93,22 @@ provided rubric, extract the actual criteria, exclude sample answers and duplica
 preserve conditional evidence and red-line guidance in the SOP. Flag unresolved criteria or
 score discrepancies to the maintainer.
 
-Use `list` and paged `preview` for drafts. Create with a new `templateId`, then save revisions
-using the complete definition and `expectedDraftRevision`. Preserve IDs for retained questions
-and components, and use new IDs for additions or copies. Check preview issues and static maximum
-score before presenting the draft. After explicit approval, call `activate` with the previewed
-`draftRevision` as `expectedDraftRevision` to apply the definition, stores, and copy settings.
-Re-preview after changes. On explicit direction, `deactivate` with the current revision to
-stop creating sheets from the template.
+For a new usable template, confirm the intended stores and copy rule, then use
+`create_active` with a complete definition and a new `templateId`. A successful request
+creates the template and activates its first version. If validation returns missing fields,
+report them and correct the definition before retrying. Check the template by the same ID if
+the response is lost.
+
+Use `create_draft` only when the user explicitly asks to save a draft for review. Check the
+connected tool schema for both actions. When formal creation is unavailable, report the
+missing capability. The older `create` action saves a draft and is suitable only for an
+explicit draft request.
+
+Use `list` and paged `preview` for saved drafts, then `save` with the complete definition
+and `expectedDraftRevision`. Preserve IDs for retained questions and components. Check
+preview issues and maximum score before presenting the draft. With explicit approval,
+`activate` the previewed revision. Use `deactivate` with the current revision to stop
+new sheets from this template. Existing sheets remain usable.
 
 For an explicit sheet replacement, use `preview_replacement` with `includeTitles: true`. Show the retained,
 cleared, added, and removed questions by title, including the previous and current titles for renamed items. Submit `replace` only after authorization for that comparison,
