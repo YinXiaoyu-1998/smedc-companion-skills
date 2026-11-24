@@ -2,14 +2,16 @@
 
 These placeholders describe a single synthetic store, date, and sheet. Use the exact values from the authorized live calls in a real inspection.
 
-## Create a template draft
+## Create and activate a template
+
+For an explicitly requested saved draft, use `create_draft` with the definition you have so far.
 
 Call `manage_inspection_templates` with a new template ID.
 
 ```json
 {
   "command": {
-    "action": "create",
+    "action": "create_active",
     "templateId": "11111111-1111-4111-8111-111111111111",
     "enterpriseKey": "synthetic-enterprise",
     "definition": {

@@ -37,7 +37,7 @@ class InspectionSkillContractTests(unittest.TestCase):
             json.loads(block)
             for block in re.findall(r"```json\n(.*?)\n```", text, re.DOTALL)
         ]
-        draft = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "create")
+        draft = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "create_active")
         patch = next(p["command"] for p in payloads if p.get("command", {}).get("action") == "patch")
         upload = next(p for p in payloads if "command" not in p)
         self.assertEqual(upload["enterpriseKey"], draft["enterpriseKey"])
