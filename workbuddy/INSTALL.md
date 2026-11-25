@@ -56,8 +56,14 @@ host's schedule back and preserve the RRULE verbatim. Do not write
 ## 6. Prerequisites
 
 - The core skill owns launcher installation, login and the approved pin.
-- Browser work needs the `bsk` CLI plus the Chrome BrowserSkill extension and
-  an employee-completed Meituan login. `wb_browser.py doctor` checks the
-  daemon and browser connection; it does not test credentials.
+- Browser work uses the host's own `web-access` skill. Its native pre-flight
+  (`scripts/check-deps.mjs`, Node.js 22+, browser remote-debugging
+  authorization and connection approval) is required by that skill for any
+  WorkBuddy web task; follow its SKILL.md. See `references/web-access.md` §1–2.
+  The Meituan login is completed by the employee in the browser; the agent
+  never handles credentials. **No third-party CLI or browser extension is needed.**
+- At a scheduled trigger the browser must be online with the authorization
+  still valid. If it is not, the source stage is recorded as `blocked` with the
+  exact pending scope and the run closes as `partial`; it is never replayed.
 - Mail stages stay blocked until a host with the required native mail identity
   is available. Installing this adapter grants no send or publish permission.

@@ -127,13 +127,20 @@ is tenant-neutral and carries no enterprise names, store rosters, source account
 addresses or schedules.
 
 Supported on WorkBuddy: the native `mcp__smedc__*` workflow tools, browser source reads through
-the `bsk` CLI with the local Chrome profile, hash-chained local run-state continuation, and PAUSED
-schedule specifications. Installation never activates a schedule and never grants send, upload
-or publish permission.
+the host's own `web-access` skill (CDP Proxy attached to the employee's everyday browser),
+validated landing of the resulting download temp file, hash-chained local run-state continuation,
+and PAUSED schedule specifications. See `workbuddy/references/web-access.md` for the authoritative
+browser/download playbook (pre-flight, iframe traversal, mouse-event sequence, file validation).
+The remote-debugging authorization and browser preference are native `web-access` prerequisites;
+this adapter installs no third-party CLI or browser extension. Installation never activates a
+schedule and never grants send, upload or publish permission.
 
 Hard limits: WorkBuddy has no native Gmail namespace matching the central `allowedSender`, no
-Goal lifecycle, and no JS environment with injected host tools. Mail stages are therefore
-recorded as blocked with local delivery (weekly reports keep the final HTML; review drafts stay
-in the workbook); run continuity uses a local state file instead of a Goal; central
-claim/check/record calls are issued step by step by the agent. See `workbuddy/HOST_MAP.md` for the
-full mapping. These stages must be reported as partial or degraded, never as a successful send.
+Goal lifecycle, no JS environment with injected host tools, and no native download-event API or
+window-level Save-panel control. Mail stages are therefore recorded as blocked with local delivery
+(weekly reports keep the final HTML; review drafts stay in the workbook); run continuity uses a
+local state file instead of a Goal; central claim/check/record calls are issued step by step by
+the agent. At a scheduled trigger the browser must be online with the CDP authorization still
+valid, otherwise the source stage is blocked and the run closes as partial. See
+`workbuddy/HOST_MAP.md` for the full mapping. These stages must be reported as partial or
+degraded, never as a successful send.

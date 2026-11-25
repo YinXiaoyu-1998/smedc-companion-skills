@@ -1,7 +1,7 @@
-> **WorkBuddy 宿主优先级**：本文件涉及浏览器选择、登录态、保存框、下载等待、
-> 宿主工具与定时任务的段落，一律以 `workbuddy/HOST_MAP.md` 与 `workbuddy/WORKFLOWS.md`
-> 以及 SKILL.md 顶部的「WorkBuddy 宿主适配」章节为准。上游专有接口名已替换；业务筛选、
-> 原件校验、证据与清理门槛不变。此文件由 `build_overlays.py` 生成，请勿手工编辑。
+> **WorkBuddy 宿主优先级**：本文件涉及浏览器选择、登录态、下载等待、宿主工具与
+> 定时任务的段落，一律以 `workbuddy/references/web-access.md`、`workbuddy/HOST_MAP.md`、
+> `workbuddy/WORKFLOWS.md` 以及 SKILL.md 顶部的「WorkBuddy 宿主适配」章节为准。
+> 业务筛选、原件校验、证据与清理门槛不变。此文件由 `build_overlays.py` 生成，请勿手工编辑。
 
 # 有状态的独立定时运行
 

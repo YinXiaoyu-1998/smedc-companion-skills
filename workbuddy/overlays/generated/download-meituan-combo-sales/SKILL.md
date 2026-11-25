@@ -10,20 +10,24 @@ description: 从美团管家「套餐销售统计」按营业日和门店导出�
 ## WorkBuddy 宿主适配（最高优先级）
 
 本副本由 WorkBuddy overlay 生成。**下文及本 skill 的 references 中，凡涉及浏览器选择、
-登录态、保存框、下载等待、宿主工具或定时任务的段落，若与本节冲突，一律以本节和
-`workbuddy/HOST_MAP.md` 为准**；上游专有接口名已替换为 WorkBuddy 等价物，但业务筛选、
-原件校验、证据与清理门槛保持不变。
+登录态、下载保存、宿主工具或定时任务的段落，若与本节冲突，一律以本节、
+`workbuddy/HOST_MAP.md` 和 `workbuddy/references/web-access.md` 为准**；业务筛选、原件校验、证据与清理
+门槛保持不变。
 
-- 浏览器：使用 `~/.local/bin/bsk` + Chrome 的 BrowserSkill 扩展（Agent Window 复用本机已登录会话）。
-  只读 `navigate` / `snapshot` 可直接用；`click` / `evaluate` / 点击型下载前必须先
-  `bsk cooperate sync --session <SID> --policy target` 取得 context 与 observation。
-  封装见 `workbuddy/scripts/wb_browser.py`；下载捕获用该桥的 `download` 子命令（`--out`）。
+- 浏览器：使用宿主 `web-access` skill 的 CDP 路径直连员工日常浏览器，复用其登录态。
+  前置检查、远程调试授权与浏览器偏好都是该 skill 的原生配置，按它的 SKILL.md 执行；
+  **不安装任何额外的 CLI 或浏览器扩展**。CDP Proxy API、iframe 穿透、事件序列点击与
+  下载临时文件落地见 `workbuddy/references/web-access.md`。
+- 本宿主**没有**原生 download 事件 API，也没有窗口级保存交互控制；原宿主那些
+  下载事件注册／固定等待时限／窗口级保存交互片段已从本副本移除，不要照抄。
 - 定时与续轮：无 Goal 生命周期，用 `workbuddy/scripts/wb_state.py` 的本地 run 状态文件；
   时间表由员工确认后才通过宿主 `automation_update` 安装，见 `workbuddy/scripts/wb_schedule.py`。
-- 邮件：宿主没有原生邮件命名空间，按官方降级为 blocked + 本地交付，
-  见 `workbuddy/scripts/wb_mail.py`；不换发件人、不发信。
+  定时触发时浏览器需在线且 CDP 授权仍有效，否则来源阶段记为 blocked。
+- 邮件：宿主邮件身份与中央冻结的 `allowedSender` 不一致，且缺原生读回能力，按官方降级
+  记为 blocked + 本地交付，见 `workbuddy/scripts/wb_mail.py`；不换发件人、不发信。
 - 中央动作仍只通过原生 `mcp__smedc__*` 工具完成；不另写 HTTP、JSON-RPC 或私有客户端。
 - 原宿主流程不受影响：仓库内 `skills/` 下任何文件都未被本 overlay 修改。
+
 
 
 # 美团套餐销售统计下载
@@ -35,13 +39,22 @@ description: 从美团管家「套餐销售统计」按营业日和门店导出�
 - 保留美团原始 XLSX 字节。默认可保存为 `meituan_combo_sales_YYYYMMDD.xlsx`，日期用工作簿核验后的营业日。同日有不同门店范围时使用能区分范围的文件名或目录。同名文件先核对，另存有冲突的文件。
 - 下载范围由用户请求决定。已获上传授权时，按当前 `smedc-mcp` 的套餐销售说明交付原件和验证后的营业日。数据集为 `combo_sales`，每份的 `startDate` 和 `endDate` 相同。用 `partitionImportJobId` 查到 `published` 才报告入库成功。
 
-## 用 bsk 浏览器桥 查询和导出
+## 查询和导出（WorkBuddy）
 
-1. 使用 `bsk` 的 Chrome Agent Window 复用美团标签或打开 `https://pos.meituan.com/web/operation/main#/`。登录或验证码由用户在页面完成。
-2. 进入 **报表中心 → 营业报表 → 套餐销售统计**。菜单不可用时，可尝试录制中观察到的 [套餐销售统计](https://pos.meituan.com/web/report/pack-sale#/rms-report/pack-sale)。确认标题、统计方式和营业日期控件，按当前可见控件操作。
+1. 按 `workbuddy/references/web-access.md` 启动 `web-access` 的 CDP 会话，打开
+   `https://pos.meituan.com/web/operation/main#/` 或复用员工已登录的美团后台标签。
+   前置检查与远程调试授权是该 skill 的原生配置；登录、验证码由员工在页面完成。
+2. 进入 **报表中心 → 营业报表 → 套餐销售统计**。菜单不可用时，可尝试录制中观察到的
+   [套餐销售统计](https://pos.meituan.com/web/report/pack-sale#/rms-report/pack-sale)。
+   确认标题、统计方式和营业日期控件，按当前可见控件操作。
 3. **统计方式**选「套餐明细」。在「营业日期」的两个日期控件中选择同一个营业日，分别核对起止值。打开门店树，选用户要求的门店并核对实际勾选项；勾选「按门店统计」。在「更多筛选」中勾选「显示菜品规格」，取消「同名菜品合并统计」。菜品分类、菜品名称、订单分类、菜品下单来源均选「全部」，以取得可入库的完整门店日来源。
 4. 每次修改日期或筛选后，点「查询」，等待结果刷新，复核当前条件后再点「导出」。只有当前查询明确无数据时才将该日标为无数据。表格当前页条数不能代表全量。页面若提示额外限制，保留已确认范围并报告该限制。
-5. 点击「导出」前先按当前工具文档注册下载捕获。录制中此按钮直接打开 Chrome 的系统「保存」对话框；若当前界面直接下载，检查选定浏览器的下载结果和目标目录。出现原生保存框时，操作发起下载的浏览器自己的窗口，核对目录及文件名再保存。若实际页面转入「下载清单记录」，按本次套餐报表、营业日和申请时间定位任务，生成中适度等待，完成后先注册捕获，再点该行「下载」。只在页面或本地证据能确认没有进行中的导出、下载或待保存窗口后才重试。
+5. 点击「导出」前按 `workbuddy/references/web-access.md` 第 5 节记录目标路径与已有临时文件；在业务
+   iframe 内用完整鼠标事件序列点击**一次**。Chrome 会把文件落到
+   `~/Downloads/.com.google.Chrome.*` 临时名，不出现可自动操作的窗口级保存交互；
+   先校验完整性再复制重命名。若页面转入「下载清单记录」，按本次套餐报表、营业日和
+   申请时间定位任务，有界等待生成完成后再下载；只在确认没有进行中的导出或下载后才重试。
+
 
 ## 验证本地工作簿
 

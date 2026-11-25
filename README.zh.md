@@ -105,12 +105,16 @@ Delivery-ledger 测试仅使用 Python 标准库；business-analysis 元数据�
 SKILL.md 覆盖版；仓库 `skills/` 下所有文件保持逐字节不变，Codex 的提示词、脚本、测试与安装流程
 完全不受影响。适配层不含企业名、门店名单、来源账号、收件邮箱或企业时间表。
 
-WorkBuddy 上可用：原生 `mcp__smedc__*` 工作流工具、`bsk` CLI 复用本机 Chrome 登录态的来源采集、
-带哈希链的本地 run 状态续轮、PAUSED 定时规格渲染。安装不会启用定时任务，也不会授予发信、上传
-或发布权限。
+WorkBuddy 上可用：原生 `mcp__smedc__*` 工作流工具、宿主自带 `web-access` skill 的 CDP 网页采集
+（直连员工日常浏览器并复用登录态）、下载临时文件的校验与落地、带哈希链的本地 run 状态续轮、
+PAUSED 定时规格渲染。权威网页操作说明见 `workbuddy/references/web-access.md`（前置检查、iframe
+穿透、事件序列点击、临时文件校验与重命名）。远程调试授权与浏览器偏好是 `web-access` 自身的原生
+前置配置；本适配层不要求安装第三方 CLI 或浏览器扩展。安装不会启用定时任务，也不会授予发信、
+上传或发布权限。
 
-硬限制：WorkBuddy 没有与中央 `allowedSender` 一致的原生 Gmail 命名空间、没有 Goal 生命周期、
-也没有注入宿主工具的 JS 执行环境。因此邮件阶段按官方降级记为 blocked 并本地交付（周报保留最终
-HTML、评价新稿保留审阅表）；续轮改用本地状态文件；中央 claim/check/record 由 agent 分步调用
-原生工具。完整映射见 `workbuddy/HOST_MAP.md`。这些阶段必须如实报告为 partial 或降级，不得描述
-成发送成功。
+硬限制：WorkBuddy 没有与中央 `allowedSender` 一致的原生邮件身份、没有 Goal 生命周期、没有注入
+宿主工具的 JS 执行环境，也没有原生 download 事件 API 与窗口级保存框控制。因此邮件阶段按官方
+降级记为 blocked 并本地交付（周报保留最终 HTML、评价新稿保留审阅表）；续轮改用本地状态文件；
+中央 claim/check/record 由 agent 分步调用原生工具。定时触发时浏览器需在线且 CDP 授权仍有效，
+否则来源阶段记为 blocked、整轮按 partial 收尾。完整映射见 `workbuddy/HOST_MAP.md`。这些阶段
+必须如实报告为 partial 或降级，不得描述成发送成功。

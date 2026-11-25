@@ -26,30 +26,42 @@ Those values are read at run time from the authenticated central snapshot.
 | --- | --- |
 | Persistent Goal (`get_goal`/`create_goal`/`update_goal`) | `scripts/wb_state.py` local run-state file with hash-chained atomic saves |
 | `functions.exec` + JS `eval` with an injected `tools` object | Agent invokes native tools step by step; only the local state/index is scripted |
+| IAB / in-app browser | Host `web-access` skill + CDP Proxy attached to the employee's everyday browser (`references/web-access.md`) |
+| Download event registration + native Save panel | Full mouse-event click inside the target iframe, then local validation and rename of the Chrome temp file (`references/web-access.md` §5) |
 | Native Gmail namespace and `allowedSender` identity | **Not substitutable.** Mail stage is `blocked`; local delivery per `scripts/wb_mail.py` |
 | `mcp__codex_app__automation_update` (projectId, notificationPolicy, model) | Host `automation_update` with name/prompt/schedule/status/cwds; `scripts/wb_schedule.py` renders specs only |
-| IAB / in-app browser | `bsk` CLI + Chrome BrowserSkill extension, reusing the local Chrome login (`scripts/wb_browser.py`) |
 | `load_workspace_dependencies`, `@oai/artifact-tool` | Local interpreter/package probes and the skill's own requirements |
 | `set_thread_archived`, `tab.markHandoff()` | Not available; chat archiving is skipped and browser tabs are reopened per run |
+
+Browser remote-debugging authorization, `check-deps.mjs` and the browser
+preference are **native prerequisites of `web-access`**, not extra setup added
+by this adapter. This adapter installs no third-party CLI or browser extension.
 
 See `HOST_MAP.md` for the full mapping and the list of hard limits.
 
 ## Files
 
 - `INSTALL.md` — how to install the overlay trees without touching Codex.
-- `HOST_MAP.md` — capability mapping, hard limits and local state integrity.
+- `HOST_MAP.md` — capability mapping, host-native prerequisites and hard limits.
 - `WORKFLOWS.md` — the three runbooks on this host.
+- `references/web-access.md` — **authoritative** browser/download playbook: CDP
+  pre-flight and API, iframe traversal, mouse-event sequence, download temp-file
+  landing, date handling and safety boundaries.
 - `scripts/wb_state.py` — local run state with an append-only hash journal (Goal replacement).
-- `scripts/wb_browser.py` — bsk bridge with the `--out` download contract and session-loss recovery hints.
+- `scripts/wb_browser.py` — **deprecated optional bridge.** An earlier revision
+  used a `bsk` CLI plus a Chrome extension; it required software WorkBuddy does
+  not ship. It is kept only for compatibility with existing installs and its
+  tests. New installs must not use it; use `web-access` instead.
 - `scripts/wb_mail.py` — mail-stage degradation and non-overwriting local delivery. Never sends.
 - `scripts/wb_schedule.py` — renders PAUSED automation specs with tool-binding notes; never creates a task.
 - `overlays/build_overlays.py` — regenerates and checks the WorkBuddy `SKILL.md` + `references/*.md` overlays.
-- `overlays/generated/` — committed overlay trees (7 skills, 19 files) for review.
+- `overlays/generated/` — committed overlay trees for review.
 
 ## Non-goals
 
 - No SMTP, no second mail server, no sender override.
 - No HTTP/JSON-RPC/private MCP client: central actions go through native tools only.
+- No third-party browser CLI or extension installation.
 - No automatic schedule creation. A schedule is installed only after the
   employee confirms an exact time, or is copied verbatim from a host readback
   during an approved migration.

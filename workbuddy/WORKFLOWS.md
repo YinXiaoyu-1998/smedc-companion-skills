@@ -23,10 +23,17 @@ central snapshot at run time.
 4. Central `upload` / `download` / `review_sync` / `review_publish` / `email`
    actions go through the native claim/check/record sequence. A long stage
    renews the lease at each bounded step; an unknown result is never replayed.
-5. Browser source reads use `wb_browser.py`: `doctor` → `session-start` →
-   `navigate` → `snapshot`; `sync --policy target` before any `click`.
-   Reuse the same session/tab for the whole scope; revalidate the source
-   account, group/brand, exact store name and date filters on the page.
+5. Browser source reads use the host's `web-access` skill CDP path: load the
+   skill → `check-deps.mjs` pre-flight → own background tab → `/eval` to confirm
+   the target content is ready. Traverse the business iframe by
+   `contentDocument.location.href` and trigger exports with the full mouse-event
+   sequence; validate and rename the Chrome download temp file before counting
+   a download as complete. See `workbuddy/references/web-access.md` §3–5.
+   Reuse the same tab for the whole scope; revalidate the source account,
+   group/brand, exact store name and date filters on the page. Remote-debugging
+   authorization and the browser preference are native `web-access` pre-flight
+   steps, not extra installation. This host has no download event API and no
+   Save-panel control; never fall back to a third-party browser bridge.
 6. Each stage saves verified evidence (exact filters, original files, hashes,
    readback) then updates progress with `save-progress`. Missing or partial
    scope stays pending; a blocked stage uses `mark-blocked`.

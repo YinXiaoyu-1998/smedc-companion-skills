@@ -381,6 +381,52 @@ class OverlayTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(wb_overlays.cmd_check(None), 0)
 
+    def test_browser_path_is_web_access_and_no_third_party_bridge(self) -> None:
+        for key, text in committed_overlays().items():
+            if key[1] != "SKILL.md":
+                continue
+            with self.subTest(overlay="/".join(key)):
+                self.assertIn("web-access", text)
+                self.assertNotIn("bsk", text)
+                self.assertNotIn("Agent Window", text)
+
+    def test_broken_download_snippets_are_gone(self) -> None:
+        for files in wb_overlays.generate().values():
+            for text in files.values():
+                for token in ("const pending", "waitForEvent", "downloadIndex",
+                              "timeout_ms", "ERR_BLOCKED_BY_CLIENT", "保存框"):
+                    self.assertNotIn(token, text)
+
+    def test_download_landing_chapter_is_present(self) -> None:
+        generated = committed_overlays()
+        for name in ("download-meituan-business-data", "download-meituan-dish-sales",
+                     "download-meituan-delivery-ledger", "download-meituan-combo-sales",
+                     "meituan-order-details-download", "meituan-takeout-order-details-download"):
+            with self.subTest(skill=name):
+                text = generated[(name, "SKILL.md")]
+                self.assertIn("workbuddy/references/web-access.md", text)
+                self.assertIn("下载临时文件", text)
+
+    def test_host_runbook_references_are_marked_not_applicable(self) -> None:
+        generated = committed_overlays()
+        for rel in ("references/browser.md", "references/runtime.md",
+                    "references/gmail.md", "references/installation.md",
+                    "references/invocation.md"):
+            with self.subTest(reference=rel):
+                text = generated[("smedc-workflows", rel)]
+                self.assertIn("WorkBuddy", text)
+                self.assertNotIn("bsk", text)
+
+    def test_web_access_reference_documents_the_verified_patterns(self) -> None:
+        ref = WORKBUDDY / "references" / "web-access.md"
+        self.assertTrue(ref.is_file())
+        text = ref.read_text(encoding="utf-8")
+        for marker in ("check-deps.mjs", "localhost:3456",
+                       "contentDocument.location", "MouseEvent",
+                       ".com.google.Chrome", "TZ=Asia/Shanghai"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""bsk (BrowserSkill) host bridge for the WorkBuddy adapter.
+"""DEPRECATED optional browser bridge — not used by new WorkBuddy installs.
+
+Earlier adapter revisions used the ``bsk`` CLI plus a Chrome BrowserSkill
+extension. That required the employee to install and configure software the
+WorkBuddy host does not ship, so the default browser path is now the host's own
+``web-access`` skill (CDP Proxy). See ``workbuddy/references/web-access.md``.
+
+This module and its tests are kept only so existing installs do not break.
+Do not reference it from new overlays, runbooks or automation prompts.
 
 Codex workflows default to an in-app browser and fall back to the local Chrome
 profile. On WorkBuddy the equivalent is the ``bsk`` CLI plus the Chrome

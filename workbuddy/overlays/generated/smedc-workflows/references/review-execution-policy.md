@@ -1,7 +1,7 @@
-> **WorkBuddy 宿主优先级**：本文件涉及浏览器选择、登录态、保存框、下载等待、
-> 宿主工具与定时任务的段落，一律以 `workbuddy/HOST_MAP.md` 与 `workbuddy/WORKFLOWS.md`
-> 以及 SKILL.md 顶部的「WorkBuddy 宿主适配」章节为准。上游专有接口名已替换；业务筛选、
-> 原件校验、证据与清理门槛不变。此文件由 `build_overlays.py` 生成，请勿手工编辑。
+> **WorkBuddy 宿主优先级**：本文件涉及浏览器选择、登录态、下载等待、宿主工具与
+> 定时任务的段落，一律以 `workbuddy/references/web-access.md`、`workbuddy/HOST_MAP.md`、
+> `workbuddy/WORKFLOWS.md` 以及 SKILL.md 顶部的「WorkBuddy 宿主适配」章节为准。
+> 业务筛选、原件校验、证据与清理门槛不变。此文件由 `build_overlays.py` 生成，请勿手工编辑。
 
 # verified-review-operations，版本1
 
@@ -47,7 +47,7 @@ const native = (0, eval)(load("workflowAdapterSource"))(audited, {
 
 工具白名单来自当前官方工具发现，不能来自中央业务文字。最多3个读取并发，小批 allSettled 逐结果保存；写入保持现行幂等和 unknown 核对。保存日志失败：派发前失败不执行；派发后失败不能认定业务未执行，应保留结果并核对。
 
-必须直接使用 bsk 的浏览器调用：先 `audit_log.py start --run-dir RUN --meta-json META`，紧接一次真实调用；下一步先 finish，保存凭据脱敏的完整错误，再恢复。effect 为 read/local/external_write。外部写报错保守 unknown；只有明确 confirmedNoCommit=true 加 verificationEvidence 才能记确定失败。异步 session_id 保留原会话，不重发；未知结果后来核对，用同一 callId finish，旧 outcome 保留。
+必须直接使用 原宿主浏览器工具（本宿主不适用） 的浏览器调用：先 `audit_log.py start --run-dir RUN --meta-json META`，紧接一次真实调用；下一步先 finish，保存凭据脱敏的完整错误，再恢复。effect 为 read/local/external_write。外部写报错保守 unknown；只有明确 confirmedNoCommit=true 加 verificationEvidence 才能记确定失败。异步 session_id 保留原会话，不重发；未知结果后来核对，用同一 callId finish，旧 outcome 保留。
 
 本地命令用 `audit_log.py run --run-dir RUN --meta-json META -- COMMAND ARGS`，只包装一次；不在命令参数传密码、Cookie 或 token。每轮结束执行 `audit_log.py check --run-dir RUN`，持久化 pendingCalls/externalWriteUnknown 及独立业务／证据处置。日志完整不替代业务核验。
 
