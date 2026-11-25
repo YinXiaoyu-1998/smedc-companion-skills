@@ -37,10 +37,12 @@ ADAPTER = ROOT / "workbuddy"
 # repository; the installer distributes a copy into each installed skill.
 ADAPTER_FILES = (
     "README.md",
+    "GETTING_STARTED.md",
     "HOST_MAP.md",
     "INSTALL.md",
     "WORKFLOWS.md",
     "references/web-access.md",
+    "scripts/preflight.py",
     "scripts/wb_state.py",
     "scripts/wb_schedule.py",
     "scripts/wb_mail.py",

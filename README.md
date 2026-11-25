@@ -126,14 +126,21 @@ unchanged, so the Codex prompts, scripts, tests and installation path are unaffe
 is tenant-neutral and carries no enterprise names, store rosters, source accounts, recipient
 addresses or schedules.
 
-Supported on WorkBuddy: the native `mcp__smedc__*` workflow tools, browser source reads through
-the host's own `web-access` skill (CDP Proxy attached to the employee's everyday browser),
-validated landing of the resulting download temp file, hash-chained local run-state continuation,
-and PAUSED schedule specifications. See `workbuddy/references/web-access.md` for the authoritative
-browser/download playbook (pre-flight, iframe traversal, mouse-event sequence, file validation).
-The remote-debugging authorization and browser preference are native `web-access` prerequisites;
-this adapter installs no third-party CLI or browser extension. Installation never activates a
-schedule and never grants send, upload or publish permission.
+Two mutually exclusive browser profiles are available: `web-access` (CDP Proxy, no extra
+components) and `browser-skill` (`bsk` CLI + Chrome extension, recommended for unattended
+runs). **New users start at [`workbuddy/GETTING_STARTED.md`](workbuddy/GETTING_STARTED.md)**
+and run the read-only `python3 workbuddy/scripts/preflight.py`, which reports exactly which
+dependencies and configuration are still missing — `bsk` CLI, Chrome extension pairing,
+daemon, Node.js, Chrome remote debugging, installed overlays — with a fix command for each.
+The browser-skill profile needs a one-time install of the `bsk` CLI and Chrome extension plus
+`bsk daemon pair`; the web-access profile needs Chrome's per-connection remote-debugging
+approval. Both are host prerequisites, documented step by step in the getting-started guide.
+
+Supported on WorkBuddy: the native `mcp__smedc__*` workflow tools, browser source reads,
+validated landing of the resulting download file, hash-chained local run-state continuation,
+and PAUSED schedule specifications. Authoritative playbooks:
+`workbuddy/references/web-access.md` and `workbuddy/bsk/references/browser-skill.md`.
+Installation never activates a schedule and never grants send, upload or publish permission.
 
 Hard limits: WorkBuddy has no native Gmail namespace matching the central `allowedSender`, no
 Goal lifecycle, no JS environment with injected host tools, and no native download-event API or

@@ -169,6 +169,9 @@ HOST_NOTE = f"""## WorkBuddy 宿主适配 · browser-skill profile（最高优�
 - 邮件：宿主邮件身份与中央冻结的 `allowedSender` 不一致，且缺原生读回能力，按官方降级
   记为 blocked + 本地交付，见 `workbuddy/scripts/wb_mail.py`；不换发件人、不发信。
 - 中央动作仍只通过原生 `mcp__smedc__*` 工具完成；不另写 HTTP、JSON-RPC 或私有客户端。
+- **全新用户**：先读 `workbuddy/GETTING_STARTED.md`（含 `bsk` CLI、Chrome 扩展、
+  配对与美团登录的完整步骤），并运行 `python3 workbuddy/scripts/preflight.py`
+  探测当前环境还缺哪些依赖与配置；它只读、不安装，会给出逐项修复命令。
 - 原宿主流程不受影响：仓库内 `skills/` 下任何文件都未被本 overlay 修改。
 
 
@@ -216,8 +219,10 @@ description: >-
 # workbuddy/... references resolve from the installed skill directory.
 ADAPTER_FILES = {
     "README.md": BSK / "README.md",
+    "GETTING_STARTED.md": WORKBUDDY / "GETTING_STARTED.md",
     "bsk/README.md": BSK / "README.md",
     "HOST_MAP.md": BSK / "HOST_MAP.md",
+    "scripts/preflight.py": WORKBUDDY / "scripts/preflight.py",
     "WORKFLOWS.md": BSK / "WORKFLOWS.md",
     "INSTALL.md": BSK / "INSTALL.md",
     "references/browser-skill.md": BSK / "references/browser-skill.md",
@@ -410,7 +415,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
             if marker in text:
                 problems.append(f"{name}/SKILL.md: web-access instruction {marker!r} survived")
         for rel in ("references/browser-skill.md", "HOST_MAP.md", "WORKFLOWS.md",
-                    "INSTALL.md", "bsk/README.md"):
+                    "INSTALL.md", "bsk/README.md", "GETTING_STARTED.md",
+                    "scripts/preflight.py"):
             if not (dst / "workbuddy" / rel).is_file():
                 problems.append(f"{name}: adapter file {rel} missing")
         host_map = dst / "workbuddy/HOST_MAP.md"

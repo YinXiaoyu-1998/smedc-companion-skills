@@ -105,11 +105,20 @@ Delivery-ledger 测试仅使用 Python 标准库；business-analysis 元数据�
 SKILL.md 覆盖版；仓库 `skills/` 下所有文件保持逐字节不变，Codex 的提示词、脚本、测试与安装流程
 完全不受影响。适配层不含企业名、门店名单、来源账号、收件邮箱或企业时间表。
 
-WorkBuddy 上可用：原生 `mcp__smedc__*` 工作流工具、宿主自带 `web-access` skill 的 CDP 网页采集
-（直连员工日常浏览器并复用登录态）、下载临时文件的校验与落地、带哈希链的本地 run 状态续轮、
-PAUSED 定时规格渲染。权威网页操作说明见 `workbuddy/references/web-access.md`（前置检查、iframe
-穿透、事件序列点击、临时文件校验与重命名）。远程调试授权与浏览器偏好是 `web-access` 自身的原生
-前置配置；本适配层不要求安装第三方 CLI 或浏览器扩展。安装不会启用定时任务，也不会授予发信、
+**全新用户请先读 [`workbuddy/GETTING_STARTED.md`](workbuddy/GETTING_STARTED.md)**：内含从零开始的
+完整步骤（克隆仓库、选择 profile、安装 `bsk` CLI 与 Chrome 扩展、配对、启动 daemon、美团登录、
+安装 skills、首次运行自检）。并运行只读的 `python3 workbuddy/scripts/preflight.py`，它会逐项列出
+当前环境还缺哪些依赖与配置（`bsk` CLI、扩展连接、daemon、Node.js、Chrome 远程调试、已安装
+overlay 等），每项都给出修复命令；装完一项重跑一次，直到「环境已就绪」。
+
+提供两套互斥 profile：`web-access`（CDP Proxy，无需额外组件）与 `browser-skill`（`bsk` CLI +
+Chrome 扩展，推荐用于无人值守）。browser-skill 需一次性安装 CLI、扩展并完成 `bsk daemon pair`；
+web-access 需 Chrome 每次连接的人工授权。两者都是宿主自身的前置要求，不是本适配层额外引入的
+组件。判断当前 profile 以已安装 `SKILL.md` 顶部标记为准，只读对应手册
+（`workbuddy/references/web-access.md` 或 `workbuddy/bsk/references/browser-skill.md`）。
+
+WorkBuddy 上可用：原生 `mcp__smedc__*` 工作流工具、网页来源采集、下载原件的校验与落地、
+带哈希链的本地 run 状态续轮、PAUSED 定时规格渲染。安装不会启用定时任务，也不会授予发信、
 上传或发布权限。
 
 硬限制：WorkBuddy 没有与中央 `allowedSender` 一致的原生邮件身份、没有 Goal 生命周期、没有注入

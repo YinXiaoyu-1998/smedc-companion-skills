@@ -115,16 +115,80 @@ BSK_AUTO_START=0 bsk session stop <SID> --json
 `target_covered` / `element_not_visible`，因为几何点击算不出可靠的顶层坐标。
 **不要反复重试点击**（会生成多份导出任务）。已验证的替代路径：
 
-1. 用 `bsk evaluate --session <SID> --context <CTX> --expect '[{"target":"@eN","field":"exists","equals":true}]'`
-   执行脚本。省略 `--observation`、改用显式 `--expect`，可避开页面顶部横幅轮播导致的
-   `observation_changed` 拒绝；不带 observation 也不带 expect 会报 `observation_required`。
-2. 脚本递归穿透 `contentDocument`（按 `location.href` 而非 iframe `src`），在目标 frame 里
-   找到「导出」按钮，用该 frame 的 `window.MouseEvent` 派发
-   `pointerdown → mousedown → pointerup → mouseup → click` 完整序列，只派发一次。
+1. 先 `cooperate sync` 取 `context_id`，并从当前 `snapshot` 记下导出按钮的 ref（实测为
+   `@e335`，但会随页面刷新变化，每轮重新读取）。省略 `--observation`、改用显式
+   `--expect`，可避开顶部横幅轮播导致的 `observation_changed` 拒绝；
+   不带 observation 也不带 expect 会报 `observation_required`。
+2. 用下面的脚本递归穿透 `contentDocument`（按 `location.href` 而非 iframe `src`），
+   在目标 frame 的 `window` 上派发完整鼠标事件序列，**只派发一次**。
    `el.click()` / 普通 click 对该控件不生效。
+
+   ```bash
+   SID=<session-id>
+   CTX=$(BSK_AUTO_START=0 bsk cooperate sync --session "$SID" --policy target --json \
+         | python3 -c 'import sys,json;print(json.load(sys.stdin)["context_id"])')
+   REF=@e335   # 换成当前快照里核实过的导出按钮 ref
+
+   EXPR='JSON.stringify((()=>{
+     const fs=[];
+     const walk=(d,n)=>{ if(!d||n>3) return;
+       try { fs.push(d);
+         [...d.querySelectorAll("iframe")].forEach(f=>{
+           try { walk(f.contentDocument,n+1) } catch(e){} });
+       } catch(e){} };
+     walk(document,0);
+     for (const d of fs) {
+       const b=[...d.querySelectorAll("button")]
+         .find(x=>(x.textContent||"").trim()==="导出");
+       if (!b) continue;
+       const w=d.defaultView, r=b.getBoundingClientRect();
+       const mk=(t,e)=>new w.MouseEvent(t,{bubbles:true,cancelable:true,view:w,
+         clientX:r.x+r.width/2, clientY:r.y+r.height/2,
+         button:0, buttons:1, ...e});
+       b.dispatchEvent(mk("pointerdown"));
+       b.dispatchEvent(mk("mousedown"));
+       b.dispatchEvent(mk("pointerup",{buttons:0}));
+       b.dispatchEvent(mk("mouseup",{buttons:0}));
+       b.dispatchEvent(mk("click",{buttons:0}));
+       return JSON.stringify({ok:true, href:d.location.href});
+     }
+     return JSON.stringify({ok:false, frames:fs.length});
+   })())'
+
+   BSK_AUTO_START=0 bsk evaluate --session "$SID" "$EXPR" --context "$CTX" \
+     --expect "[{\"target\":\"$REF\",\"field\":\"exists\",\"equals\":true}]" --json
+   ```
+
+   只有返回 `ok:true` 才算提交成功；`ok:false` 说明没找到按钮，重新 `snapshot` 定位，
+   **不要重复派发**。
+
 3. 脚本触发的下载**不会**落到 `--out`，Chrome 把它记为中断状态，停在
-   `~/Downloads/.com.google.Chrome.XXXXXX`。等大小稳定后按第 4 步校验，
-   再 `shutil.copy2` 到目标路径重命名，最后才删除临时文件。
+   `~/Downloads/.com.google.Chrome.XXXXXX`。等大小稳定后校验、复制重命名、删除临时文件：
+
+   ```python
+   import hashlib, re, shutil, zipfile
+   from pathlib import Path
+
+   def land(tmp: Path, dest: Path) -> dict:
+       with zipfile.ZipFile(tmp) as z:
+           assert z.testzip() is None, "CRC 失败"
+           names = z.namelist()
+           assert "[Content_Types].xml" in names and "xl/workbook.xml" in names
+           sheets = [n for n in names if re.match(r"xl/worksheets/sheet\d+\.xml$", n)]
+           assert sheets, "无工作表"
+           rows = sum(len(re.findall(rb"<row\b", z.read(n))) for n in sheets)
+           dates = sorted({d for n in sheets for d in
+                           re.findall(r"20\d\d[-/]\d\d[-/]\d\d",
+                                     z.read(n).decode("utf-8", "ignore"))})
+       assert dest.exists() is False, "同名文件已存在，先核验，不覆盖"
+       shutil.copy2(tmp, dest)
+       assert hashlib.sha256(tmp.read_bytes()).digest() == hashlib.sha256(dest.read_bytes()).digest()
+       tmp.unlink()
+       return {"path": str(dest), "bytes": dest.stat().st_size,
+               "rows": rows, "dates": dates}
+   ```
+
+   完成后把绝对路径、日期范围、行数与完整性结果报给用户；不把行级营业数据贴进聊天。
 
 因此对这个站点，**bsk 的原生下载优势不成立**：两条 profile 都需要临时文件落地处理。
 bsk 仍保留「无每次人工授权」这一无人值守优势，以及 `evaluate --expect` 这条更直接的事件派发通道。

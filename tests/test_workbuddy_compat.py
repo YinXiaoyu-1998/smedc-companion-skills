@@ -451,6 +451,47 @@ class OverlayTests(unittest.TestCase):
                 self.assertIn("WorkBuddy overlay", generated[(name, "SKILL.md")])
 
 
+class NewUserOnboardingTests(unittest.TestCase):
+    def test_getting_started_covers_the_full_dependency_install(self) -> None:
+        doc = (WORKBUDDY / "GETTING_STARTED.md").read_text(encoding="utf-8")
+        for marker in ("preflight.py", "AGENT_INSTALL.md", "daemon pair",
+                       "Chrome 扩展", "bsk doctor", "smedc-mcp-skill.git",
+                       "chrome://inspect/#remote-debugging", "不上传"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, doc)
+
+    def test_both_installers_distribute_onboarding_files(self) -> None:
+        for rel in ("scripts/install_overlays.py", "bsk/build.py"):
+            with self.subTest(installer=rel):
+                text = (WORKBUDDY / rel).read_text(encoding="utf-8")
+                self.assertIn("GETTING_STARTED.md", text)
+                self.assertIn("scripts/preflight.py", text)
+
+    def test_bsk_manual_contains_a_copyable_event_sequence(self) -> None:
+        manual = (WORKBUDDY / "bsk/references/browser-skill.md").read_text(encoding="utf-8")
+        for marker in ("pointerdown", "mousedown", "mouseup", "--expect",
+                       "shutil.copy2", "testzip()", "contentDocument"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, manual)
+
+    def test_preflight_reports_missing_items_on_an_empty_root(self) -> None:
+        import subprocess
+        import sys
+        script = WORKBUDDY / "scripts/preflight.py"
+        self.assertTrue(script.is_file())
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, str(script), "--profile", "web-access",
+                 "--root", str(Path(tmp) / "skills"), "--json"],
+                capture_output=True, text=True, timeout=120)
+            payload = json.loads(result.stdout)
+            self.assertGreater(payload["missing"], 0)
+            self.assertTrue(any("发现根" in r["item"] and r["status"] == "MISSING"
+                                for r in payload["results"]))
+            self.assertTrue(all(r["fix"] for r in payload["results"]
+                                if r["status"] == "MISSING"))
+
+
 class InstallerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.installer = load_module("install_overlays",
