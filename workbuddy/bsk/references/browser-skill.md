@@ -107,8 +107,31 @@ BSK_AUTO_START=0 bsk session stop <SID> --json
 
 ## 6. 下载与原件校验
 
-`bsk download` 直接把字节写到 `--out`，比 CDP 路径的 `.com.google.Chrome.*` 临时文件处理
-更可靠。仍须：
+### 实测陷阱：美团 iframe 报表的 `bsk download --out` 可能不可用（2026-11-25）
+
+在 `pos.meituan.com` 的「自助营业取数」真实导出中，业务控件位于 iframe 内，VOM 快照会提示
+`@warning geometry incomplete: some page or frame content has no top-level coordinates`。
+此时 `bsk download @eN --out ...`、`bsk click` 与 `bsk scroll-to` 都会返回
+`target_covered` / `element_not_visible`，因为几何点击算不出可靠的顶层坐标。
+**不要反复重试点击**（会生成多份导出任务）。已验证的替代路径：
+
+1. 用 `bsk evaluate --session <SID> --context <CTX> --expect '[{"target":"@eN","field":"exists","equals":true}]'`
+   执行脚本。省略 `--observation`、改用显式 `--expect`，可避开页面顶部横幅轮播导致的
+   `observation_changed` 拒绝；不带 observation 也不带 expect 会报 `observation_required`。
+2. 脚本递归穿透 `contentDocument`（按 `location.href` 而非 iframe `src`），在目标 frame 里
+   找到「导出」按钮，用该 frame 的 `window.MouseEvent` 派发
+   `pointerdown → mousedown → pointerup → mouseup → click` 完整序列，只派发一次。
+   `el.click()` / 普通 click 对该控件不生效。
+3. 脚本触发的下载**不会**落到 `--out`，Chrome 把它记为中断状态，停在
+   `~/Downloads/.com.google.Chrome.XXXXXX`。等大小稳定后按第 4 步校验，
+   再 `shutil.copy2` 到目标路径重命名，最后才删除临时文件。
+
+因此对这个站点，**bsk 的原生下载优势不成立**：两条 profile 都需要临时文件落地处理。
+bsk 仍保留「无每次人工授权」这一无人值守优势，以及 `evaluate --expect` 这条更直接的事件派发通道。
+
+### 通用规则
+
+若 `bsk download` 可用，它直接把字节写到 `--out`；无论哪条路径都必须：
 
 1. 点击前确认目标路径、期望文件名、日期范围；默认拒绝覆盖，同名先核验。
 2. `download_path_mismatch`：浏览器把文件落到别处、`--out` 没产出。去浏览器下载列表找到

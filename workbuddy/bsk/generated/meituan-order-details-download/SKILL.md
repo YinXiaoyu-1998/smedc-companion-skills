@@ -90,7 +90,12 @@ Chrome profile 并复用其登录态。**不使用** CDP Proxy / `web-access` �
 
 ## 下载落地与恢复（browser-skill 特化）
 
-`bsk` 有原生下载捕获：不需要处理 `.com.google.Chrome.*` 临时文件，也没有系统保存框。
+`bsk` 有原生下载捕获（`bsk download --out`），但 **2026-11-25 在美团「自助营业取数」
+真实导出中该路径不可用**：业务控件在 iframe 内，VOM 报 `geometry incomplete`，
+`download` / `click` / `scroll-to` 均返回 `target_covered`。此时按
+`workbuddy/references/browser-skill.md` 第 6 节改用 `evaluate --expect` 派发完整鼠标事件序列，并校验、
+重命名 `.com.google.Chrome.*` 临时文件。**不要反复重试点击**（会生成多份导出任务）。
+下面的通用规则适用于 `bsk download` 可用的场景；两条路径最终都以本地文件校验为准。
 
 1. 先完成筛选与按钮定位，再 `bsk cooperate sync --session <SID> --policy target --json`
    取得 `context_id` / `observation_id`。点击型下载必须带这两个值。
