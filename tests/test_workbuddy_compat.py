@@ -471,6 +471,27 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("every time", web)
         self.assertIn("不能保证可用", web)
 
+    def test_bsk_profile_is_generated_and_self_consistent(self) -> None:
+        bsk = load_module("bsk_build", WORKBUDDY / "bsk" / "build.py")
+        overlays = bsk.configured()
+        self.assertTrue(overlays)
+        for name, files in overlays.items():
+            with self.subTest(skill=name):
+                text = files["SKILL.md"]
+                self.assertIn("browser-skill profile", text)
+                self.assertIn("bsk download", text)
+                self.assertNotIn("localhost:3456", text)
+        manual = (WORKBUDDY / "bsk/references/browser-skill.md").read_text(encoding="utf-8")
+        for marker in ("bsk download", "cooperate sync", "session start",
+                       "daemon start", "bsk open", "download_path_mismatch"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, manual)
+
+    def test_bsk_profile_check_matches_committed(self) -> None:
+        bsk = load_module("bsk_build_check", WORKBUDDY / "bsk" / "build.py")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bsk.cmd_check(None), 0)
+
     def test_install_then_check_produces_self_contained_skills(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "skills"
