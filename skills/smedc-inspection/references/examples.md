@@ -19,9 +19,7 @@ modes. A saved draft may omit `targetType`, but activation requires one of the t
     "definition": {
       "title": "合成员工巡检示例",
       "targetType": "employee",
-      "storeIds": [
-        "22222222-2222-4222-8222-222222222222"
-      ],
+      "storeIds": ["22222222-2222-4222-8222-222222222222"],
       "questions": [
         {
           "questionId": "15151515-1515-4515-8515-151515151515",
@@ -109,9 +107,8 @@ The response identifies each record by UID, department, and store scope:
 }
 ```
 
-For a department target, use `list_directory` without `management`. Select an active
-department; the retired entry is not a candidate. Stores in the same business enterprise share
-this department list.
+For a department target, use `list_directory` without `management`. The response gives
+the active departments shared by stores in the business enterprise.
 
 ```json
 {
@@ -146,12 +143,6 @@ this department list.
       "name": "合成后厨部",
       "status": "active",
       "version": "1"
-    },
-    {
-      "departmentId": "66666666-6666-4666-8666-666666666666",
-      "name": "合成已停用部",
-      "status": "retired",
-      "version": "2"
     }
   ]
 }

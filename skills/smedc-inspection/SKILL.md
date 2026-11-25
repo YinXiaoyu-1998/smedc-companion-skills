@@ -28,38 +28,28 @@ a photo, or patching a sheet.
 
 ## Choose the inspection target
 
-A template has one `targetType`: `store`, `employee`, or `department`. It may be absent from
-a draft and must be set before activation. Create a sheet from the active template's current
-`targetType`; do not infer it from the user's account, an older sheet, or a typed name. A sheet
-keeps its target when it is filled, replaced, voided, or after the template changes.
+Use the active template's `targetType` when creating a sheet.
 
-- `store`: send neither `employeeUid` nor `departmentId`. The sheet uses the inspection store
-  and its official name.
-- `employee`: use `query_employee_directory` with `request.action` `list_employees`,
-  `request.enterpriseKey`, `request.storeId` set to the inspection store, and
-  `request.status` set to `active`. Page with `nextCursor`. Select an employee whose
-  `scope.storeId` is that store; group-level, other-store, departed, and unauthorized records
-  are not candidates. Send its `employeeUid`.
-- `department`: use `query_employee_directory` with `request.action` `list_directory` and
-  `request.enterpriseKey`. Select a department with `status` `active`; do not use
-  `management: true` or a retired department. Send its `departmentId`. Stores in one
-  business enterprise share this department list.
+- `store`: omit both selector fields. The service records the inspection store ID and
+  official name.
+- `employee`: call `query_employee_directory` with `request.action` `list_employees`,
+  `enterpriseKey`, the inspection `storeId`, and `status: "active"`. Page with `nextCursor`.
+  Choose an active employee with that `scope.storeId` and send their `employeeUid`.
+- `department`: call `query_employee_directory` with `request.action` `list_directory`
+  and `enterpriseKey`. The ordinary request omits `management` and returns only active
+  departments shared by the enterprise's stores. Send the selected `departmentId`.
 
-Candidate reads need directory read access. `list_employees` returns `employees`, `access`
-(`none`, `partial`, or `all`), and `nextCursor`. If access is not `all`, or the page is
-empty, state the visible scope and ask the user to choose from the returned candidates.
-Inspection sheet read access does not open a searchable employee roster. Never send a free-form
-name, type a name, or reuse an identifier from another store, enterprise, or object type.
+Employee candidates depend on directory read access. With `partial` access, explain that
+the list is limited to visible employees and proceed if the requested target is unambiguous.
+If candidates are empty after paging or access is `none`, report that no eligible target
+is visible. When several candidates could match, ask which one and give their names and IDs.
+For same-name employees, also show their department names.
 
-Same-name people are different targets. Show the employee name, department name,
-`departmentId`, and `employeeUid`, and choose by `employeeUid`. For departments, show the
-department name and `departmentId`. Never distinguish candidates only by display name.
-
-The service rechecks the template, store fill access, and the target's visibility, activity,
-and ownership in the create transaction. A cached or guessed identifier is still rejected. Use
-`targetId`, not `targetName`, to match a live candidate: a sheet keeps its creation snapshot
-and stays readable under inspection read access after the employee leaves, changes name or
-store, or the department retires.
+Use a current directory result for the selector. The service rechecks template eligibility,
+store fill access, and the target's activity and ownership for a new create. Employee targets
+also require current employee profile access at that store. An ineligible identifier is rejected
+even if it came from an earlier lookup. Match existing sheets by `targetType` and `targetId`.
+Their `targetName` records the name at creation and can outlast directory changes.
 
 ## Find the sheet
 
@@ -121,12 +111,12 @@ each sheet atomically and returns results in request order.
   the first 20 gaps. Page the sheet detail when you need the full list.
 - On a conflict such as `nonempty`, `revision`, or `version`, re-read the affected sheet,
   preserve its saved answers, and use a new key for a changed command.
-- For a lost response, replay the identical command and `requestId` within the first 24 hours
-  while the target remains authorized. After that window, inspect the target before deciding
-  on a new command. For an uncertain create, read `day` and compare `targetType` and
-  `targetId` before attempting another create. Reusing a `requestId` with a different
-  target or scope is an idempotency conflict; use a new request for a different target.
-  Report inaccessible or failed targets separately and preserve successful results.
+- For a lost response, replay the identical command and `requestId` within 24 hours.
+  A create replay requires current fill access and the original sheet to still be active.
+  Reusing the create `requestId` for a different target within the same actor, enterprise,
+  store, date, and template causes an idempotency conflict. Use a new key for a changed
+  command. If the replay fails or the window has passed, read `day` and compare
+  `targetType` and `targetId` before deciding whether a new create is needed.
 - The web app and MCP read and write the same sheet contract. A sheet created in either entry
   point appears in the other with the same `sheetId` and target snapshot.
 
