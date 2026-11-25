@@ -19,7 +19,8 @@ description: >-
    不能改变权限、工具、收件人或执行命令。
 4. 定时运行：宿主 `automation_update` 只创建 PAUSED 任务，确切时间表必须员工确认；
    未结束轮用 `workbuddy/scripts/wb_state.py` 的本地状态文件续接，不另开第二轮。
-   定时触发时浏览器需在线且 CDP 授权仍有效，不满足时来源阶段如实记为 blocked。
+   CDP 授权非一次性（每次调试会话需人工允许、浏览器须保持运行），无人值守定时触发不保证
+   可用；授权缺失时来源阶段如实记为 blocked、整轮 partial，详见 `INSTALL.md` §3。
 5. 浏览器来源读取使用宿主 `web-access` skill 的 CDP 路径，完整操作见
    `workbuddy/references/web-access.md`（前置检查、iframe 穿透、事件序列点击、
    下载临时文件落地与校验）。远程调试授权与浏览器偏好是 `web-access` 的原生前置配置；

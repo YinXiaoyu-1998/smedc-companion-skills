@@ -140,7 +140,9 @@ Goal lifecycle, no JS environment with injected host tools, and no native downlo
 window-level Save-panel control. Mail stages are therefore recorded as blocked with local delivery
 (weekly reports keep the final HTML; review drafts stay in the workbook); run continuity uses a
 local state file instead of a Goal; central claim/check/record calls are issued step by step by
-the agent. At a scheduled trigger the browser must be online with the CDP authorization still
-valid, otherwise the source stage is blocked and the run closes as partial. See
+the agent. The CDP pre-flight is **not one-time**: Chrome asks for permission on every
+debugging session / new browser session and must stay running, so an unattended scheduled
+download cannot be relied on — see `workbuddy/INSTALL.md` §3. When authorisation is absent,
+the source stage is blocked and the run closes as partial. See
 `workbuddy/HOST_MAP.md` for the full mapping. These stages must be reported as partial or
 degraded, never as a successful send.

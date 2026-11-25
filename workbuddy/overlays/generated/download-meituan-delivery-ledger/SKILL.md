@@ -22,7 +22,8 @@ description: 从美团管家供应链的“门店收货单”按收货日期导�
   下载事件注册／固定等待时限／窗口级保存交互片段已从本副本移除，不要照抄。
 - 定时与续轮：无 Goal 生命周期，用 `workbuddy/scripts/wb_state.py` 的本地 run 状态文件；
   时间表由员工确认后才通过宿主 `automation_update` 安装，见 `workbuddy/scripts/wb_schedule.py`。
-  定时触发时浏览器需在线且 CDP 授权仍有效，否则来源阶段记为 blocked。
+  **CDP 授权非一次性**：Chrome 每次调试会话都要人工点「允许」，新浏览器会话需重做，
+  且浏览器须保持运行；无人值守定时触发不保证可用，授权缺失时来源阶段记为 blocked、整轮 partial。
 - 邮件：宿主邮件身份与中央冻结的 `allowedSender` 不一致，且缺原生读回能力，按官方降级
   记为 blocked + 本地交付，见 `workbuddy/scripts/wb_mail.py`；不换发件人、不发信。
 - 中央动作仍只通过原生 `mcp__smedc__*` 工具完成；不另写 HTTP、JSON-RPC 或私有客户端。

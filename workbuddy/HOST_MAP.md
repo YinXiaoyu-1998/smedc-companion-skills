@@ -12,8 +12,20 @@ Browser work on this host goes through the **host's own `web-access` skill**
 Its pre-flight configuration — `scripts/check-deps.mjs`, Node.js 22+, the browser
 remote-debugging authorization, the `--browser` preference and the connection
 approval — is required by that skill itself for *any* WorkBuddy web task. It is
-not an extra step introduced by this adapter and is not a limitation to work
-around. See `workbuddy/references/web-access.md` §1–2.
+not an extra step introduced by this adapter. See `workbuddy/references/web-access.md` §1–2
+and `INSTALL.md` §3 for the exact employee steps.
+
+**But this pre-flight is not one-time.** Only `WEB_ACCESS_BROWSER` in `config.env`
+persists. Chrome >=144 asks for permission *every time* a remote debugging
+session is requested, and its own docs require allowing it again at the start of
+every new browser session; Chrome must also stay running. Doing the setup today
+does not guarantee an automated download days later. Chrome's anti-abuse design,
+not an adapter defect — see the [Chrome DevTools MCP blog](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session)
+and [Chrome for Developers (zh-CN)](https://developer.chrome.google.cn/docs/extensions/ai/build-with-ai).
+Consequence: an unattended scheduled trigger cannot be relied on for source
+collection; when authorisation is absent, record the stage `blocked` and close
+`partial`. Do not disable the safety prompt, retry in a loop, or switch to a
+private client.
 
 Conversely, this adapter installs **no non-native browser component**: no `bsk`
 CLI, no Chrome BrowserSkill extension, no second browser channel. Earlier
@@ -37,7 +49,7 @@ WorkBuddy does not ship.
 
 | Codex mechanism | WorkBuddy mechanism | Residual difference |
 | --- | --- | --- |
-| IAB / in-app browser | `web-access` CDP Proxy attached to the employee's everyday browser, reusing its login | Browser must be online with remote-debugging authorization still valid when a trigger fires; the pre-flight is host-native (above) |
+| IAB / in-app browser | `web-access` CDP Proxy attached to the employee's everyday browser, reusing its login | Chrome must be running and the employee must approve the remote-debugging prompt; approval is per connection / browser session, not one-time (above) |
 | Download capture + native Save panel | Trigger the export inside the correct iframe with a full mouse-event sequence, then validate and rename the `.com.google.Chrome.*` temp file locally (`web-access.md` §5) | No download event API and no GUI Save panel; completion is proven by the validated local file, not by an event or a dialog |
 | Native local cron + `automation.toml` readback | Host `automation_update` (`create`/`view`/`update`) with `cwds` | No projectId, model or reasoningEffort fields; no native TOML readback |
 | Shell command execution (`exec_command`) | Local `Bash`/`subprocess` calls from the adapter scripts | Only the tool-object injection is impossible; see hard limit 3 |

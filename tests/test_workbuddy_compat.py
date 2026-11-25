@@ -461,6 +461,16 @@ class InstallerTests(unittest.TestCase):
             with self.subTest(file=rel):
                 self.assertTrue((WORKBUDDY / rel).is_file())
 
+    def test_cdp_preflight_guidance_states_it_is_not_one_time(self) -> None:
+        install = (WORKBUDDY / "INSTALL.md").read_text(encoding="utf-8")
+        self.assertIn("NOT a one-time setting", install)
+        self.assertIn("chrome://inspect/#remote-debugging", install)
+        self.assertIn("config.env", install)
+        web = (WORKBUDDY / "references/web-access.md").read_text(encoding="utf-8")
+        self.assertIn("一次性设置，还是每次都要做", web)
+        self.assertIn("every time", web)
+        self.assertIn("不能保证可用", web)
+
     def test_install_then_check_produces_self_contained_skills(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "skills"

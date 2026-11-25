@@ -32,8 +32,12 @@ central snapshot at run time.
    Reuse the same tab for the whole scope; revalidate the source account,
    group/brand, exact store name and date filters on the page. Remote-debugging
    authorization and the browser preference are native `web-access` pre-flight
-   steps, not extra installation. This host has no download event API and no
-   Save-panel control; never fall back to a third-party browser bridge.
+   steps, not extra installation. **They are not one-time**: Chrome asks for
+   permission on every debugging session and again for each new browser session,
+   and Chrome must stay running (`INSTALL.md` §3). An unattended trigger therefore
+   cannot be relied on for source collection; if authorisation is absent, record
+   the stage `blocked` and close `partial`. This host has no download event API
+   and no Save-panel control; never fall back to a third-party browser bridge.
 6. Each stage saves verified evidence (exact filters, original files, hashes,
    readback) then updates progress with `save-progress`. Missing or partial
    scope stays pending; a blocked stage uses `mark-blocked`.

@@ -18,21 +18,45 @@
 | 触发导出并把原件落到本机、校验、重命名 | 支持 | 见第 5 节 |
 | 日期口径计算（北京时间、前一营业日、自然周） | 支持 | 本地 `date` / Python 标准库 |
 | 原生 `mcp__smedc__*` 中央动作（claim/check/record、上传） | 支持 | 核心 skill 已登录并取得当前权限 |
-| 定时触发的来源采集 | 有条件支持 | 触发时浏览器需在线且 CDP 授权仍有效；不满足时该来源阶段记为 blocked，不得伪造或空跑 |
+| 定时触发的来源采集 | **不保证可用** | CDP 授权不是一次性的，见下节；授权失效时该来源阶段记为 blocked，不得伪造或空跑 |
 | `waitForEvent("download")` / 45 秒下载事件注册 | **不支持** | CDP Proxy 没有下载事件 API；不要照抄原宿主的 JS 片段 |
 | 系统原生「保存」对话框（Open and Save Panel）的 GUI 操作 | **不支持** | 宿主没有窗口级 GUI 控制；下载不走这条路 |
 | 静态层（WebFetch / curl / Jina）直接取数 | **不适用** | 后台是需登录态的 SPA，静态层只拿到壳页面；业务数据在 iframe 内 |
 
 > **前置配置的归属**：浏览器远程调试授权、`check-deps.mjs` 的浏览器偏好和连接时的
 > 「允许」确认，都是 `web-access` skill 自身要求的前置配置，按它的 SKILL.md 执行即可，
-> 不是本适配层额外引入的步骤。部分 Chrome 版本要求员工在地址栏打开
-> `chrome://inspect/#remote-debugging` 勾选「Allow remote debugging for this browser
-> instance」；浏览器重启后可能失效。agent 不代替员工勾选、不搬运 Cookie、不改 UA、
-> 不绕过安全警告，也不反复重试或改走私有客户端。
+> 不是本适配层额外引入的步骤。Chrome >=144 默认关闭远程调试连接，员工需在地址栏打开
+> `chrome://inspect/#remote-debugging` 启用，并在连接弹窗中点「允许」。agent 不代替员工
+> 勾选或点确认、不搬运 Cookie、不改 UA、不绕过安全警告，也不反复重试或改走私有客户端。
 >
 > 反过来，**本适配层不要求安装任何非宿主原生组件**：不安装 `bsk` CLI、不安装 Chrome
 > BrowserSkill 扩展、不搭建第二套浏览器通道。任何要求额外安装第三方浏览器桥的旧指引
 > 都已从 WorkBuddy 副本中移除。
+
+### 一次性设置，还是每次都要做？
+
+| 项目 | 是否一次设置 | 依据 |
+| --- | --- | --- |
+| `config.env` 里 `WEB_ACCESS_BROWSER=chrome` | **是**（持久文件） | 避免每次 `check-deps.mjs` 返回 `exit 2` 询问偏好；由员工确认后写入 |
+| `chrome://inspect/#remote-debugging` 开关 | **否**（每个浏览器会话） | Chrome 官方中文文档：「您需要在每个新浏览器会话开始时允许远程调试」 |
+| 连接时的「允许」授权弹窗 | **否，每次连接请求** | Chrome 官方原文：`every time ... Chrome will show a dialog to the user and ask for their permission` |
+| Chrome 保持运行 | **否，每次运行** | 官方注明该连接方式要求用户启动 Chrome；退出后 `DevToolsActivePort` 与调试端口失效 |
+| CDP Proxy 长驻 | 尽量保持 | 停止或重启后需重新连接并重新授权 |
+
+**结论：这不是一劳永逸的设置。** 今天做完、过几天的定时自动下载**不能保证可用**：只要
+Chrome 重启过、调试会话结束或 Proxy 重连，就可能再次弹出「允许」对话框，需要员工在场点击。
+无人值守时该来源阶段应如实记为 `blocked`、整轮 `partial`，不得空跑或伪造结果。
+
+这是 Chrome 的防滥用设计（防止恶意程序静默接管已登录的浏览器），既不是本适配层的缺陷，
+也不能通过关闭安全提示或改走私有客户端绕过。若业务要求真正的无人值守采集，当前这条
+CDP 路径做不到：只能在员工在场时手动触发，或改用不依赖人工授权的来源接入方式 —— 后者
+属于宿主/产品能力变更，不在本适配层范围内。
+
+一手来源：
+[Chrome 开发者博客：Chrome DevTools MCP 调试现有浏览器会话](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session)
+（M144 引入、每次连接弹窗）、
+[Chrome 开发者文档中文版](https://developer.chrome.google.cn/docs/extensions/ai/build-with-ai)
+（每个新浏览器会话都要允许）。
 
 ## 2. 启动与就绪判断
 

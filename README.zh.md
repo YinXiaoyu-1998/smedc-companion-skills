@@ -115,6 +115,8 @@ PAUSED 定时规格渲染。权威网页操作说明见 `workbuddy/references/we
 硬限制：WorkBuddy 没有与中央 `allowedSender` 一致的原生邮件身份、没有 Goal 生命周期、没有注入
 宿主工具的 JS 执行环境，也没有原生 download 事件 API 与窗口级保存框控制。因此邮件阶段按官方
 降级记为 blocked 并本地交付（周报保留最终 HTML、评价新稿保留审阅表）；续轮改用本地状态文件；
-中央 claim/check/record 由 agent 分步调用原生工具。定时触发时浏览器需在线且 CDP 授权仍有效，
-否则来源阶段记为 blocked、整轮按 partial 收尾。完整映射见 `workbuddy/HOST_MAP.md`。这些阶段
-必须如实报告为 partial 或降级，不得描述成发送成功。
+中央 claim/check/record 由 agent 分步调用原生工具。CDP 前置配置**不是一次性的**：Chrome 每次
+调试会话都要人工点「允许」、每个新浏览器会话都要重新允许，且浏览器须保持运行，因此无人值守的
+定时下载不能保证可用，操作与依据见 `workbuddy/INSTALL.md` 第 3 节。授权缺失时来源阶段记为
+blocked、整轮按 partial 收尾。完整映射见 `workbuddy/HOST_MAP.md`。这些阶段必须如实报告为
+partial 或降级，不得描述成发送成功。
