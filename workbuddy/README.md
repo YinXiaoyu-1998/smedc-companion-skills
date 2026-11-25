@@ -47,6 +47,7 @@ See `HOST_MAP.md` for the full mapping and the list of hard limits.
 - `references/web-access.md` — **authoritative** browser/download playbook: CDP
   pre-flight and API, iframe traversal, mouse-event sequence, download temp-file
   landing, date handling and safety boundaries.
+- `scripts/install_overlays.py` — **required installer.** Copies the source subtree, the generated overlay and the `workbuddy/` runtime files into each installed skill, so every `workbuddy/...` reference resolves. `check` verifies an installed tree.
 - `scripts/wb_state.py` — local run state with an append-only hash journal (Goal replacement).
 - `scripts/wb_browser.py` — **deprecated optional bridge.** An earlier revision
   used a `bsk` CLI plus a Chrome extension; it required software WorkBuddy does

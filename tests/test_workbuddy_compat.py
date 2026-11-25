@@ -451,5 +451,33 @@ class OverlayTests(unittest.TestCase):
                 self.assertIn("WorkBuddy overlay", generated[(name, "SKILL.md")])
 
 
+class InstallerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.installer = load_module("install_overlays",
+                                    SCRIPTS / "install_overlays.py")
+
+    def test_adapter_runtime_files_all_exist(self) -> None:
+        for rel in self.installer.ADAPTER_FILES:
+            with self.subTest(file=rel):
+                self.assertTrue((WORKBUDDY / rel).is_file())
+
+    def test_install_then_check_produces_self_contained_skills(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "skills"
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(
+                    self.installer.main(["install", "--root", str(root)]), 0)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(
+                    self.installer.main(["check", "--root", str(root)]), 0)
+            for name in self.installer.overlay_names():
+                with self.subTest(skill=name):
+                    base = root / name
+                    self.assertTrue((base / "workbuddy/references/web-access.md").is_file())
+                    self.assertTrue((base / "workbuddy/scripts/wb_state.py").is_file())
+                    self.assertIn("WorkBuddy overlay",
+                                  (base / "SKILL.md").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
