@@ -427,6 +427,29 @@ class OverlayTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
 
+    def test_overlay_output_is_isolated_from_codex_sources(self) -> None:
+        # `build` reads skills/ and must only ever write under
+        # workbuddy/overlays/generated/. A stray OUT would silently rewrite the
+        # Codex sources on regeneration.
+        self.assertNotIn(wb_overlays.SKILLS, wb_overlays.OUT.parents)
+        self.assertEqual(wb_overlays.OUT, WORKBUDDY / "overlays" / "generated")
+        for files in wb_overlays.generate().values():
+            for rel in files:
+                self.assertFalse(rel.startswith("skills/"))
+                self.assertNotIn("..", Path(rel).parts)
+
+    def test_every_overlay_is_detectably_marked(self) -> None:
+        # Pair with test_codex_source_skill_files_are_not_overlays: source
+        # SKILL.md files carry no marker; every WorkBuddy copy does. A copy
+        # accidentally installed into the Codex discovery root is detectable.
+        generated = committed_overlays()
+        for (name, rel), text in generated.items():
+            with self.subTest(overlay=f"{name}/{rel}"):
+                self.assertIn("WorkBuddy", text)
+        for name in {key[0] for key in generated}:
+            with self.subTest(skill=name):
+                self.assertIn("WorkBuddy overlay", generated[(name, "SKILL.md")])
+
 
 if __name__ == "__main__":
     unittest.main()
