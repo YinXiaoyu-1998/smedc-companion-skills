@@ -99,33 +99,15 @@ python3 -m unittest discover -s skills/smedc-delivery-ledger/tests -v
 Delivery-ledger 测试仅使用 Python 标准库；business-analysis 元数据测试另用 PyYAML。
 运行和数据清理要求由各 Skill 维护。临时报表、下载数据和执行流水账不放入本仓库。
 
-## WorkBuddy 宿主支持（新增，不影响 Codex）
+## WorkBuddy 宿主支持
 
-[`workbuddy/`](workbuddy/README.md) 提供第二条宿主路径：在 WorkBuddy 的发现根中安装生成的
-SKILL.md 覆盖版；仓库 `skills/` 下所有文件保持逐字节不变，Codex 的提示词、脚本、测试与安装流程
-完全不受影响。适配层不含企业名、门店名单、来源账号、收件邮箱或企业时间表。
+WorkBuddy 通过 BrowserSkill（`bsk` CLI 和 Chrome 扩展）采集网页来源。配套 Skills 安装
+到 WorkBuddy 的发现目录，从同一份 Codex `skills/` 源码生成。
 
-**全新用户请先读 [`workbuddy/GETTING_STARTED.md`](workbuddy/GETTING_STARTED.md)**：内含从零开始的
-完整步骤（克隆仓库、选择 profile、安装 `bsk` CLI 与 Chrome 扩展、配对、启动 daemon、美团登录、
-安装 skills、首次运行自检）。并运行只读的 `python3 workbuddy/scripts/preflight.py`，它会逐项列出
-当前环境还缺哪些依赖与配置（`bsk` CLI、扩展连接、daemon、Node.js、Chrome 远程调试、已安装
-overlay 等），每项都给出修复命令；装完一项重跑一次，直到「环境已就绪」。
+首次使用请按[上手指南](workbuddy/GETTING_STARTED.md)安装官方 SMEDC launcher、在 WorkBuddy
+登录并连接 BrowserSkill。安装前后都可以运行 `python3 workbuddy/scripts/preflight.py`
+检查本机依赖和已安装文件。美团报表 iframe 的下载步骤见[网页操作手册](workbuddy/references/browser-skill.md)。
 
-提供两套互斥 profile：`web-access`（CDP Proxy，无需额外组件）与 `browser-skill`（`bsk` CLI +
-Chrome 扩展，推荐用于无人值守）。browser-skill 需一次性安装 CLI、扩展并完成 `bsk daemon pair`；
-web-access 需 Chrome 每次连接的人工授权。两者都是宿主自身的前置要求，不是本适配层额外引入的
-组件。判断当前 profile 以已安装 `SKILL.md` 顶部标记为准，只读对应手册
-（`workbuddy/references/web-access.md` 或 `workbuddy/bsk/references/browser-skill.md`）。
-
-WorkBuddy 上可用：原生 `mcp__smedc__*` 工作流工具、网页来源采集、下载原件的校验与落地、
-带哈希链的本地 run 状态续轮、PAUSED 定时规格渲染。安装不会启用定时任务，也不会授予发信、
-上传或发布权限。
-
-硬限制：WorkBuddy 没有与中央 `allowedSender` 一致的原生邮件身份、没有 Goal 生命周期、没有注入
-宿主工具的 JS 执行环境，也没有原生 download 事件 API 与窗口级保存框控制。因此邮件阶段按官方
-降级记为 blocked 并本地交付（周报保留最终 HTML、评价新稿保留审阅表）；续轮改用本地状态文件；
-中央 claim/check/record 由 agent 分步调用原生工具。CDP 前置配置**不是一次性的**：Chrome 每次
-调试会话都要人工点「允许」、每个新浏览器会话都要重新允许，且浏览器须保持运行，因此无人值守的
-定时下载不能保证可用，操作与依据见 `workbuddy/INSTALL.md` 第 3 节。授权缺失时来源阶段记为
-blocked、整轮按 partial 收尾。完整映射见 `workbuddy/HOST_MAP.md`。这些阶段必须如实报告为
-partial 或降级，不得描述成发送成功。
+WorkBuddy 支持中央 MCP 动作、本地文件验证和工作流续轮。邮件阶段记录为 blocked，审阅表和
+周报保留在本地。定时规格为 PAUSED，时间表由员工确认。已验收一份营业报表原件的手动采集，
+真实定时触发待验收。详见[能力映射](workbuddy/HOST_MAP.md)。

@@ -9,14 +9,15 @@ description: 从美团管家“报表中心 → 平台外卖订单明细”按�
 
 ## WorkBuddy 宿主适配 · browser-skill profile（最高优先级）
 
-本副本是 **browser-skill 特化版**，与 web-access / CDP Proxy profile 互斥。下文及本 skill
-的 references 中，凡涉及浏览器选择、登录态、下载等待、宿主工具或定时任务的段落，
+本副本使用 **BrowserSkill**。下文及本 Skill 的 references 中，凡涉及浏览器选择、
+登录态、下载等待、宿主工具或定时任务的段落，
 若与本节冲突，一律以本节、`workbuddy/references/browser-skill.md` 和 `workbuddy/HOST_MAP.md` 为准；
 业务筛选、原件校验、证据与清理门槛保持不变。
 
-- 浏览器：`bsk` CLI + Chrome 扩展 Agent Window，复用同 profile 登录态。配对是一次性的，
-  daemon 由 agent 每轮确认/拉起，**没有每次人工授权弹窗**。
-- 下载：`bsk download --out` 原生落盘；不需要处理 Chrome 临时文件或系统保存框。
+- 浏览器：使用 `bsk` CLI 和 Chrome 扩展的 Agent Window，每轮确认 daemon、扩展连接和美团登录态。
+- 下载：按 `workbuddy/references/browser-skill.md` 第 6 节先选定触发方式。美团「自助营业取数」iframe 使用
+  `evaluate --expect` 与 Chrome 临时文件落地。支持几何点击的直接下载可用
+  `bsk download --out` 一步完成点击和捕获。每个动作只触发一次。
 - 只用 CLI 真实存在的子命令（见手册第 3 节）；不要用 `bsk open` / `--url` / `--expression`。
 - 定时与续轮：无 Goal 生命周期，用 `workbuddy/scripts/wb_state.py` 的本地 run 状态文件；
   时间表由员工确认后才通过宿主 `automation_update` 安装。定时触发时若 daemon/扩展不可用，
@@ -51,7 +52,7 @@ description: 从美团管家“报表中心 → 平台外卖订单明细”按�
 ## 打开报表（browser-skill 特化）
 
 按 `workbuddy/references/browser-skill.md` 第 4 节启动 `bsk` 会话并打开
-`https://pos.meituan.com/web/operation/main#/`（或复用已登录标签）。登录与验证码由员工
+`https://pos.meituan.com/web/operation/main#/`（复用本次 Agent Window 中的标签）。登录与验证码由员工
 在页面完成，不迁移 Cookie。daemon 不可用时由 agent 自行拉起，不切换到其他浏览器通道。
 
 1. 打开 **报表中心 → 平台外卖订单明细**，以标题及门店、订单来源、外卖订单号、收银订单号等列确认报表。导航不可用时，在同一会话尝试录制观察到的直达页 `https://pos.meituan.com/web/report/orderListWM#/rms-report/orderListWM`，随后核对标题。不要混用店内或全渠道订单明细。
@@ -61,36 +62,26 @@ description: 从美团管家“报表中心 → 平台外卖订单明细”按�
 
 ## 导出与下载清单
 
-1. 结果与最后一次查询条件一致后，先按下节准备下载捕获，再点 **导出** 一次。录制观察到同一报表既可直接下载，也可生成异步任务；不能固定只走其中一条路径。没有观察到逐页勾选要求；若当前页面出现“当前页/全部”选项，按请求选定，不将当前页当全量。
-2. 直接触发下载时，按 `workbuddy/references/browser-skill.md` 第 6 节用 `bsk download --out` 处理。若提示 **前往下载清单**，打开 **下载清单记录**；入口不可用时在同一浏览器打开 `https://pos.meituan.com/web/fe.rms-portal/rms-report.html#/rms-report/promiseDownload`。
+1. 核对最后一次查询条件，按下节选定触发方式并提交 **导出** 一次。录制观察到同一报表既可直接下载，也可生成异步任务；不能固定只走其中一条路径。没有观察到逐页勾选要求；若当前页面出现“当前页/全部”选项，按请求选定，不将当前页当全量。
+2. 直接触发下载时，等待本次文件并按浏览器手册第 6 节校验落地。若提示 **前往下载清单**，打开 **下载清单记录**；入口不可用时在同一浏览器打开 `https://pos.meituan.com/web/fe.rms-portal/rms-report.html#/rms-report/promiseDownload`。
 3. 用 `平台外卖订单明细 (查询时间范围：<开始时间>-<结束时间>)`、本次申请时间及状态定位任务，兼容页面实际日期格式。清单混有其他报表和同区间历史任务，不能直接点首个“下载”。清单未显示日期口径、门店、来源或订单集合时，用本次查询和申请身份关联；不能声称清单已证明这些条件。
 4. **导出中**时保留原任务，分段等待后使用清单 **刷新**；避免反复提交或照搬录制中的密集刷新。页面“一般在20分钟后可下载”是提示，不是完成保证；保留期限以当前页面为准。
-5. **导出完成**后，先准备下载捕获，再点该行 **下载**。单段明确超量时按下节继续缩小查询范围；其他失败、过期或任务无法辨认时，保留条件和申请信息并报告待续事项，不删除或无变化地重试。
+5. **导出完成**后，按下节对该行 **下载** 控件执行一次。单段明确超量时按下节继续缩小查询范围；其他失败、过期或任务无法辨认时，保留条件和申请信息并报告待续事项，不删除或无变化地重试。
 
-## 下载落地与恢复（browser-skill 特化）
+## 下载落地与恢复
 
-`bsk` 有原生下载捕获（`bsk download --out`），但 **2026-11-25 在美团「自助营业取数」
-真实导出中该路径不可用**：业务控件在 iframe 内，VOM 报 `geometry incomplete`，
-`download` / `click` / `scroll-to` 均返回 `target_covered`。此时按
-`workbuddy/references/browser-skill.md` 第 6 节改用 `evaluate --expect` 派发完整鼠标事件序列，并校验、
-重命名 `.com.google.Chrome.*` 临时文件。**不要反复重试点击**（会生成多份导出任务）。
-下面的通用规则适用于 `bsk download` 可用的场景；两条路径最终都以本地文件校验为准。
+先按 `workbuddy/references/browser-skill.md` 第 6 节选定本次控件的触发方式，再提交一次。
 
-1. 先完成筛选与按钮定位，再 `bsk cooperate sync --session <SID> --policy target --json`
-   取得 `context_id` / `observation_id`。点击型下载必须带这两个值。
-2. 用 `bsk download <trigger> --out <绝对路径> --session <SID> --context <CTX>`
-   `--observation <OBS> --timeout 2m --json` 一步完成点击、捕获与落盘。
-   `trigger` 是本轮快照核实的 `@eN` ref 或 CSS 选择器；**iframe 内控件必须用 ref**。
-3. 默认拒绝覆盖；只有明确要替换时才加 `--overwrite`。同名先核验，不静默覆盖。
-4. `download_path_mismatch` 表示浏览器把文件落到别处、`--out` 没产出：在浏览器下载列表
-   找到该文件，决定使用或删除后再决定是否重试，不要盲目重复点击导出。
-5. 超时、`dialog_pending` 或 `effect_state: unknown` 时先 `bsk sync` 检查状态，
-   **绝不重放写动作**。异步导出按本次报表、申请时间与状态定位，有界等待，生成中不视为已下载。
-6. 以本地文件实际存在、非空、日期/范围正确、XLSX/ZIP 完整性作为完成依据：
-   ZIP `testzip()`，XLSX 检查 `[Content_Types].xml`、`xl/workbook.xml` 与工作表行数。
-   工具返回成功不替代文件校验。
-
-业务筛选、分段策略、原件字节完整性、证据留存与清理门槛仍按本 skill 其余章节执行。
+1. 已验证的美团「自助营业取数」报表 iframe 使用 `evaluate --expect` 的事件序列，
+   核对报表、精确 frame URL 和唯一控件后再执行。观察导出任务或新出现的下载，按手册
+   校验并落地匹配本次范围的 Chrome 临时文件。
+2. 其他页面的目标支持几何点击且可直接下载时，`bsk download <trigger> --out <路径>`
+   一次完成点击和捕获，调用前用 `cooperate sync` 取得 context 与 observation。
+   文件已开始下载时只观察和校验，异步导出则等待本次任务完成后选定该行的下载控件。
+3. 超时、`download_path_mismatch` 或动作结果不明时，先核对下载列表、异步任务和本地
+   文件，再决定如何恢复。已有任务或结果未明时保持待续，防止重复提交。
+4. 完成以本地原件为准。核对日期、门店和范围，检查文件非空、XLSX/ZIP 结构和内容，
+   默认保留已有同名文件。业务筛选、证据和清理门槛见本 Skill 正文及中央冻结快照。
 
 
 ## 长范围优先按月导出
@@ -119,5 +110,3 @@ description: 从美团管家“报表中心 → 平台外卖订单明细”按�
 也不证明这些行为在当前站点仍然成立。本副本不沿用其浏览器与下载结论，一律以
 `workbuddy/references/browser-skill.md` 为准。业务侧的日期口径、筛选、字段与原件校验
 要求仍以本 skill 正文和中央冻结快照为准；未改动的原始记录保留在仓库 `skills/` 下。
-
-

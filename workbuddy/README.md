@@ -1,69 +1,12 @@
-# WorkBuddy host adapter (additive)
+# WorkBuddy 上的企业智脑（SMEDC）配套 Skills
 
-This directory adds a WorkBuddy host path for the companion skills. **Nothing
-under `skills/` is modified.** The Codex host keeps reading the exact same
-files, prompts, scripts and tests as before; WorkBuddy installs a second copy
-with generated SKILL.md overlays.
+WorkBuddy 使用 BrowserSkill 的 `bsk` CLI 和本机 Chrome 扩展，在独立的 Agent Window 采集美团来源。
+配套 Skills 从同一份 `skills/` 源码生成，安装到 WorkBuddy 的发现目录。
 
-The adapter is tenant-neutral: it contains no enterprise names, store rosters,
-source accounts, recipient addresses, publication whitelists or schedules.
-Those values are read at run time from the authenticated central snapshot.
+- [上手指南](GETTING_STARTED.md)涵盖核心 Skill、SMEDC launcher、BrowserSkill 和首次下载。
+- [安装与验证](INSTALL.md)涵盖配套 Skills 的安装、升级和文件校验。
+- [网页操作手册](references/browser-skill.md)给出命令与美团 iframe 的下载路径。
+- [能力映射](HOST_MAP.md)与[工作流手册](WORKFLOWS.md)说明中央动作、续轮和阶段阻塞。
 
-## What is preserved
-
-- The full central coordination protocol (`mcp__smedc__*`): identity, frozen
-  configuration, assignment, claim/check/record, action readback and
-  provider receipts. The launcher binding and approved pin remain owned by the
-  core skill; this adapter never installs or pins a launcher.
-- The three workflow definitions, their stage order, evidence requirements,
-  dedup identities and cleanup gates.
-- The original business skills: browser exports, original-file validation,
-  uploads, review workbook, publication gates and report generation.
-
-## What is different (and why)
-
-| Codex capability | WorkBuddy path |
-| --- | --- |
-| Persistent Goal (`get_goal`/`create_goal`/`update_goal`) | `scripts/wb_state.py` local run-state file with hash-chained atomic saves |
-| `functions.exec` + JS `eval` with an injected `tools` object | Agent invokes native tools step by step; only the local state/index is scripted |
-| IAB / in-app browser | Host `web-access` skill + CDP Proxy attached to the employee's everyday browser (`references/web-access.md`) |
-| Download event registration + native Save panel | Full mouse-event click inside the target iframe, then local validation and rename of the Chrome temp file (`references/web-access.md` §5) |
-| Native Gmail namespace and `allowedSender` identity | **Not substitutable.** Mail stage is `blocked`; local delivery per `scripts/wb_mail.py` |
-| `mcp__codex_app__automation_update` (projectId, notificationPolicy, model) | Host `automation_update` with name/prompt/schedule/status/cwds; `scripts/wb_schedule.py` renders specs only |
-| `load_workspace_dependencies`, `@oai/artifact-tool` | Local interpreter/package probes and the skill's own requirements |
-| `set_thread_archived`, `tab.markHandoff()` | Not available; chat archiving is skipped and browser tabs are reopened per run |
-
-Browser remote-debugging authorization, `check-deps.mjs` and the browser
-preference are **native prerequisites of `web-access`**, not extra setup added
-by this adapter. This adapter installs no third-party CLI or browser extension.
-
-See `HOST_MAP.md` for the full mapping and the list of hard limits.
-
-## Files
-
-- `INSTALL.md` — how to install the overlay trees without touching Codex.
-- `HOST_MAP.md` — capability mapping, host-native prerequisites and hard limits.
-- `WORKFLOWS.md` — the three runbooks on this host.
-- `references/web-access.md` — **authoritative** browser/download playbook: CDP
-  pre-flight and API, iframe traversal, mouse-event sequence, download temp-file
-  landing, date handling and safety boundaries.
-- `scripts/install_overlays.py` — **required installer.** Copies the source subtree, the generated overlay and the `workbuddy/` runtime files into each installed skill, so every `workbuddy/...` reference resolves. `check` verifies an installed tree.
-- `scripts/wb_state.py` — local run state with an append-only hash journal (Goal replacement).
-- `scripts/wb_browser.py` — **deprecated optional bridge.** An earlier revision
-  used a `bsk` CLI plus a Chrome extension; it required software WorkBuddy does
-  not ship. It is kept only for compatibility with existing installs and its
-  tests. New installs must not use it; use `web-access` instead.
-- `scripts/wb_mail.py` — mail-stage degradation and non-overwriting local delivery. Never sends.
-- `scripts/wb_schedule.py` — renders PAUSED automation specs with tool-binding notes; never creates a task.
-- `overlays/build_overlays.py` — regenerates and checks the WorkBuddy `SKILL.md` + `references/*.md` overlays.
-- `overlays/generated/` — committed overlay trees for review.
-
-## Non-goals
-
-- No SMTP, no second mail server, no sender override.
-- No HTTP/JSON-RPC/private MCP client: central actions go through native tools only.
-- No third-party browser CLI or extension installation.
-- No automatic schedule creation. A schedule is installed only after the
-  employee confirms an exact time, or is copied verbatim from a host readback
-  during an approved migration.
-- No changes to the service, central configuration, or the Codex automation files.
+真实验收覆盖了「自助营业取数」的一次原件下载。定时触发、其他报表和中央上传各有自己的验收条件。
+邮件阶段使用本地交付，中央与本地状态分别记录。

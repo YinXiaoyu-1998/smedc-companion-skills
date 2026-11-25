@@ -9,14 +9,15 @@ description: 采集美团经营宝的美团与点评顾客评价到九列 XLSX �
 
 ## WorkBuddy 宿主适配 · browser-skill profile（最高优先级）
 
-本副本是 **browser-skill 特化版**，与 web-access / CDP Proxy profile 互斥。下文及本 skill
-的 references 中，凡涉及浏览器选择、登录态、下载等待、宿主工具或定时任务的段落，
+本副本使用 **BrowserSkill**。下文及本 Skill 的 references 中，凡涉及浏览器选择、
+登录态、下载等待、宿主工具或定时任务的段落，
 若与本节冲突，一律以本节、`workbuddy/references/browser-skill.md` 和 `workbuddy/HOST_MAP.md` 为准；
 业务筛选、原件校验、证据与清理门槛保持不变。
 
-- 浏览器：`bsk` CLI + Chrome 扩展 Agent Window，复用同 profile 登录态。配对是一次性的，
-  daemon 由 agent 每轮确认/拉起，**没有每次人工授权弹窗**。
-- 下载：`bsk download --out` 原生落盘；不需要处理 Chrome 临时文件或系统保存框。
+- 浏览器：使用 `bsk` CLI 和 Chrome 扩展的 Agent Window，每轮确认 daemon、扩展连接和美团登录态。
+- 下载：按 `workbuddy/references/browser-skill.md` 第 6 节先选定触发方式。美团「自助营业取数」iframe 使用
+  `evaluate --expect` 与 Chrome 临时文件落地。支持几何点击的直接下载可用
+  `bsk download --out` 一步完成点击和捕获。每个动作只触发一次。
 - 只用 CLI 真实存在的子命令（见手册第 3 节）；不要用 `bsk open` / `--url` / `--expression`。
 - 定时与续轮：无 Goal 生命周期，用 `workbuddy/scripts/wb_state.py` 的本地 run 状态文件；
   时间表由员工确认后才通过宿主 `automation_update` 安装。定时触发时若 daemon/扩展不可用，
@@ -45,7 +46,7 @@ description: 采集美团经营宝的美团与点评顾客评价到九列 XLSX �
 
 ## 能力与依赖
 
-需要浏览器读取/操作及本地 XLSX 生成/检查能力。在 browser-skill profile 下浏览器操作使用 `bsk` CLI，见 `workbuddy/references/browser-skill.md`；本地文件检查使用命令行与 Python 标准库。专用连接器支持相同语义时可用于对应步骤，仍须遵守审核边界。本流程不需要额外模型/API 凭据，也不捆绑浏览器或表格运行环境。
+需要浏览器读取/操作及本地 XLSX 生成/检查能力。在 WorkBuddy 中浏览器操作使用 `bsk` CLI，见 `workbuddy/references/browser-skill.md`；本地文件检查使用命令行与 Python 标准库。专用连接器支持相同语义时可用于对应步骤，仍须遵守审核边界。本流程不需要额外模型/API 凭据，也不捆绑浏览器或表格运行环境。
 
 仅启用邮件通知时才需要已有授权邮件工具或已配置的 SMTP 能力，优先使用当前可用的已授权连接器；不静默安装邮件工具、配置账号或保存凭据。邮件能力不可用时保留待通知记录并报告，不阻塞可独立完成的采集、交表及已获授权的后续工作。
 
@@ -86,12 +87,10 @@ description: 采集美团经营宝的美团与点评顾客评价到九列 XLSX �
 
 ## 浏览器选择（browser-skill 特化）
 
-本副本使用宿主 `browser-skill`（`bsk` CLI + Chrome 扩展的 Agent Window），直连员工日常
-Chrome profile 并复用其登录态。**不使用** CDP Proxy / `web-access` 通道。完整命令表见
-`workbuddy/references/browser-skill.md`。
+本副本在 `browser-skill` 的 Agent Window 中使用本机 Chrome 并复用所选实例的登录态。完整命令表见 `workbuddy/references/browser-skill.md`。
 
-- 一次性配置：安装 `bsk` CLI、安装 Chrome 扩展、完成 `bsk daemon pair` 配对、
-  `bsk doctor` 全绿；美团登录由员工在页面完成，cookie 持久。
+- 初次配置：安装 `bsk` CLI、启用 Chrome 扩展的本地连接，按需配对，确认 `bsk doctor` 无失败项。
+  美团登录或登录过期后的重新认证由员工在页面完成。
 - 每轮运行：确认 daemon 在跑（`BSK_AUTO_START=0 bsk status --json`）。WorkBuddy 会回收
   shell 子进程，daemon 不在时用宿主后台任务启动
   `BSK_AUTO_START=0 bsk daemon start --foreground`，并在**另一次**调用里复查 status。

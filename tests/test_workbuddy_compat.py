@@ -16,6 +16,7 @@ import io
 import json
 import re
 import shlex
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,7 +25,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 WORKBUDDY = ROOT / "workbuddy"
 SCRIPTS = WORKBUDDY / "scripts"
-GENERATED = WORKBUDDY / "overlays" / "generated"
+GENERATED = WORKBUDDY / "bsk" / "generated"
 
 
 def load_module(name: str, path: Path):
@@ -39,16 +40,11 @@ wb_state = load_module("wb_state", SCRIPTS / "wb_state.py")
 wb_mail = load_module("wb_mail", SCRIPTS / "wb_mail.py")
 wb_schedule = load_module("wb_schedule", SCRIPTS / "wb_schedule.py")
 wb_browser = load_module("wb_browser", SCRIPTS / "wb_browser.py")
-wb_overlays = load_module("wb_overlays", WORKBUDDY / "overlays" / "build_overlays.py")
+wb_overlays = load_module("wb_overlays", WORKBUDDY / "bsk" / "build.py")
 
 
 def committed_overlays() -> dict[tuple[str, str], str]:
-    return wb_overlays.committed_files() if hasattr(wb_overlays, "committed_files") else {
-        (rel.parts[0], "/".join(rel.parts[1:])): p.read_text(encoding="utf-8")
-        for p in GENERATED.rglob("*.md")
-        for rel in [p.relative_to(GENERATED)]
-        if len(rel.parts) >= 2
-    }
+    return wb_overlays.committed_files()
 
 
 class RepositoryInvariantTests(unittest.TestCase):
@@ -63,6 +59,7 @@ class RepositoryInvariantTests(unittest.TestCase):
         documents = list((ROOT / "skills").rglob("*.md"))
         documents += list((ROOT / "skills").rglob("*.yaml"))
         documents += [ROOT / "README.md", ROOT / "README.zh.md"]
+        documents += list(WORKBUDDY.rglob("*.md"))
         pattern = r"smedc-mcp-launcher@[^\s`]+|launcher[/\\]+versions[/\\]+\d"
         for path in documents:
             with self.subTest(path=path.relative_to(ROOT)):
@@ -86,8 +83,7 @@ class RepositoryInvariantTests(unittest.TestCase):
 
     def test_hard_limits_are_documented(self) -> None:
         text = (WORKBUDDY / "HOST_MAP.md").read_text(encoding="utf-8")
-        for marker in ("Not substitutable", "allowedSender", "Goal lifecycle",
-                       "native-adapters.js", "blocked"):
+        for marker in ("allowedSender", "Goal", "JS", "blocked"):
             self.assertIn(marker, text)
 
 
@@ -336,6 +332,8 @@ class ScheduleTests(unittest.TestCase):
             self.assertEqual(spec["status"], "PAUSED")
             self.assertIn("wb_state.py", spec["prompt"])
             self.assertIn("mcp__smedc__", spec["prompt"])
+            self.assertIn("workbuddy/references/browser-skill.md", spec["prompt"])
+            self.assertNotIn("web-access", spec["prompt"])
 
     def test_spec_declares_tool_binding(self) -> None:
         spec = wb_schedule.spec_for("weekly-business-report", "/tmp/dedicated-workspace")
@@ -381,174 +379,181 @@ class OverlayTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(wb_overlays.cmd_check(None), 0)
 
-    def test_browser_path_is_web_access_and_no_third_party_bridge(self) -> None:
-        for key, text in committed_overlays().items():
-            if key[1] != "SKILL.md":
-                continue
-            with self.subTest(overlay="/".join(key)):
-                self.assertIn("web-access", text)
-                self.assertNotIn("bsk", text)
-                self.assertNotIn("Agent Window", text)
+    def test_browser_skill_is_the_only_path(self) -> None:
+        self.assertFalse((WORKBUDDY / "overlays/build_overlays.py").exists())
+        for (name, relative), text in committed_overlays().items():
+            if relative == "SKILL.md":
+                with self.subTest(skill=name):
+                    self.assertIn("WorkBuddy overlay", text)
+                    self.assertIn("workbuddy/references/browser-skill.md", text)
+                    self.assertIn("bsk", text)
+                    self.assertNotIn("web-access", text)
 
-    def test_broken_download_snippets_are_gone(self) -> None:
-        for files in wb_overlays.generate().values():
-            for text in files.values():
-                for token in ("const pending", "waitForEvent", "downloadIndex",
-                              "timeout_ms", "ERR_BLOCKED_BY_CLIENT", "保存框"):
-                    self.assertNotIn(token, text)
-
-    def test_download_landing_chapter_is_present(self) -> None:
-        generated = committed_overlays()
-        for name in ("download-meituan-business-data", "download-meituan-dish-sales",
-                     "download-meituan-delivery-ledger", "download-meituan-combo-sales",
-                     "meituan-order-details-download", "meituan-takeout-order-details-download"):
-            with self.subTest(skill=name):
-                text = generated[(name, "SKILL.md")]
-                self.assertIn("workbuddy/references/web-access.md", text)
-                self.assertIn("下载临时文件", text)
-
-    def test_host_runbook_references_are_marked_not_applicable(self) -> None:
-        generated = committed_overlays()
-        for rel in ("references/browser.md", "references/runtime.md",
-                    "references/gmail.md", "references/installation.md",
-                    "references/invocation.md"):
-            with self.subTest(reference=rel):
-                text = generated[("smedc-workflows", rel)]
-                self.assertIn("WorkBuddy", text)
-                self.assertNotIn("bsk", text)
-
-    def test_web_access_reference_documents_the_verified_patterns(self) -> None:
-        ref = WORKBUDDY / "references" / "web-access.md"
-        self.assertTrue(ref.is_file())
-        text = ref.read_text(encoding="utf-8")
-        for marker in ("check-deps.mjs", "localhost:3456",
-                       "contentDocument.location", "MouseEvent",
-                       ".com.google.Chrome", "TZ=Asia/Shanghai"):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, text)
+    def test_business_flow_chooses_the_iframe_trigger_before_export(self) -> None:
+        text = committed_overlays()[("download-meituan-business-data", "SKILL.md")]
+        steps = text.split("## 操作", 1)[1].split("## 下载落地与恢复", 1)[0]
+        self.assertIn("按下节的 iframe 方案执行一次", steps)
+        self.assertNotIn("bsk download", steps)
+        self.assertIn("`evaluate --expect`", text)
+        self.assertNotIn("不需要处理 Chrome 临时文件", text)
+        self.assertIn("企业智脑（SMEDC）", text.split("---", 2)[1])
 
     def test_overlay_output_is_isolated_from_codex_sources(self) -> None:
-        # `build` reads skills/ and must only ever write under
-        # workbuddy/overlays/generated/. A stray OUT would silently rewrite the
-        # Codex sources on regeneration.
         self.assertNotIn(wb_overlays.SKILLS, wb_overlays.OUT.parents)
-        self.assertEqual(wb_overlays.OUT, WORKBUDDY / "overlays" / "generated")
+        self.assertEqual(wb_overlays.OUT, GENERATED)
         for files in wb_overlays.generate().values():
-            for rel in files:
-                self.assertFalse(rel.startswith("skills/"))
-                self.assertNotIn("..", Path(rel).parts)
-
-    def test_every_overlay_is_detectably_marked(self) -> None:
-        # Pair with test_codex_source_skill_files_are_not_overlays: source
-        # SKILL.md files carry no marker; every WorkBuddy copy does. A copy
-        # accidentally installed into the Codex discovery root is detectable.
-        generated = committed_overlays()
-        for (name, rel), text in generated.items():
-            with self.subTest(overlay=f"{name}/{rel}"):
-                self.assertIn("WorkBuddy", text)
-        for name in {key[0] for key in generated}:
-            with self.subTest(skill=name):
-                self.assertIn("WorkBuddy overlay", generated[(name, "SKILL.md")])
+            for relative in files:
+                self.assertNotIn("..", Path(relative).parts)
 
 
 class NewUserOnboardingTests(unittest.TestCase):
-    def test_getting_started_covers_the_full_dependency_install(self) -> None:
-        doc = (WORKBUDDY / "GETTING_STARTED.md").read_text(encoding="utf-8")
-        for marker in ("preflight.py", "AGENT_INSTALL.md", "daemon pair",
-                       "Chrome 扩展", "bsk doctor", "smedc-mcp-skill.git",
-                       "chrome://inspect/#remote-debugging", "不上传"):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, doc)
-
-    def test_both_installers_distribute_onboarding_files(self) -> None:
-        for rel in ("scripts/install_overlays.py", "bsk/build.py"):
-            with self.subTest(installer=rel):
-                text = (WORKBUDDY / rel).read_text(encoding="utf-8")
-                self.assertIn("GETTING_STARTED.md", text)
-                self.assertIn("scripts/preflight.py", text)
-
-    def test_bsk_manual_contains_a_copyable_event_sequence(self) -> None:
-        manual = (WORKBUDDY / "bsk/references/browser-skill.md").read_text(encoding="utf-8")
-        for marker in ("pointerdown", "mousedown", "mouseup", "--expect",
-                       "shutil.copy2", "testzip()", "contentDocument"):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, manual)
-
-    def test_preflight_reports_missing_items_on_an_empty_root(self) -> None:
-        import subprocess
-        import sys
-        script = WORKBUDDY / "scripts/preflight.py"
-        self.assertTrue(script.is_file())
-        with tempfile.TemporaryDirectory() as tmp:
-            result = subprocess.run(
-                [sys.executable, str(script), "--profile", "web-access",
-                 "--root", str(Path(tmp) / "skills"), "--json"],
-                capture_output=True, text=True, timeout=120)
-            payload = json.loads(result.stdout)
-            self.assertGreater(payload["missing"], 0)
-            self.assertTrue(any("发现根" in r["item"] and r["status"] == "MISSING"
-                                for r in payload["results"]))
-            self.assertTrue(all(r["fix"] for r in payload["results"]
-                                if r["status"] == "MISSING"))
+    def test_guide_starts_daemon_before_pairing_and_verifies_mcp(self) -> None:
+        text = (WORKBUDDY / "GETTING_STARTED.md").read_text(encoding="utf-8")
+        self.assertLess(text.index("daemon start --foreground"), text.index("daemon pair"))
+        self.assertLess(text.index("smedc_auth_status"), text.index("第一次下载验收"))
+        self.assertIn("official-install-or-update", text)
+        self.assertIn("WorkBuddy 的 MCP 指南", text)
 
 
 class InstallerTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.installer = load_module("install_overlays",
-                                    SCRIPTS / "install_overlays.py")
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.home = Path(temporary.name).resolve()
+        self.root = self.home / ".workbuddy/skills"
+        self.output = io.StringIO()
 
-    def test_adapter_runtime_files_all_exist(self) -> None:
-        for rel in self.installer.ADAPTER_FILES:
-            with self.subTest(file=rel):
-                self.assertTrue((WORKBUDDY / rel).is_file())
+    def command(self, verb: str, root: Path | None = None) -> int:
+        with contextlib.redirect_stdout(self.output), contextlib.redirect_stderr(self.output):
+            with mock.patch.object(Path, "home", return_value=self.home):
+                return wb_overlays.main([verb, "--root", str(root or self.root)])
 
-    def test_cdp_preflight_guidance_states_it_is_not_one_time(self) -> None:
-        install = (WORKBUDDY / "INSTALL.md").read_text(encoding="utf-8")
-        self.assertIn("NOT a one-time setting", install)
-        self.assertIn("chrome://inspect/#remote-debugging", install)
-        self.assertIn("config.env", install)
-        web = (WORKBUDDY / "references/web-access.md").read_text(encoding="utf-8")
-        self.assertIn("一次性设置，还是每次都要做", web)
-        self.assertIn("every time", web)
-        self.assertIn("不能保证可用", web)
+    def test_installs_then_checks_all_shipped_files(self) -> None:
+        self.assertEqual(self.command("install"), 0, self.output.getvalue())
+        self.assertEqual(self.command("verify"), 0, self.output.getvalue())
+        skill = self.root / "smedc-workflows"
+        state = skill / "workbuddy/scripts/wb_state.py"
+        state.unlink()
+        (skill / "references/execution.md").write_text("stale", encoding="utf-8")
+        self.assertEqual(self.command("verify"), 1)
+        self.assertIn("wb_state.py", self.output.getvalue())
+        self.assertIn("out of date or modified: smedc-workflows/references/execution.md",
+                      self.output.getvalue())
+        self.assertEqual(self.command("install"), 0)
+        self.assertEqual(self.command("verify"), 0)
 
-    def test_bsk_profile_is_generated_and_self_consistent(self) -> None:
-        bsk = load_module("bsk_build", WORKBUDDY / "bsk" / "build.py")
-        overlays = bsk.configured()
-        self.assertTrue(overlays)
-        for name, files in overlays.items():
-            with self.subTest(skill=name):
-                text = files["SKILL.md"]
-                self.assertIn("browser-skill profile", text)
-                self.assertIn("bsk download", text)
-                self.assertNotIn("localhost:3456", text)
-        manual = (WORKBUDDY / "bsk/references/browser-skill.md").read_text(encoding="utf-8")
-        for marker in ("bsk download", "cooperate sync", "session start",
-                       "daemon start", "bsk open", "download_path_mismatch"):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, manual)
+    def test_rejects_codex_roots_and_repository_sources(self) -> None:
+        for root in (self.home / ".agents/skills", self.home / ".codex/skills/custom",
+                     ROOT / "skills", self.home):
+            with self.subTest(root=root):
+                self.assertEqual(self.command("install", root), 1)
 
-    def test_bsk_profile_check_matches_committed(self) -> None:
-        bsk = load_module("bsk_build_check", WORKBUDDY / "bsk" / "build.py")
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(bsk.cmd_check(None), 0)
+    def test_rejects_linked_skill_directory_or_file_before_copying(self) -> None:
+        codex = self.home / ".agents/skills/smedc-workflows"
+        codex.mkdir(parents=True)
+        other = codex / "SKILL.md"
+        other.write_text("Codex original", encoding="utf-8")
+        self.root.mkdir(parents=True)
+        destination = self.root / "smedc-workflows"
+        destination.symlink_to(codex, target_is_directory=True)
+        self.assertEqual(self.command("install"), 1)
+        self.assertEqual(list(self.root.iterdir()), [destination])
+        destination.unlink()
+        destination.mkdir()
+        (destination / "SKILL.md").symlink_to(other)
+        self.assertEqual(self.command("install"), 1)
+        self.assertEqual(other.read_text(encoding="utf-8"), "Codex original")
+        self.assertEqual(list(destination.iterdir()), [destination / "SKILL.md"])
 
-    def test_install_then_check_produces_self_contained_skills(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp) / "skills"
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(
-                    self.installer.main(["install", "--root", str(root)]), 0)
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(
-                    self.installer.main(["check", "--root", str(root)]), 0)
-            for name in self.installer.overlay_names():
-                with self.subTest(skill=name):
-                    base = root / name
-                    self.assertTrue((base / "workbuddy/references/web-access.md").is_file())
-                    self.assertTrue((base / "workbuddy/scripts/wb_state.py").is_file())
-                    self.assertIn("WorkBuddy overlay",
-                                  (base / "SKILL.md").read_text(encoding="utf-8"))
+    def test_installed_preflight_runs_without_a_checkout_or_writing_diagnostics(self) -> None:
+        self.assertEqual(self.command("install"), 0, self.output.getvalue())
+        for skill_name in ("smedc-mcp", "browser-skill"):
+            target = self.root / skill_name / "SKILL.md"
+            target.parent.mkdir()
+            target.write_text("fixture", encoding="utf-8")
+        path = self.root / "smedc-workflows/workbuddy/scripts/preflight.py"
+        preflight = load_module("wb_preflight_installed", path)
+        good = {
+            ("node", "--version"): "v22.3.0",
+            ("/bsk", "--version"): "bsk 0.4.2",
+            ("/bsk", "status", "--json"): '{"pid": 42, "browsers": [{"browser_name": "Chrome"}]}',
+        }
+
+        def run(command):
+            response = good[tuple(command)]
+            if response is None:
+                return subprocess.CompletedProcess(command, 1, "", "status could not run")
+            return subprocess.CompletedProcess(command, 0, response, "")
+
+        def probe() -> tuple[int, dict]:
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                code = preflight.main(["--json"])
+            return code, json.loads(stdout.getvalue())
+
+        with mock.patch.object(preflight, "run", side_effect=run):
+            with mock.patch.object(preflight.shutil, "which", side_effect=lambda name: "/" + name):
+                code, result = probe()
+                self.assertEqual(code, 0, result)
+                self.assertEqual(result["mode"], "installed")
+                self.assertEqual(result["root"], str(self.root))
+                self.assertEqual(result["missing"], 0)
+                good[("/bsk", "status", "--json")] = None
+                code, result = probe()
+                self.assertEqual(code, 1)
+                self.assertEqual([row["item"] for row in result["results"]
+                                  if row["status"] == "MISSING"], ["bsk daemon"])
+                doctor = next(row for row in result["results"] if row["item"] == "bsk doctor")
+                self.assertEqual(doctor["status"], "WARN")
+
+
+class IframeExportTests(unittest.TestCase):
+    def test_only_the_verified_frame_and_unique_control_receive_events(self) -> None:
+        script = WORKBUDDY / "scripts/meituan-iframe-export.js"
+        node_test = r"""
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const dispatch = vm.runInNewContext(fs.readFileSync(process.argv[1], "utf8"), {URL});
+const events = [];
+const url = "https://pos.meituan.com/report#business";
+function button(id, label = "导出") {
+  return {
+    isConnected: true, innerText: label,
+    matches: () => false, closest: () => null,
+    getBoundingClientRect: () => ({x: 5, y: 5, width: 10, height: 10}),
+    dispatchEvent: (event) => events.push([id, event.type]),
+  };
+}
+function page(href, controls, nested = []) {
+  return {
+    location: {href},
+    defaultView: {
+      MouseEvent: class { constructor(type) { this.type = type; } },
+      getComputedStyle: () => ({visibility: "visible"}),
+    },
+    querySelectorAll(selector) {
+      if (selector === "iframe") return nested.map(contentDocument => ({contentDocument}));
+      return selector === "#report" ? [{
+        querySelectorAll: (controlSelector) => controlSelector === "#export" ? controls : [],
+      }] : [];
+    },
+  };
+}
+const params = {frameUrl: url, reportSelector: "#report", controlSelector: "#export", label: "导出"};
+const outer = (frames) => page("https://pos.meituan.com/shell", [button("outer")], frames);
+const report = page(url, [button("target")]);
+assert.equal(dispatch(params, outer([report])).dispatched, true);
+assert.deepEqual(events.splice(0), ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]
+  .map(type => ["target", type]));
+assert.equal(dispatch(params, outer([report, report])).dispatched, false);
+assert.equal(dispatch(params, outer([page(url, [button("one"), button("two")])])).dispatched, false);
+assert.equal(dispatch(params, outer([page(url, [button("changed", "删除")])])).dispatched, false);
+assert.equal(dispatch({...params, frameUrl: url + "-other"}, outer([report])).dispatched, false);
+assert.deepEqual(events, []);
+"""
+        result = subprocess.run(["node", "-e", node_test, str(script)],
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

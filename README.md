@@ -118,38 +118,20 @@ Delivery-ledger tests use the Python standard library; business-analysis metadat
 PyYAML. Runtime instructions and data-cleanup requirements belong to each Skill. Keep temporary
 reports, downloaded data and execution transcripts outside this repository.
 
-## WorkBuddy host support (additive)
+## WorkBuddy host support
 
-A second host path is available in [`workbuddy/`](workbuddy/README.md). It installs generated
-SKILL.md overlays into the WorkBuddy discovery root; every file under `skills/` stays byte-for-byte
-unchanged, so the Codex prompts, scripts, tests and installation path are unaffected. The adapter
-is tenant-neutral and carries no enterprise names, store rosters, source accounts, recipient
-addresses or schedules.
+WorkBuddy uses BrowserSkill (`bsk` and the Chrome extension) for browser
+collection. The companion skills are generated from the same `skills/` sources
+and installed into the WorkBuddy discovery directory.
 
-Two mutually exclusive browser profiles are available: `web-access` (CDP Proxy, no extra
-components) and `browser-skill` (`bsk` CLI + Chrome extension, recommended for unattended
-runs). **New users start at [`workbuddy/GETTING_STARTED.md`](workbuddy/GETTING_STARTED.md)**
-and run the read-only `python3 workbuddy/scripts/preflight.py`, which reports exactly which
-dependencies and configuration are still missing — `bsk` CLI, Chrome extension pairing,
-daemon, Node.js, Chrome remote debugging, installed overlays — with a fix command for each.
-The browser-skill profile needs a one-time install of the `bsk` CLI and Chrome extension plus
-`bsk daemon pair`; the web-access profile needs Chrome's per-connection remote-debugging
-approval. Both are host prerequisites, documented step by step in the getting-started guide.
+Follow the [getting-started guide](workbuddy/GETTING_STARTED.md) to configure the
+official SMEDC launcher and connect BrowserSkill. Run
+`python3 workbuddy/scripts/preflight.py` to check local prerequisites and the
+installed files. The [browser guide](workbuddy/references/browser-skill.md)
+covers the Meituan report iframe export and local download verification.
 
-Supported on WorkBuddy: the native `mcp__smedc__*` workflow tools, browser source reads,
-validated landing of the resulting download file, hash-chained local run-state continuation,
-and PAUSED schedule specifications. Authoritative playbooks:
-`workbuddy/references/web-access.md` and `workbuddy/bsk/references/browser-skill.md`.
-Installation never activates a schedule and never grants send, upload or publish permission.
-
-Hard limits: WorkBuddy has no native Gmail namespace matching the central `allowedSender`, no
-Goal lifecycle, no JS environment with injected host tools, and no native download-event API or
-window-level Save-panel control. Mail stages are therefore recorded as blocked with local delivery
-(weekly reports keep the final HTML; review drafts stay in the workbook); run continuity uses a
-local state file instead of a Goal; central claim/check/record calls are issued step by step by
-the agent. The CDP pre-flight is **not one-time**: Chrome asks for permission on every
-debugging session / new browser session and must stay running, so an unattended scheduled
-download cannot be relied on — see `workbuddy/INSTALL.md` §3. When authorisation is absent,
-the source stage is blocked and the run closes as partial. See
-`workbuddy/HOST_MAP.md` for the full mapping. These stages must be reported as partial or
-degraded, never as a successful send.
+WorkBuddy uses native MCP calls for central workflow operations and a local
+state file for continuation. Mail stages are blocked with local handoff.
+Schedule specifications are generated as PAUSED for employee confirmation.
+A manual business-report download has been verified. Scheduled triggering
+still needs acceptance testing. See the [capability map](workbuddy/HOST_MAP.md).

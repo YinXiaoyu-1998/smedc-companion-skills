@@ -23,21 +23,15 @@ central snapshot at run time.
 4. Central `upload` / `download` / `review_sync` / `review_publish` / `email`
    actions go through the native claim/check/record sequence. A long stage
    renews the lease at each bounded step; an unknown result is never replayed.
-5. Browser source reads use the host's `web-access` skill CDP path: load the
-   skill → `check-deps.mjs` pre-flight → own background tab → `/eval` to confirm
-   the target content is ready. Traverse the business iframe by
-   `contentDocument.location.href` and trigger exports with the full mouse-event
-   sequence; validate and rename the Chrome download temp file before counting
-   a download as complete. See `workbuddy/references/web-access.md` §3–5.
-   Reuse the same tab for the whole scope; revalidate the source account,
-   group/brand, exact store name and date filters on the page. Remote-debugging
-   authorization and the browser preference are native `web-access` pre-flight
-   steps, not extra installation. **They are not one-time**: Chrome asks for
-   permission on every debugging session and again for each new browser session,
-   and Chrome must stay running (`INSTALL.md` §3). An unattended trigger therefore
-   cannot be relied on for source collection; if authorisation is absent, record
-   the stage `blocked` and close `partial`. This host has no download event API
-   and no Save-panel control; never fall back to a third-party browser bridge.
+5. Browser source reads use BrowserSkill and a single Agent Window session.
+   Check daemon and extension connectivity from WorkBuddy, then verify the source
+   account, group/brand, exact store names and date filters in the report.
+   Choose the trigger before acting. For the confirmed business-report iframe,
+   follow `workbuddy/references/browser-skill.md` §6 to dispatch once, confirm a
+   new task or download, and validate the matching original file. On pages with
+   supported geometry, a direct `bsk download <trigger> --out <path>` already
+   clicks the control. If a source dependency is unavailable, mark the affected
+   stage blocked, retain the remaining scope and report the run as partial.
 6. Each stage saves verified evidence (exact filters, original files, hashes,
    readback) then updates progress with `save-progress`. Missing or partial
    scope stays pending; a blocked stage uses `mark-blocked`.

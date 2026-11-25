@@ -9,14 +9,15 @@ description: 从美团管家「套餐销售统计」按营业日和门店导出�
 
 ## WorkBuddy 宿主适配 · browser-skill profile（最高优先级）
 
-本副本是 **browser-skill 特化版**，与 web-access / CDP Proxy profile 互斥。下文及本 skill
-的 references 中，凡涉及浏览器选择、登录态、下载等待、宿主工具或定时任务的段落，
+本副本使用 **BrowserSkill**。下文及本 Skill 的 references 中，凡涉及浏览器选择、
+登录态、下载等待、宿主工具或定时任务的段落，
 若与本节冲突，一律以本节、`workbuddy/references/browser-skill.md` 和 `workbuddy/HOST_MAP.md` 为准；
 业务筛选、原件校验、证据与清理门槛保持不变。
 
-- 浏览器：`bsk` CLI + Chrome 扩展 Agent Window，复用同 profile 登录态。配对是一次性的，
-  daemon 由 agent 每轮确认/拉起，**没有每次人工授权弹窗**。
-- 下载：`bsk download --out` 原生落盘；不需要处理 Chrome 临时文件或系统保存框。
+- 浏览器：使用 `bsk` CLI 和 Chrome 扩展的 Agent Window，每轮确认 daemon、扩展连接和美团登录态。
+- 下载：按 `workbuddy/references/browser-skill.md` 第 6 节先选定触发方式。美团「自助营业取数」iframe 使用
+  `evaluate --expect` 与 Chrome 临时文件落地。支持几何点击的直接下载可用
+  `bsk download --out` 一步完成点击和捕获。每个动作只触发一次。
 - 只用 CLI 真实存在的子命令（见手册第 3 节）；不要用 `bsk open` / `--url` / `--expression`。
 - 定时与续轮：无 Goal 生命周期，用 `workbuddy/scripts/wb_state.py` 的本地 run 状态文件；
   时间表由员工确认后才通过宿主 `automation_update` 安装。定时触发时若 daemon/扩展不可用，
@@ -42,16 +43,15 @@ description: 从美团管家「套餐销售统计」按营业日和门店导出�
 
 ## 查询和导出（browser-skill 特化）
 
-1. 按 `workbuddy/references/browser-skill.md` 第 4 节启动 `bsk` 会话，打开
-   `https://pos.meituan.com/web/operation/main#/` 或复用已登录的美团后台标签。
+1. 按 `workbuddy/references/browser-skill.md` 第 4 节启动 `bsk` 会话，在 Agent Window 打开
+   `https://pos.meituan.com/web/operation/main#/`，复用同一 Agent Window 会话。
    登录、验证码由员工在页面完成。
 2. 进入 **报表中心 → 营业报表 → 套餐销售统计**。菜单不可用时，可尝试录制中观察到的直达页 `https://pos.meituan.com/web/report/pack-sale#/rms-report/pack-sale`。确认标题、统计方式和营业日期控件，按当前可见控件操作。
 3. **统计方式**选「套餐明细」。在「营业日期」的两个日期控件中选择同一个营业日，分别核对起止值。打开门店树，选用户要求的门店并核对实际勾选项；勾选「按门店统计」。在「更多筛选」中勾选「显示菜品规格」，取消「同名菜品合并统计」。菜品分类、菜品名称、订单分类、菜品下单来源均选「全部」，以取得可入库的完整门店日来源。
-4. 每次修改日期或筛选后，点「查询」，等待结果刷新，复核当前条件后再点「导出」。只有当前查询明确无数据时才将该日标为无数据。表格当前页条数不能代表全量。页面若提示额外限制，保留已确认范围并报告该限制。
-5. 点击「导出」前先 `cooperate sync` 取得控制 context，再用
-   `bsk download <@eN> --out <路径> --session <SID> --context <CTX> --observation <OBS>`
-   一次点击并落盘。若页面转入「下载清单记录」，按本次套餐报表、营业日和申请时间定位任务，
-   有界等待生成完成后再下载；只在确认没有进行中的导出或下载后才重试。
+4. 每次修改日期或筛选后，点「查询」，等待结果刷新并复核当前条件。只有当前查询明确无数据时才将该日标为无数据。表格当前页条数不能代表全量。页面若提示额外限制，保留已确认范围并报告该限制。
+5. 按 `workbuddy/references/browser-skill.md` 第 6 节选定适用的触发方式，再提交一次「导出」。页面转入「下载清单记录」时，
+   按本次套餐报表、营业日和申请时间定位任务。等该行生成完成后再触发下载并校验原件。
+   已有进行中的导出或下载时继续观察。
 
 
 ## 验证本地工作簿
