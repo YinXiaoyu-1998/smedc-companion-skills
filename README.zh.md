@@ -99,18 +99,15 @@ python3 -m unittest discover -s skills/smedc-delivery-ledger/tests -v
 Delivery-ledger 测试仅使用 Python 标准库；business-analysis 元数据测试另用 PyYAML。
 运行和数据清理要求由各 Skill 维护。临时报表、下载数据和执行流水账不放入本仓库。
 
-## WorkBuddy 宿主支持（新增，不影响 Codex）
+## WorkBuddy 宿主支持
 
-[`workbuddy/`](workbuddy/README.md) 提供第二条宿主路径：在 WorkBuddy 的发现根中安装生成的
-SKILL.md 覆盖版；仓库 `skills/` 下所有文件保持逐字节不变，Codex 的提示词、脚本、测试与安装流程
-完全不受影响。适配层不含企业名、门店名单、来源账号、收件邮箱或企业时间表。
+WorkBuddy 通过 BrowserSkill（`bsk` CLI 和 Chrome 扩展）采集网页来源。配套 Skills 安装
+到 WorkBuddy 的发现目录，从同一份 Codex `skills/` 源码生成。
 
-WorkBuddy 上可用：原生 `mcp__smedc__*` 工作流工具、`bsk` CLI 复用本机 Chrome 登录态的来源采集、
-带哈希链的本地 run 状态续轮、PAUSED 定时规格渲染。安装不会启用定时任务，也不会授予发信、上传
-或发布权限。
+首次使用请按[上手指南](workbuddy/GETTING_STARTED.md)安装官方 SMEDC launcher、在 WorkBuddy
+登录并连接 BrowserSkill。安装前后都可以运行 `python3 workbuddy/scripts/preflight.py`
+检查本机依赖和已安装文件。美团报表 iframe 的下载步骤见[网页操作手册](workbuddy/references/browser-skill.md)。
 
-硬限制：WorkBuddy 没有与中央 `allowedSender` 一致的原生 Gmail 命名空间、没有 Goal 生命周期、
-也没有注入宿主工具的 JS 执行环境。因此邮件阶段按官方降级记为 blocked 并本地交付（周报保留最终
-HTML、评价新稿保留审阅表）；续轮改用本地状态文件；中央 claim/check/record 由 agent 分步调用
-原生工具。完整映射见 `workbuddy/HOST_MAP.md`。这些阶段必须如实报告为 partial 或降级，不得描述
-成发送成功。
+WorkBuddy 支持中央 MCP 动作、本地文件验证和工作流续轮。邮件阶段记录为 blocked，审阅表和
+周报保留在本地。定时规格为 PAUSED，时间表由员工确认。已验收一份营业报表原件的手动采集，
+真实定时触发待验收。详见[能力映射](workbuddy/HOST_MAP.md)。

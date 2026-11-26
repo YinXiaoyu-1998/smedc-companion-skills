@@ -118,22 +118,20 @@ Delivery-ledger tests use the Python standard library; business-analysis metadat
 PyYAML. Runtime instructions and data-cleanup requirements belong to each Skill. Keep temporary
 reports, downloaded data and execution transcripts outside this repository.
 
-## WorkBuddy host support (additive)
+## WorkBuddy host support
 
-A second host path is available in [`workbuddy/`](workbuddy/README.md). It installs generated
-SKILL.md overlays into the WorkBuddy discovery root; every file under `skills/` stays byte-for-byte
-unchanged, so the Codex prompts, scripts, tests and installation path are unaffected. The adapter
-is tenant-neutral and carries no enterprise names, store rosters, source accounts, recipient
-addresses or schedules.
+WorkBuddy uses BrowserSkill (`bsk` and the Chrome extension) for browser
+collection. The companion skills are generated from the same `skills/` sources
+and installed into the WorkBuddy discovery directory.
 
-Supported on WorkBuddy: the native `mcp__smedc__*` workflow tools, browser source reads through
-the `bsk` CLI with the local Chrome profile, hash-chained local run-state continuation, and PAUSED
-schedule specifications. Installation never activates a schedule and never grants send, upload
-or publish permission.
+Follow the [getting-started guide](workbuddy/GETTING_STARTED.md) to configure the
+official SMEDC launcher and connect BrowserSkill. Run
+`python3 workbuddy/scripts/preflight.py` to check local prerequisites and the
+installed files. The [browser guide](workbuddy/references/browser-skill.md)
+covers the Meituan report iframe export and local download verification.
 
-Hard limits: WorkBuddy has no native Gmail namespace matching the central `allowedSender`, no
-Goal lifecycle, and no JS environment with injected host tools. Mail stages are therefore
-recorded as blocked with local delivery (weekly reports keep the final HTML; review drafts stay
-in the workbook); run continuity uses a local state file instead of a Goal; central
-claim/check/record calls are issued step by step by the agent. See `workbuddy/HOST_MAP.md` for the
-full mapping. These stages must be reported as partial or degraded, never as a successful send.
+WorkBuddy uses native MCP calls for central workflow operations and a local
+state file for continuation. Mail stages are blocked with local handoff.
+Schedule specifications are generated as PAUSED for employee confirmation.
+A manual business-report download has been verified. Scheduled triggering
+still needs acceptance testing. See the [capability map](workbuddy/HOST_MAP.md).

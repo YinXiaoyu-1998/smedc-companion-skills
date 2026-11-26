@@ -23,10 +23,15 @@ central snapshot at run time.
 4. Central `upload` / `download` / `review_sync` / `review_publish` / `email`
    actions go through the native claim/check/record sequence. A long stage
    renews the lease at each bounded step; an unknown result is never replayed.
-5. Browser source reads use `wb_browser.py`: `doctor` → `session-start` →
-   `navigate` → `snapshot`; `sync --policy target` before any `click`.
-   Reuse the same session/tab for the whole scope; revalidate the source
-   account, group/brand, exact store name and date filters on the page.
+5. Browser source reads use BrowserSkill and a single Agent Window session.
+   Check daemon and extension connectivity from WorkBuddy, then verify the source
+   account, group/brand, exact store names and date filters in the report.
+   Choose the trigger before acting. For the confirmed business-report iframe,
+   follow `workbuddy/references/browser-skill.md` §6 to dispatch once, confirm a
+   new task or download, and validate the matching original file. On pages with
+   supported geometry, a direct `bsk download <trigger> --out <path>` already
+   clicks the control. If a source dependency is unavailable, mark the affected
+   stage blocked, retain the remaining scope and report the run as partial.
 6. Each stage saves verified evidence (exact filters, original files, hashes,
    readback) then updates progress with `save-progress`. Missing or partial
    scope stays pending; a blocked stage uses `mark-blocked`.

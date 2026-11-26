@@ -1,69 +1,19 @@
-# Capability mapping and hard limits
+# WorkBuddy 能力映射
 
-This is the auditable mapping behind the adapter. "Equivalent" means the same
-business result through a different host mechanism; "degraded" means the result
-is weaker and must be recorded as such; "not substitutable" means no honest
-WorkBuddy equivalent exists and the stage must be reported as blocked.
-
-## Fully equivalent
-
-| Capability | WorkBuddy mechanism |
+| 能力 | WorkBuddy 路径 |
 | --- | --- |
-| Central workflow tools | Native `mcp__smedc__*` tools: `query_enterprise_workflows` (list and detail), `get_workflow_status`, `manage_workflow_installation`, `manage_workflow_run`, `prepare_enterprise_workflow_change`, `save_enterprise_workflow`, `record_workflow_action` |
-| Official binding | `entryName=smedc`, namespace `mcp__smedc__`, service origin owned by the core skill |
-| Authenticated session | Core skill login; the launcher's secure store keeps the durable session |
-| Local file writes, hashing, atomic replace | Standard-library scripts in `scripts/` |
-| Local download capture | `bsk download` through `wb_browser.py` |
-| Python/Node runtime dependencies | Local interpreter and package probes instead of a host dependency loader |
+| SMEDC 身份和中央工作流动作 | 安装官方核心 Skill 及 launcher 后，以 `smedc` 为名接入原生 stdio MCP，再登录 |
+| 网页导航和采集 | BrowserSkill CLI + Chrome 扩展，用独立 Agent Window 复用本机 Chrome 登录态 |
+| 美团报表 iframe 下载 | 「自助营业取数」用 `evaluate --expect` 触发一次，并核验 Chrome 临时原件 |
+| 支持点选的其他直接下载 | `bsk download <trigger> --out <path>` 一次点击并捕获，完成后校验原件 |
+| 本地续轮 | `workbuddy/scripts/wb_state.py` 保存哈希链状态，中央关轮通过 MCP 读回 |
+| 定时规格 | `workbuddy/scripts/wb_schedule.py` 渲染 PAUSED 规格，时间表由员工确认 |
+| 邮件 | WorkBuddy 邮件身份与中央冻结的 `allowedSender` 不符，且缺逐字节 `provider_readback`，记录 blocked，文件本地交付 |
 
-## Equivalent with adaptation
+浏览器操作以[网页操作手册](references/browser-skill.md)为准。每轮先检查 daemon、扩展连接和
+当前账户，使用自建 Agent Window。登录过期、扩展失联或 Chrome 退出时，保留待续范围，
+将来源阶段记为 `blocked`。邮箱阻塞的工作流保留审阅表或最终 HTML，以 `partial` 关轮。
 
-| Codex mechanism | WorkBuddy mechanism | Residual difference |
-| --- | --- | --- |
-| IAB / in-app browser | `bsk` + Chrome BrowserSkill Agent Window reusing the local profile | Interactions require `cooperate sync --policy target`; default `strict` rejects click/evaluate |
-| Native local cron + `automation.toml` readback | Host `automation_update` (`create`/`view`/`update`) with `cwds` | No projectId, model or reasoningEffort fields; no native TOML readback |
-| Shell command execution (`exec_command`) | Local `Bash`/`subprocess` calls from the adapter scripts | Only the tool-object injection is impossible; see hard limit 3 |
-| `load_workspace_dependencies` | Explicit local interpreter/package checks | Host-provided bundled library paths are unavailable |
-| `@oai/artifact-tool` | The skill's own requirements and workbook builder | Must be installed in a dedicated venv, never globally |
-| `tab.markHandoff()` | Reopen the verified entry in a new bsk session | Tabs do not survive a conversation turn |
-| `set_thread_archived` | Skipped | Chat archiving is optional and has no host equivalent |
-
-### Local state integrity
-
-`wb_state.py` writes `state.json` atomically (fsync + replace) and appends one
-line per revision to `state.journal`. Each journal line records `revision`,
-`stateHash` and `prevHash`; `load()` verifies the self-hash, the journal chain
-and that the journal head still matches `state.json`. This makes "hash-chained"
-literal: a rolled-back state file is rejected even though its own hash is valid.
-It detects tampering and rollback, but it is still a local index, not a central
-receipt.
-
-## Not substitutable (hard limits)
-
-1. **Native Gmail namespace plus `allowedSender` identity.** The distributed
-   mail contract requires the host's native Gmail tools and an identity that
-   matches the frozen central `allowedSender` exactly. WorkBuddy exposes a
-   different Agent Mail alias; the central `email` intent identity check would
-   reject it. `read_email_thread` / `in:sent` reconciliation and
-   `read_attachment` byte-level `provider_readback` also have no equivalent.
-   **Mail stages are blocked.** Weekly reports are delivered locally (the
-   execution definition explicitly allows this), and review drafts remain in
-   the frozen workbook. No SMTP, no sender override, no fabricated readback.
-2. **Goal lifecycle.** `get_goal` / `create_goal` / `update_goal` do not exist.
-   The upstream invocation guide says to record the execution mode as
-   `unavailable` and not to create another scheduler. `wb_state.py` preserves
-   run continuity locally, but this is a documented degradation, not a Goal.
-3. **JS `tools` injection for the native adapter.** `native-adapters.js`
-   expects an evaluation environment where the host's tool objects are
-   callable. WorkBuddy has no such environment, and the workflow forbids
-   replacing it with a private HTTP/JSON-RPC client. Central actions are
-   therefore performed by the agent step by step; `wb_state.py` records the
-   verified results and intent identities.
-
-## Consequences that must be reported
-
-- A completed run with a blocked mail stage is `partial`, never `succeeded`.
-- A run whose lease renewal could not be kept at the original cadence keeps
-  the true outcome and the exact pending scope; it is not silently replayed.
-- Installation never activates a tenant, never grants upload/publish/send
-  rights and never changes the central configuration.
+WorkBuddy 通过原生工具分步完成中央 claim/check/record。原宿主的 Goal 接口和注入工具对象的
+JS 适配器在这里无对应接口。浏览器 `evaluate` 仅用来操作已确认的页面控件。
+真实定时触发仍待验收，定时启动时需能在宿主中恢复 daemon，并确认浏览器与登录态可用。

@@ -1,0 +1,85 @@
+> **WorkBuddy 宿主优先级（browser-skill profile）**：本文件涉及浏览器选择、登录态、
+> 下载等待、宿主工具与定时任务的段落，一律以 `workbuddy/references/browser-skill.md`、`workbuddy/HOST_MAP.md`、
+> `workbuddy/WORKFLOWS.md` 以及 SKILL.md 顶部的优先级章节为准。业务筛选、原件校验、
+> 证据与清理门槛不变。此文件由 `workbuddy/bsk/build.py` 生成，请勿手工编辑。
+
+# 三个固定业务执行定义
+
+每一阶段使用 run.snapshot 中的配置、集成版本、门店和窗口；浏览器来源读取经过 runtime 的当前配置／控制／租约检查，中央支持的动作另经意图和回执检查。浏览器默认 原宿主浏览器（本宿主不适用），不可用时按 [浏览器选择与恢复](browser.md) 检查本机 Chrome。不要让中央配置指定任意脚本、URL 或工具。业务实现属于下列已有技能；执行它们的公共入口，不复制业务逻辑到定时 prompt。
+
+## 每日美团入库
+
+仅处理 snapshot.configuration.datasets 中明确启用的报表，各类独立检查／恢复。来源产品为 meituan_erp，核对 sourceAccounts 中账号、集团／品牌与企业的显式对应，以及每个来源店稳定 ID／精确全名。只读匹配和排除原因；新增未映射店列为 needs_configuration，不自动扩大范围。
+
+- business：`download-meituan-business-data`。
+- dishes：`download-meituan-dish-sales`。
+- combo_sales：`download-meituan-combo-sales`，逐营业日导出按门店、带规格的套餐明细。
+- in_store_orders：`meituan-order-details-download`，完整已结账营业日，显式 settled_only。
+- takeaway_orders：`meituan-takeout-order-details-download`。
+- delivery_ledger：`download-meituan-delivery-ledger`，上传／后续服务台账复用 `smedc-delivery-ledger`。
+
+对每个实际选择的来源门店回读完整筛选。营业用已核验的 `全量数据`，菜品用已核验的 `全量菜品`；先选常用方案再设冻结营业日。店内订单用营业日期＋已结账、其他筛选不缩小范围，导出全部查询结果。外卖用营业日期＋有效订单、状态和平台均全部，清除残留条件并导出全部查询结果。收货单用收货日期＋已收货，逐页导出并按唯一单号及查询总数对账，不执行收货操作。每份保留原文件和来源范围证据；传店内订单 `orderScope: settled_only`，收货单逐原始 XLSX 提交且省略日期参数，具体入参由核心契约核验。
+
+按各技能原有筛选回读、异步导出 ID、分段与有界等待规则取得原件。上传前核对实际列、行数、筛选证据、SHA 和原始来源门店；原文件不改字节、不按映射重写门店。ERP 名称与授权来源店不一致时阻塞该类上传并校正配置，不能本地改表绕过。
+
+套餐销售按「每日美团入库」选定的采集范围执行。已部署服务须支持工作流绑定的套餐上传，launcher 至少 0.22.2，套餐上传协议要求工作流包至少 1.0.12；使用同店菜品销售持续授权执行套餐采集时，宿主任务须按[原地升级流程](installation.md#升级本机定时任务)锁定到 1.0.14 或更新版本。按来源账号、实际门店和每个冻结营业日导出一份原始 XLSX。先从工作簿内核对单日营业日期、筛选、规格列及实际门店。默认文件名的日期是导出时间。用已核对门店及同一天的起止日期构建上传动作；向 `combo_sales` 上传的 `startDate` 和 `endDate` 取该营业日。用官方 Job 回读确认 `published` 后才完成动作和清理该份文件。
+
+新工作流的店内订单只有在实际 launcher／服务支持 orderScope 且首个发布版本已验证时才上传 settled_only；仅安装新 skill 或旧路径允许省略参数都不算兼容。原30列契约缺结账时间整列仍拒绝，不补造。不同／unknown 来源范围替换须服务受控预览和明确确认，ORDER_SCOPE_CONFLICT 时不强行上传或改键。历史未知口径继续 unknown。
+
+查得零条与无来源／下载失败／缺列分开：保存有证据的 observed_zero，不传空工作簿、不清空分区、不将缺失门店日视为零。已有非空来源与新零结果冲突时留待核查。上传接受请求后继续官方状态查询，只有 published/applied 的 job 回执允许确认及该份清理。已存在的收货单按下节单独处理。
+
+每日入库先用 `native.queryJobHistory({mode:"actions", workflowId, runId, limit:1})` 验证当前服务和 launcher 能读中央 Job，再派发上传。沿用 claim/check/withLease，将 `native.linkedUploadArgs(session, intent, uploadArgs)` 交给原有 `upload_structured_dataset`。服务受理时持久关联原动作和批次。丢失上传响应或恢复旧动作时先用 `native.findUploadJob(session, actionId)` 读回原任务。返回 accepted 仅表示服务受理，继续核对 Job 的终态。找不到关联的未知动作保留 unknown。
+
+已关联的 Job 达到 published/applied 时登记 `confirmed/service_status`；达到 failed/rejected/cancelled/expired 时登记 `failed/service_status`，传真实 jobId。两类回执均写中央。未创建 Job 的明确请求拒绝仍登记 `failed/request_rejected`。换机读取成功和失败历史即可定位待核对动作。
+
+### 收货单逐单对账
+
+- 从原始工作簿读取收货单号，核对来源门店并按正常路径上传。保存原上传响应中与原件匹配的 `importBatch.naturalKey`、`importBatch.importBatchId`、原件 SHA-256、终态 `applied` 读回及中央 confirmed 回执。
+- 官方明确返回 `RECEIPT_ID_CONFLICT` 时保留脱敏响应，将本次上传登记为 `failed/request_rejected`，再调 `native.findUploadJob(session, actionId)`。以服务返回的 `receipt_conflict` 关联核对原件单号和旧批次。若关联内的旧单已 applied，中央已核验企业、门店和单号。缺少可信关联时保留待核对。恢复时直接查询，无需再次提交冲突文件。
+- 中央返回同号同门店、状态为 `applied` 时记「SMEDC 已存在，跳过」。旧批次的进货日期允许与本轮采集日期不同。保存中央查询结果、单号、两轮日期和本次动作 ID 作为本轮对账证据。旧批次状态未完成或不可见、门店不符、权限／服务错误、连接版本未支持查询时，保留原件并标明具体待核对原因。继续其余单据；冲突核验无需旧机回执，非冲突错误沿用原恢复规则。
+- 对账分别统计新增、已存在跳过和未完成。跳过计入来源单数，可完成该门店的对账。本次被拒的上传回执仍为 failed。将已验证的跳过证据保存在 temporary 外，原件／ZIP 按整轮清理规则处理。
+- 已核实完整采集范围和逐单对账时，为非空门店日提交中央 observation，带对账证据哈希 `evidenceHash` 和 `receiptCounts: {source, confirmed, skipped, pending}`。有待核对项时标记 incomplete 并列出具体中央 actionId。完整采集证据使获授权管理员可以用 Job API 更正关轮后的对账结论。
+
+### 每日原件留存
+
+下载与解压进入本轮 `temporary/`，逐份按中央回执及原件哈希清理。收货 ZIP 和详细导出对账也进入 temporary，待整轮成功后统一清理。逐批核对 ZIP 哈希及有效成员，所有成员均须有已入库回执或已验证的同号跳过依据。先在 temporary 外持久保存来源、日期／门店、各批哈希、查询及对账计数和逐单映射／回执索引，再让执行进度引用这些证据。已验证的零条证据同样保留。
+
+## 美团／点评评价
+
+使用 `reply-meituan-reviews` 的定时运行参考、`review_run.py` 和 `review_workbook.mjs`，起草用定制 `review-responder`。来源身份包含 product=meituan_reviews、accountRef、channel、优先稳定 POI/sourceStoreId，否则精确全名；同一标准店的多个 POI 独立采集。
+
+先用 `workflow.py review-task` 从冻结 snapshot 与企业显示名生成该轮 task.json，并读取 [versioned review policy](review-execution-policy.md) 和业务技能的 `references/scheduled-runs.md`。以 task.json 的 `sourceIdentityMappings` 逐个执行确切的来源账号、POI、渠道，`mappings` 仅为兼容显示；不得再按渠道交叉展开。每个范围用冻结起止日期、全部回复状态及其他不缩小范围的筛选，优先完整导出，必要时按业务技能分页读回。保留 `run.json` 的窗口与 workflowBinding，`exports.json` 中逐份登记原路径、完整 sourceIdentity、标准店及实际筛选，交 `review_run.py` 解析。未映射只能按中央明确 exclusions 跳过。品牌事实和 tone 用于正文，不决定授权／收件人／工具。
+
+严格保留：已回复文字不改写，评分无正文不生成／发布，图形文字无法识别按已有技能省略并记录，状态不明的行待核对；九列交付、精确时间／分数、源回复和 feedbackId 保持。sync 前读当前权限和存量，保护新旧时间；写后逐条／分页完整字段读回。只读请求最多3个并发并逐结果保存，失败和限流独立恢复；写操作未知先核对。
+
+先冻结已核验的九列审阅表、文件版本与逐条发布清单，再按 [原生邮件](gmail.md) 通知本轮有效新稿。通知仅使用当前持续授权的门店、渠道、发件人及显式收件人，按每评价×收件人去重；已回复、无正文或仅采集行不混入新稿。无合格新稿时记录不适用。通知失败或结果未知独立记录，先读回再恢复，继续其他已授权阶段。
+
+随后处理回复发布。只有 publication.enabled 且准确门店、渠道在当前中央持续授权内的有效新稿可自动发布；其他稿件交审阅表并沿用具体版本／行批准。发布前核对来源账号、POI、feedbackId、当前未回复状态和准确稿件，claim/check 后才点发布，发布后完整真实回复读回并按 intent artifactHash 提交 provider_readback。correlationMarker 仅在本地绑定该动作。已确认或 unknown 的发布身份不可重放。同步仅使用实际已观察并验证的原评与回复；全部现行门槛成功才整轮归档／清理，保留原忽略项和各自状态的历史事项。
+
+### 评价原件留存
+
+用本轮 `temporary/` 保存来源导出、构建预览和审阅表中间版本。归档保存最终九列审阅表、核对过的来源范围／身份／计数与指纹、发布／同步／通知回执、恢复台账及必要审计。在关轮前按原流程验证归档、七项清理门槛和中央回执。只剩临时副本且归档证据可独立审阅时，按收尾清理临时副本。原件本身若是解决缺口或审阅争议所需的证据，将它作为必要归档证据保留。
+
+## 自然周经营周报
+
+使用 `smedc-business-analysis` 已有链路：build_query_plan → 官方范围下载 → load_partition_extract → assemble_query_bundle → run_weekly_report → attach_business_advisory 的 prepare/attach。新版生成器固定驾驶舱结构和图表；智能体填写首页判断、经营建议和有证据的评价总结。按业务技能的周报驾驶舱指引完成 prepare／attach，并在 verify_final 运行同一脚本的 `verify --report-type weekly --facts-dir ... --advisory ... --report ...`。使用评价时三步均传同一 `--review-facts`。只有 verify 通过的离线 HTML 可进入后续阶段。
+
+build_query_plan 的 `--store-names` 传冻结的准确完整名称列表；官方下载使用这些完整名称作已授权候选范围，load_partition_extract 在聚合前再做精确等值过滤，相似长店名不进入结果。不要把 `--store-name-contains` 当精确授权。超过20店时保持最多2000个完整选择，按20个来源筛选分批请求，消费时仍按全体准确名称过滤；覆盖结果也按所有选定分批完整收集，不能覆盖前一批。默认 range 下载，只有原技能明确选择且部署验证通过时才用 bundle。
+
+周报取数包含营业、菜品和本周店内订单明细。规划前从 `query_enterprise_workflows` 详情核对未撤销的 `download` 授权，确认包含 `in_store_orders` 且覆盖冻结门店。每批下载仍通过常规 `claim` 和 `check`，同时受当前账号的数据读取权限约束。
+
+店内订单授权完整时，按业务技能「堂食客流与估算翻台」读取本周订单覆盖并生成下载计划。授权未覆盖本轮门店范围时，使用全新的运行目录并将订单覆盖留空，继续交付营业和菜品分析及可用的翻台。提示管理员在官方「自动任务」里补齐冻结门店的店内订单下载授权。
+
+对读回的订单核查异常登记，按需传入核查清单。物化后归档全店及各店的逐日和周汇总，并核对最终 HTML 的覆盖与排除提示。
+
+评价复用授权的 `query_store_reviews` 只读分页，使用本轮已核对的准确企业、门店与周窗口。每页前核对最新配置、权限及租约，使用 `native.withLease` 并保存实际读回；权限或覆盖不齐时记录缺口。读取评价不登记为同步或发布。
+
+周报固定使用业务技能中的关联名称优先匹配、原品项数量保留与餐具收费分列规则；不由企业配置关闭，不复制本机 HTML 替换脚本。
+
+可选 store-groups JSON 为 schemaVersion=1、groups={任意非空组名:[精确店名,...]}，来自中央 groups，不固定要求“大店／小店”。各店只归一个分组；分组不能扩大范围。未分组的已选门店继续纳入，并标未分组。报告 organization 仍来自当前认证账户，展示 company 不充当授权。
+
+沿用上一自然周、环比周、可比同比及既有趋势窗口定义；范围下载受数据权限和coverage约束，不自动补采历史。保留数据缺口、partial 和读取失败的区别。仅通过事实／建议／HTML完整性核验的最终报告可进入邮件阶段；无 原生邮件 时本地交付，默认保留最终 HTML。
+
+### 周报文件留存
+
+用本轮 `temporary/` 保存工作区里的下载副本、查询明细、组装 bundle 和渲染中间件。保留最终 HTML、覆盖与缺口、核验输出、报告依据的聚合事实、下载摘要以及已启用时的投递回执。候选文件在最终 HTML 和保留证据核验、邮件按需读回后随整轮收尾清理。launcher 自带目录继续由 launcher 的过期清理处理。若报告依赖外部资源，先验证 HTML 和保留资源一起可打开。
