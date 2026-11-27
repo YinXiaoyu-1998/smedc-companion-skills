@@ -33,13 +33,17 @@ const hostTask = {
 };
 test("install reads native host schedule and repeats without a duplicate task", async () => {
   let creates = 0;
+  let actual = hostTask;
   const journal = {};
   const tools = {
     mcp__codex_app__list_projects: async () => ({
       projects: [{ id: "project-new", type: "local" }],
     }),
     mcp__codex_app__automation_update: async (input) => {
-      if (input.mode === "create") creates++;
+      if (input.mode === "create") {
+        creates++;
+        actual = { ...hostTask, ...input };
+      }
       return {
         content: [
           { type: "text", text: "Created automation in the app." },
@@ -56,7 +60,7 @@ test("install reads native host schedule and repeats without a duplicate task", 
     },
     exec_command: async () => ({
       exit_code: 0,
-      output: JSON.stringify(hostTask),
+      output: JSON.stringify(actual),
     }),
   };
   const native = factory()(tools, { localScript: "/isolated/workflow.py" });
@@ -785,7 +789,7 @@ test("a clear Gmail send receipt confirms observable attachment identity without
   assert.equal(sends, 1);
   assert.equal(confirmed, 1);
 });
-test("package maintenance updates the same paused native task and preserves its schedule/model", async () => {
+async function checkScheduledGoalMaintenance(workflowType) {
   let actual,
     creates = 0,
     updates = 0;
@@ -812,7 +816,7 @@ test("package maintenance updates the same paused native task and preserves its 
   const native = factory()(tools, { localScript: "/isolated/workflow.py" }),
     journal = {};
   const input = {
-    workflowId: "flow",
+    workflowId: workflowType,
     name: "Example",
     prompt: "Use installed workflow",
     rrule: hostTask.rrule,
@@ -830,11 +834,33 @@ test("package maintenance updates the same paused native task and preserves its 
   );
   assert.equal(creates, 1);
   assert.equal(updates, 1);
-  assert.equal(actual.prompt, "Use updated versioned workflow");
+  assert.ok(actual.prompt.startsWith("核验安装锁"));
+  assert.ok(
+    actual.prompt.includes("native.beginGoal({ workflowId, goalRequested: true })"),
+  );
+  assert.match(actual.prompt, /不要直接调用 create_goal/);
+  assert.match(actual.prompt, /Use updated versioned workflow$/);
+  const installedPrompt = actual.prompt;
+  await native.install(
+    { ...input, prompt: installedPrompt, update: true },
+    journal,
+    async () => {},
+  );
+  assert.equal(actual.prompt, installedPrompt);
   assert.equal(actual.rrule, hostTask.rrule);
   assert.equal(actual.model, hostTask.model);
   assert.equal(journal.taskId, "task-new");
-});
+}
+
+for (const workflowType of [
+  "meituan-daily-ingestion",
+  "meituan-review-operations",
+  "weekly-business-report",
+]) {
+  test(`package maintenance updates the same paused ${workflowType} task with the Goal entrypoint`, () =>
+    checkScheduledGoalMaintenance(workflowType),
+  );
+}
 test("activation cannot mutate central installation state while its real local host task is active", async () => {
   let mutations = 0;
   const tools = {

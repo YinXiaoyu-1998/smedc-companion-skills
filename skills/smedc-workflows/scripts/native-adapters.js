@@ -265,6 +265,14 @@
       });
     return JSON.parse(result.output);
   }
+  const scheduledGoalStartup = [
+    "核验安装锁和依赖，加载锁定版本的 smedc-workflows 定时运行入口及 native adapter。",
+    "使用下方绑定的 workflowId，先调用 native.beginGoal({ workflowId, goalRequested: true })。本定时任务明确授权由该入口创建或复用持久 Goal。",
+    "不要直接调用 create_goal。入口成功后再按定时运行流程核对中央运行并开始业务。",
+    "",
+    "",
+  ].join("\n");
+
   async function install(input, journal, save) {
     if (input.platform !== "macos" || input.timezone !== "Asia/Shanghai")
       throw new Error("unsupported: macOS and Asia/Shanghai required");
@@ -307,7 +315,9 @@
       model: input.model,
       reasoningEffort: input.reasoningEffort,
       name: input.name,
-      prompt: input.prompt,
+      prompt: input.prompt.startsWith(scheduledGoalStartup)
+        ? input.prompt
+        : scheduledGoalStartup + input.prompt,
       rrule: input.rrule,
       notificationPolicy: "failed_runs_only",
       status: "PAUSED",
@@ -374,7 +384,7 @@
       task.status !== expectedStatus ||
       task.rrule !== expected.rrule ||
       task.model !== expected.model ||
-      task.prompt !== input.prompt ||
+      task.prompt !== expected.prompt ||
       val("executionEnvironment", "execution_environment") !== "local" ||
       val("reasoningEffort", "reasoning_effort") !== expected.reasoningEffort ||
       (val("projectId", "project_id") &&
