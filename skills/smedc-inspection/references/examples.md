@@ -248,21 +248,27 @@ the two same-name employees; they have different `sheetId` and `targetId` values
 
 ## Stage an original photo
 
-Call `upload_inspection_photo` with a readable absolute path. The launcher detects the MIME type when `mediaType` is omitted.
+Call `write_inspections` with a readable absolute path. The launcher detects the MIME type when
+`mediaType` is omitted. Use the returned `photoId` before its `expiresAt`.
 
 ```json
 {
-  "enterpriseKey": "synthetic-enterprise",
-  "storeId": "22222222-2222-4222-8222-222222222222",
-  "inspectionDate": "2026-01-15",
-  "requestId": "synthetic-photo-1",
-  "filePath": "/absolute/path/synthetic-photo.png"
+  "command": {
+    "action": "stage_photo",
+    "enterpriseKey": "synthetic-enterprise",
+    "storeId": "22222222-2222-4222-8222-222222222222",
+    "inspectionDate": "2026-01-15",
+    "requestId": "synthetic-photo-1",
+    "filePath": "/absolute/path/synthetic-photo.png"
+  }
 }
 ```
 
-## Fill a blank score and attach the photo
+## Fill a blank score and attach a local photo in one call
 
-Call `write_inspections` after reading the actual sheet. Use its fixed version ID and the `photoId` returned by upload. The example assumes the evidence supports 8.5 points and the photo belongs to this component.
+Call `write_inspections` after reading the sheet's fixed version ID and current photo component
+revision. The example assumes the evidence supports 8.5 points and the photo belongs to this
+component. Omit `photoIds` if there are no staged references to attach with the local original.
 
 ```json
 {
@@ -281,7 +287,14 @@ Call `write_inspections` after reading the actual sheet. Use its fixed version I
           },
           {
             "componentId": "14141414-1414-4414-8414-141414141414",
-            "op": "appendPhotos",
+            "op": "appendLocalPhotos",
+            "expectedComponentRevision": 1,
+            "photos": [
+              {
+                "requestId": "synthetic-photo-2",
+                "filePath": "/absolute/path/synthetic-photo-2.png"
+              }
+            ],
             "photoIds": [
               "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
             ]
@@ -292,3 +305,7 @@ Call `write_inspections` after reading the actual sheet. Use its fixed version I
   }
 }
 ```
+
+If the patch reports a conflict with an uncommitted photo reference, re-read the sheet. Reuse the
+reference with `appendPhotos` and that component's current revision under a new sheet request ID.
+For an uncertain response, verify the current answer before deciding which photos still need binding.

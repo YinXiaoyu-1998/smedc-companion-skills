@@ -54,7 +54,9 @@ class DownloadPlanTests(unittest.TestCase):
             parent['downloadState'] = {'status': 'failed', 'errorCode': 'PACKAGE_TOO_LARGE'}
             children = planner.replace_failed_extract(merged, parent['id'])['extracts']
             self.assertTrue(all(item['downloadMode'] == mode for item in children))
-            self.assertTrue(all(item['steps'][0]['tool'] == ('download_structured_partitions' if mode == 'range' else 'prepare_structured_partition_download') for item in children))
+            for item in children:
+                self.assertEqual(item['steps'][0]['tool'], 'download_structured_partitions')
+                self.assertEqual(item['steps'][0]['input'].get('delivery'), 'bundle' if mode == 'bundle' else None)
         self.assertEqual(plan()['extracts'][0]['downloadMode'], 'range')
         with self.assertRaisesRegex(ValueError, 'mixed download modes'):
             planner.merge_download_plans([plan('one'), plan('two', mode='bundle')])
@@ -221,17 +223,72 @@ class DownloadPlanTests(unittest.TestCase):
             planner.release_report_extracts(shared, 'two')
             self.assertFalse(directory.exists())
 
-    def test_steps_are_release_gated_and_download_only_uses_request_id(self):
+    def test_bundle_plan_starts_checks_and_resumes_with_the_same_tool(self):
         extract = plan(fragments=['店'], mode='bundle')['extracts'][0]
-        self.assertEqual(extract['steps'][0]['tool'], 'prepare_structured_partition_download')
-        self.assertEqual(extract['steps'][0]['input']['storeNameContains'], ['店'])
-        self.assertEqual(len(extract['steps'][0]['input']['idempotencyKey']), 64)
-        self.assertEqual(list(extract['steps'][2]['input']), ['requestId'])
-        self.assertEqual(extract['releaseGate']['minimumPublishedLauncher'], '0.8.1')
+        start, status, resume = extract['steps']
+        self.assertTrue(all(step['tool'] == 'download_structured_partitions' for step in extract['steps']))
+        self.assertEqual(start['input']['mode'], 'range')
+        self.assertEqual(start['input']['delivery'], 'bundle')
+        self.assertEqual(start['input']['storeNameContains'], ['店'])
+        self.assertEqual(len(start['input']['idempotencyKey']), 64)
+        self.assertEqual(status['input'], {'mode': 'status', 'requestId': '${downloadState.requestId}'})
+        self.assertEqual(resume['input'], {'mode': 'resume', 'requestId': '${downloadState.requestId}'})
+        self.assertEqual(extract['releaseGate']['minimumPublishedLauncher'], '0.26.0')
+
+    def test_saved_bundle_merge_preserves_request_id_and_key(self):
+        saved = plan(mode='bundle')
+        extract = saved['extracts'][0]
+        key = extract['steps'][0]['input']['idempotencyKey']
+        extract['steps'] = [{'tool': 'previous_bundle_tool', 'input': {**extract['input'], 'idempotencyKey': key}}]
+        extract['downloadState'] = {'status': 'running', 'requestId': 'running-request'}
+        upgraded = planner.merge_download_plans([saved])['extracts'][0]
+        self.assertEqual(upgraded['downloadState'], extract['downloadState'])
+        self.assertEqual(upgraded['steps'][0]['input']['idempotencyKey'], key)
+        self.assertEqual(upgraded['steps'][2]['input']['mode'], 'resume')
+
+    def test_resumes_the_same_bundle_after_transport_error(self):
+        shared = planner.merge_download_plans([plan(mode='bundle')])
+        item = shared['extracts'][0]
+        key = item['steps'][0]['input']['idempotencyKey']
+
+        def record_error(code, request_id=None):
+            payload = {'error': {'code': code}}
+            if request_id:
+                payload['requestId'] = request_id
+            planner.record_download_result(shared, item['id'], {
+                'isError': True, 'content': [{'type': 'text', 'text': json.dumps(payload)}]
+            })
+
+        record_error('SERVICE_UNAVAILABLE')
+        self.assertEqual(item['downloadState']['status'], 'planned')
+        self.assertEqual(item['steps'][0]['input']['idempotencyKey'], key)
+        record_error('SERVICE_UNAVAILABLE', 'req_accepted')
+        self.assertEqual(item['downloadState'], {
+            'status': 'running', 'requestId': 'req_accepted', 'errorCode': 'SERVICE_UNAVAILABLE'
+        })
+        record_error('SERVICE_UNAVAILABLE')
+        self.assertEqual(item['downloadState']['requestId'], 'req_accepted')
+        with self.assertRaisesRegex(ValueError, 'does not match'):
+            record_error('SERVICE_UNAVAILABLE', 'different_request')
+        record_error('PARTITION_DOWNLOAD_FORBIDDEN')
+        self.assertEqual(item['downloadState']['status'], 'failed')
+        self.assertEqual(item['downloadState']['requestId'], 'req_accepted')
+
+    def test_distinguishes_status_only_empty_from_delivered_empty(self):
+        shared = planner.merge_download_plans([plan(mode='bundle')])
+        extract = shared['extracts'][0]
+        payload = {'status': 'empty', 'requestId': 'empty-request'}
+        planner.record_download_result(shared, extract['id'], payload)
+        self.assertEqual(extract['downloadState'], {'status': 'ready', 'requestId': 'empty-request'})
+        delivered = {**payload, 'localDirectory': 'synthetic-directory', 'files': []}
+        with patch.object(planner, 'verify_local_download') as verify:
+            planner.record_download_result(shared, extract['id'], delivered)
+        verify.assert_called_once_with(extract, delivered)
+        self.assertEqual(extract['downloadState']['status'], 'succeeded')
 
     def test_failure_and_pending_cannot_be_reused_as_zero(self):
         shared = planner.merge_download_plans([plan(mode='bundle')])
         extract_id = shared['extracts'][0]['id']
-        for response in ({'isError': True}, {'status': 'failed', 'requestId': 'req'}, {'status': 'running', 'requestId': 'req', 'retryAfterSeconds': 2}):
+        for response in ({'isError': True}, {'status': 'failed', 'requestId': 'req'}, {'status': 'partial_failed', 'requestId': 'req'}, {'status': 'running', 'requestId': 'req', 'retryAfterSeconds': 2}):
             planner.record_download_result(shared, extract_id, response)
             self.assertNotEqual(shared['extracts'][0]['downloadState']['status'], 'succeeded')

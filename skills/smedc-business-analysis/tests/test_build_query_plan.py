@@ -117,8 +117,11 @@ class BuildQueryPlanTests(unittest.TestCase):
         self.assertTrue(all(item['steps'][0]['tool'] == 'download_structured_partitions' for item in range_plan['extracts']))
         explicit, bundle_plan = self.run_plan(download_mode='bundle')
         self.assertEqual(explicit.returncode, 0, explicit.stderr)
-        self.assertEqual(bundle_plan['releaseGate']['minimumPublishedLauncher'], '0.8.1')
-        self.assertTrue(all(item['downloadMode'] == 'bundle' and item['steps'][0]['tool'] == 'prepare_structured_partition_download' for item in bundle_plan['extracts']))
+        self.assertEqual(bundle_plan['releaseGate']['minimumPublishedLauncher'], '0.26.0')
+        for item in bundle_plan['extracts']:
+            self.assertEqual(item['downloadMode'], 'bundle')
+            self.assertEqual(item['steps'][0]['tool'], 'download_structured_partitions')
+            self.assertEqual(item['steps'][0]['input']['delivery'], 'bundle')
 
     def test_weekly_plan_downloads_only_contiguous_partition_windows(self) -> None:
         completed, manifest = self.run_plan()

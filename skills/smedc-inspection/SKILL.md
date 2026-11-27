@@ -8,8 +8,8 @@ description: 使用企业智脑（SMEDC）查询门店巡检卷、按现场证�
 ## Check the connection
 
 Use the employee's authenticated `smedc` MCP connection. Follow `smedc-mcp` for installation,
-login, repair, and the approved launcher pin. The published launcher 0.23.0 includes all four
-inspection tools. Inspection target selection also requires a launcher and service whose
+login, repair, and the approved launcher pin. Photo staging and one-call attachments require the
+matching cutover launcher and service. Inspection target selection requires a connection whose
 inspection schemas expose `targetType`; if the connected schema does not, stop and report the
 version mismatch instead of guessing a target. Live use requires the matching service and current
 access to the target. If any prerequisite fails, identify the missing tool, unavailable service,
@@ -18,11 +18,10 @@ or denied scope. Use the inspection tools for inspection data and photos.
 | Tool | Actions |
 | --- | --- |
 | `query_inspections` | `context`, `day`, `sheet`, `photo` |
-| `write_inspections` | `create`, `patch`, `void`, `preview_replacement`, `replace` |
+| `write_inspections` | `create`, `patch`, `void`, `preview_replacement`, `replace`, `stage_photo` |
 | `manage_inspection_templates` | `list`, `preview`, `create_active`, `create_draft`, `save`, `activate`, `deactivate` |
-| `upload_inspection_photo` | Flat upload input, with no action |
 
-Put `action` and its fields inside `command` for the first three tools. See
+Put `action` and its fields inside `command`. See
 [synthetic examples](references/examples.md) when choosing a target, building a draft, uploading
 a photo, or patching a sheet.
 
@@ -85,11 +84,15 @@ with `set`, `clear`, or `removePhotos`.
 
 ### Photo evidence
 
-- Upload an original JPEG or PNG with flat `enterpriseKey`, `storeId`, `inspectionDate`,
-  `requestId`, and an absolute, readable `filePath`. The launcher checks current fill access
-  before reading the file. `mediaType` is optional and must match the bytes when supplied.
-  Use the returned `photoId` before its staging `expiresAt`. Reuse the ID for relevant
-  components or sheets in the same store and date.
+- For one-call attachment, use `write_inspections` with `command.action: "patch"` and a change
+  with `op: "appendLocalPhotos"`, `componentId`, the current `expectedComponentRevision`, and
+  `photos: [{requestId, filePath, mediaType?}]`. Add optional `photoIds` for previously staged
+  references. Each local JPEG or PNG needs an absolute path and a stable photo request ID.
+- To stage without binding, use `write_inspections` with `command.action: "stage_photo"`,
+  `enterpriseKey`, `storeId`, `inspectionDate`, `requestId` and `filePath`. The launcher checks
+  current fill access before reading local files. Optional `mediaType` must match the bytes.
+  Reuse the staged `photoId` for relevant components or sheets in the same store and date
+  before `expiresAt`. Bind staged IDs with `appendPhotos` and the current component revision.
 - For an existing photo, `query_inspections` action `photo` takes `photoId`. The launcher
   verifies the original and returns `localPath` with `photoId`, `mediaType`, `byteLength`,
   and `sha256`. Open that file if available to the agent. An upload takes `filePath`.
@@ -109,8 +112,12 @@ each sheet atomically and returns results in request order.
 
 - `applied` gives the committed revision, progress, optional score, total required gaps, and
   the first 20 gaps. Page the sheet detail when you need the full list.
-- On a conflict such as `nonempty`, `revision`, or `version`, re-read the affected sheet,
-  preserve its saved answers, and use a new key for a changed command.
+- On a conflict such as `nonempty`, `revision`, or `version`, re-read the affected sheet and
+  preserve its saved answers. A local attachment can return `failed`, `conflict` or
+  `unconfirmed` with `uncommittedPhotoTargets` containing component IDs, staged photo IDs
+  and expiry. After verifying
+  the current sheet state, reuse valid unbound references with `appendPhotos`, the refreshed
+  `expectedComponentRevision`, and a new sheet `requestId` for a changed command.
 - For a lost response, replay the identical command and `requestId` within 24 hours.
   A create replay requires current fill access and the original sheet to still be active.
   Reusing the create `requestId` for a different target within the same actor, enterprise,

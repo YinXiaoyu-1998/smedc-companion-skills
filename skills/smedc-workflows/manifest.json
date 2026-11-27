@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "1.0.14",
+  "packageVersion": "1.0.15",
   "minimumServiceCapability": "enterprise-workflows-v1",
-  "minimumLauncherVersion": "0.17.0",
+  "minimumLauncherVersion": "0.26.0",
   "launcherInstallationOwner": "smedc-mcp",
   "hosts": {
     "codex": {
@@ -34,7 +34,7 @@
       ],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.14"
+        "workflowPackageVersion": "1.0.15"
       },
       "window": "previous-complete-business-day",
       "capabilities": [
@@ -64,7 +64,7 @@
       "dependencies": ["reply-meituan-reviews", "review-responder"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.14"
+        "workflowPackageVersion": "1.0.15"
       },
       "window": "previous-day-and-today",
       "capabilities": [
@@ -106,7 +106,7 @@
       "dependencies": ["smedc-business-analysis"],
       "dependencyCompatibility": {
         "strategy": "same-immutable-source-revision-and-complete-subtree-hash",
-        "workflowPackageVersion": "1.0.14"
+        "workflowPackageVersion": "1.0.15"
       },
       "window": "previous-natural-week",
       "capabilities": [

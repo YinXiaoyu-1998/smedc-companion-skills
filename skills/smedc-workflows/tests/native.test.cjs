@@ -1650,3 +1650,20 @@ test("syncs successful and failed central jobs into an empty host's history", as
   assert.equal(args.workflowAction.runId, "run");
   assert.equal(args.workflowAction.actionId, "upload");
 });
+
+test("queries typed upload receipts separately from job history", async () => {
+  const native = factory()({
+    mcp__smedc__query_jobs: async ({ query }) => {
+      assert.equal(query.mode, "import_receipt");
+      if (query.jobRef.kind === "row_import")
+        return { jobRef: query.jobRef, importBatch: { status: "applied" } };
+      if (query.jobRef.id === "mismatch")
+        return { jobRef: { kind: "partition_import", id: "other" }, status: "published" };
+      return { jobRef: query.jobRef, status: "published" };
+    },
+  });
+  assert.equal((await native.queryImportReceipt({ kind: "row_import", id: "a" })).importBatch.status, "applied");
+  assert.equal((await native.queryImportReceipt({ kind: "partition_import", id: "b" })).status, "published");
+  await assert.rejects(native.queryImportReceipt({ kind: "partition_import", id: "mismatch" }), /did not match/);
+  await assert.rejects(native.queryImportReceipt({ kind: "workflow_run", id: "b" }), /Typed import/);
+});

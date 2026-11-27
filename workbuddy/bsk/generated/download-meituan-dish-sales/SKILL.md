@@ -119,6 +119,6 @@ description: 从美团管家“自助菜品取数”下载菜品销售 Excel，�
 2. 使用 `smedc_get_current_user` 确认 `admin` 角色后，再为上传读取文件；员工角色不得为上传读取、转换文件或调用上传工具。用 `list_structured_datasets` 确认数据集可用。
 3. 默认以当前账号的 `organizationName` 作为 `enterpriseName`，结合原文件所属企业及 `describe_structured_dataset_coverage` 的现有 business/dishes 覆盖范围核对。企业名不一致或归属不确定时先请用户确认；无现有覆盖时不能声称已核对一致。不硬编码企业名或提供 organization ID。
 4. 调用 `upload_structured_dataset`，使用 `dataset=dishes`、`file.encoding="path"` 和原始 XLSX 绝对路径；月度任务逐份提交完整原件，`startDate`、`endDate` 使用该份实际导出范围的 `YYYYMMDD`（单日两者相同）。每份文件使用与确切字节及元数据绑定的稳定 `idempotencyKey`，不把全年日期用于每个月份，也不复用其他月的 key。上传前不拆写、改列或转换原文件；同一文件与元数据的获准重试复用原 key。未指定 `confidentialityLevel` 时省略，采用服务默认值。
-5. 保存 `partitionImportJobId`，按 `smedc-mcp` 的分区轮询规则调用 `get_partition_import_status`；只有 **published** 才报告该份上传成功。处理中、失败或等待用户操作时如实报告状态、任务 ID 与待续事项，不用重复上传代替查询状态。仅下载完成时不报告 SMEDC 导入成功。
+5. 保存返回的 `jobRef`，按 `smedc-mcp` 的分区轮询规则调用 `query_jobs({query: {mode: "import_receipt", jobRef}})`；只有 **published** 才报告该份上传成功。处理中、失败或等待用户操作时如实报告状态、任务 ID 与待续事项，不用重复上传代替查询状态。仅下载完成时不报告 SMEDC 导入成功。
 
 从旧大范围导入恢复为月度原件时，先确认旧任务已终止，避免父范围与子范围同时导入；保留已成功月份，只补未完成范围。网络 multipart 分块不能替代这里的日期分段，也不保证消除服务端入库超时。

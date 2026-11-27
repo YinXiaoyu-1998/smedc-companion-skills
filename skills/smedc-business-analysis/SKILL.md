@@ -19,13 +19,24 @@ If `smedc-mcp` is not installed, do not begin report data access. Explain that i
 
 Range is the default. Add `--download-mode bundle` to `build_query_plan.py` only after the core-approved launcher is connected and the matching ZIP service deployment is known available. `--download-mode range` explicitly selects the foundation workflow. Tools/list alone cannot establish service availability: Launcher contracts are statically registered.
 
-Bundle extracts alone emit these steps:
+Bundle extracts use `download_structured_partitions` throughout.
 
-1. `prepare_structured_partition_download` takes the selector and persisted `idempotencyKey`. Save the full response and retain its `requestId`.
-2. `get_structured_partition_download_status` takes only `requestId`; wait `retryAfterSeconds` while queued/running. Check MCP `isError` and failed/expired status on every call.
-3. Only succeeded packaging permits `download_structured_partitions` with only `requestId`, without selectors. Save the full verified local envelope at `outputFile`; packaging success alone is not a local success.
+1. Start with the generated range selector, `mode: "range"`, `delivery: "bundle"` and the
+   persisted `idempotencyKey`. If the response is lost before it yields a request ID, retry the
+   exact input with the same key.
+2. For processing results, save `requestId` and follow `retryAfterSeconds`. Use
+   `{mode: "resume", requestId}` to continue delivery or `{mode: "status", requestId}` to check
+   progress only. Use the ID already saved in `downloadState` when resuming a prior run.
+3. Save the full local response at `outputFile` after verification. A status response of
+   `succeeded` or `empty` still needs delivery. Check MCP `isError` and preserve
+   `failed`, `partial_failed` and `expired` as unsuccessful.
 
-Each bundle run gets a persisted preparation generation/key. Saved exact retries retain it. `record-result` also accepts bundle prepare/status envelopes. On stale/expired bundle failures, `split-failed` renews the same scope with a fresh generation/key, including one day; other failed batches keep the common date splitting rules. Merge and split preserve the selected downloadMode. Mixed range/bundle plans are rejected clearly; regenerate all inputs in one selected mode. Legacy bundle JSON without an explicit mode also requires regeneration.
+`record-result` accepts progress and verified local delivery responses. On stale or expired
+bundle failures, `split-failed` renews the same scope with a fresh key, including a one-day
+scope. Other failed batches use the existing date splitting rules. Merge and split preserve
+the selected `downloadMode`. Re-merge older saved plans that declare `downloadMode: bundle`
+to refresh their steps while retaining saved request IDs and keys. Regenerate mixed plans and
+older bundle plans without an explicit mode.
 
 If ZIP support is removed or unsupported, regenerate saved plans with `--download-mode range`. Do not silently retry a bundle failure as range. Authentication, integrity and source-scope failures stop the workflow; they must never be bypassed. Source filters and successful-local-batch validation/sharing/refcount cleanup apply identically to both modes.
 
@@ -35,7 +46,7 @@ If ZIP support is removed or unsupported, regenerate saved plans with `--downloa
 - The only report-company source is `smedc_get_current_user.user.organizationName`. Missing, non-string, or blank organization names are a contract error; stop and tell the user their SMEDC account organization must be corrected.
 - Do not infer a report company from display name, email/domain, filenames, partition `enterpriseName`, store names, configuration defaults, or examples.
 - `enterpriseName` remains only the structured-data selector used for coverage and partition downloads.
-- Use these SMEDC MCP tools for reports: `smedc_get_current_user`, `list_structured_datasets`, `describe_structured_dataset_coverage`, `download_structured_partitions`, `query_structured_dataset`, and, when an upload is still processing, `get_partition_import_status`. Weekly customer voice additionally uses the authorized read-only `query_store_reviews`.
+- Use these SMEDC MCP tools for reports: `smedc_get_current_user`, `list_structured_datasets`, `describe_structured_dataset_coverage`, `download_structured_partitions`, `query_structured_dataset`, and, when an upload is still processing, `query_jobs`. Weekly customer voice additionally uses the authorized read-only `query_store_reviews`.
 - Do not use direct HTTP, service databases, service configuration, or internal storage.
 - Do not handle passwords or tokens.
 - Do not request, reveal, copy, or persist presigned URLs. Let `download_structured_partitions` consume them inside the launcher and return a launcher-managed local directory.
@@ -55,7 +66,7 @@ verified service rollout and tenant configuration, in addition to the core-appro
 
 1. Use `smedc-mcp` to install or verify its approved exact launcher pin, configure the `smedc` MCP entry, and complete login. Continue only after the authenticated MCP session exposes the business tools.
 
-   If the same request first uploads a `business` or `dishes` source through the prerequisite skill, poll the returned `partitionImportJobId` with `get_partition_import_status` until `published`. Treat `failed` as terminal and report the service error.
+   If the same request first uploads a `business` or `dishes` source through the prerequisite skill, save the returned `jobRef` and call `query_jobs({query: {mode: "import_receipt", jobRef}})` until `published`. Treat `failed` as terminal and report the service error.
 
 2. Create a run directory, for example `runs/2026-09-05-weekly/`, with durable evidence paths:
 
@@ -104,7 +115,7 @@ verified service rollout and tenant configuration, in addition to the core-appro
 7. Check `releaseGate` before executing any generated extract. Business slices stay within a natural month; dishes and weekly store-order slices contain at most seven inclusive days. Adjacent/overlapping reporting windows are merged before slicing, so current/previous/YoY/year-trend coverage does not duplicate downloads.
 
    For each extract, follow its `steps[]` through the employee's ordinary MCP session:
-   - For `downloadMode: range`, execute the single `download_structured_partitions` selector call with dataset, enterprise, dates and optional store filters. For explicitly selected `downloadMode: bundle`, follow the three generated steps described in **Optional bundle download mode** above. Save the complete successful local download envelope at `outputFile`.
+   - For `downloadMode: range`, execute the single `download_structured_partitions` selector call with dataset, enterprise, dates and optional store filters. For explicitly selected `downloadMode: bundle`, follow the start and resume instructions in **Optional bundle download mode** above. Save the complete successful local download envelope at `outputFile`.
    - Check MCP `isError`; failed downloads stop materialization and never imply empty data. A range extract never requires a server-side preparation request.
 
 8. The current `dish_catalog` coverage envelope reports `rowCount` and `lastUpdatedAt` across the account’s authorized enterprises. Record it as coverage evidence. Reports for a selected enterprise omit catalog-based attribution because the catalog query has no enterprise selector. Weekly reports still show authorized original-item sales with the selected enterprise and store scope. Continue running the generated enterprise-scoped partition jobs.

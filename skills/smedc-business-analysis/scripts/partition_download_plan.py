@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 BUNDLE_RELEASE_GATE = {
-    'minimumPublishedLauncher': '0.8.1',
+    'minimumPublishedLauncher': '0.26.0',
     'requiresMatchingServerEndpoints': True,
     'enabledByDefault': False,
 }
@@ -31,7 +31,7 @@ def extract_download_mode(extract: dict[str, Any]) -> str:
     mode = extract.get('downloadMode', 'range')
     if mode not in {'range', 'bundle'}:
         raise ValueError('downloadMode must be range or bundle')
-    if mode == 'range' and any(step.get('tool') == 'prepare_structured_partition_download' for step in extract.get('steps', [])):
+    if mode == 'range' and any('idempotencyKey' in step.get('input', {}) for step in extract.get('steps', [])):
         raise ValueError('saved bundle plan has no explicit downloadMode; regenerate it with --download-mode bundle or range')
     return mode
 
@@ -101,6 +101,19 @@ def digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
+def bundle_steps(selector: dict[str, Any], request_key: str) -> list[dict[str, Any]]:
+    request = '${downloadState.requestId}'
+    return [
+        {'tool': 'download_structured_partitions',
+         'input': {**selector, 'mode': 'range', 'delivery': 'bundle', 'idempotencyKey': request_key},
+         'when': 'Submit this exact input when no requestId is recorded. Save the complete local envelope if delivered.'},
+        {'tool': 'download_structured_partitions', 'input': {'mode': 'status', 'requestId': request},
+         'when': 'Optional progress-only check using the recorded requestId. Follow retryAfterSeconds while queued/running.'},
+        {'tool': 'download_structured_partitions', 'input': {'mode': 'resume', 'requestId': request},
+         'when': 'Resume delivery using the recorded requestId. Save the complete local envelope at outputFile.'},
+    ]
+
+
 def make_extract(selector: dict[str, Any], scope: str = '', download_mode: str = 'range') -> dict[str, Any]:
     selector = copy.deepcopy(selector)
     names = selector.get('storeNameContains')
@@ -123,18 +136,11 @@ def make_extract(selector: dict[str, Any], scope: str = '', download_mode: str =
         }
     generation = uuid.uuid4().hex
     request_key = digest({'extract': key, 'generation': generation})
-    request = '${prepare.requestId}'
     return {
         'id': extract_id, 'downloadMode': 'bundle', 'preparationGeneration': generation, 'reuseScope': scope, 'tool': 'download_structured_partitions', 'input': selector,
         'outputFile': f'partition-extracts/{extract_id}.json',
         'releaseGate': copy.deepcopy(BUNDLE_RELEASE_GATE),
-        'steps': [
-            {'tool': 'prepare_structured_partition_download', 'input': {**selector, 'idempotencyKey': request_key}},
-            {'tool': 'get_structured_partition_download_status', 'input': {'requestId': request},
-             'wait': 'Follow retryAfterSeconds while queued/running; reject isError/failed/expired.'},
-            {'tool': 'download_structured_partitions', 'input': {'requestId': request},
-             'when': 'Only after status succeeded; save the full local download envelope at outputFile.'},
-        ],
+        'steps': bundle_steps(selector, request_key),
         'downloadState': {'status': 'planned'},
     }
 
@@ -184,6 +190,11 @@ def merge_download_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
             candidate = make_extract(selector, scope, download_mode)
             if old.get('id') == candidate['id']:
                 candidate = copy.deepcopy(old)
+                if download_mode == 'bundle':
+                    # Rebuild saved steps against the current tool while retaining the original request key and state.
+                    request_key = candidate['steps'][0]['input']['idempotencyKey']
+                    candidate['steps'] = bundle_steps(selector, request_key)
+                    candidate['releaseGate'] = copy.deepcopy(BUNDLE_RELEASE_GATE)
             elif old.get('downloadState', {}).get('status') == 'succeeded':
                 candidate['downloadState'] = copy.deepcopy(old['downloadState'])
             prior = group['existing'].get(candidate['id'])
@@ -251,7 +262,7 @@ def replace_failed_extract(plan: dict[str, Any], extract_id: str) -> dict[str, A
     if len(matches) != 1:
         raise ValueError('failed extract must exist exactly once')
     parent = matches[0]
-    if parent.get('downloadState', {}).get('status') not in {'failed', 'expired'}:
+    if parent.get('downloadState', {}).get('status') not in {'failed', 'partial_failed', 'expired'}:
         raise ValueError('only a failed or expired extract may be split')
     if extract_download_mode(parent) == 'bundle' and (parent['downloadState'].get('status') == 'expired' or parent['downloadState'].get('errorCode') == 'PARTITION_DOWNLOAD_STALE'):
         return renew_failed_extract(result, extract_id)
@@ -297,27 +308,60 @@ def verify_local_download(extract: dict[str, Any], response: dict[str, Any]) -> 
             raise ValueError('reused partition row count mismatch')
 
 
+def bundle_failure_state(payload: Any, prior: dict[str, Any]) -> dict[str, Any]:
+    error = payload.get('error') if isinstance(payload, dict) else None
+    code = error.get('code') if isinstance(error, dict) else None
+    returned_id = payload.get('requestId') if isinstance(payload, dict) else None
+    if returned_id is not None and (
+        not isinstance(returned_id, str) or not 1 <= len(returned_id) <= 128
+        or returned_id in {'.', '..'} or any(ord(char) < 32 or ord(char) == 127 for char in returned_id)
+    ):
+        raise ValueError('download error contains an invalid request ID')
+    prior_id = prior.get('requestId')
+    if returned_id and prior_id and returned_id != prior_id:
+        raise ValueError('download error does not match the recorded request')
+    request_id = returned_id or prior_id
+    state = {'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
+    if request_id:
+        state['requestId'] = request_id
+    if code in {'SERVICE_UNAVAILABLE', 'SMEDC_API_ERROR', 'MCP_REQUEST_TIMEOUT', 'MCP_TRANSFER_TIMEOUT'}:
+        previous_status = prior.get('status')
+        state['status'] = (
+            previous_status if previous_status in {'queued', 'running', 'ready'}
+            else 'running' if request_id else 'planned'
+        )
+        state.update({key: prior[key] for key in ('retryAfterSeconds', 'expiresAt') if key in prior})
+    else:
+        state['status'] = 'expired' if code == 'PARTITION_DOWNLOAD_EXPIRED' else 'failed'
+    return state
+
+
 def record_download_result(index: dict[str, Any], extract_id: str, response: dict[str, Any]) -> None:
     from assemble_query_bundle import is_error_envelope, unwrap_success_envelope
     extract = next(item for item in index['extracts'] if item['id'] == extract_id)
     try:
         payload = unwrap_success_envelope(response)
-        if is_error_envelope(response) or is_error_envelope(payload):
-            code = payload.get('error', {}).get('code') if isinstance(payload, dict) and isinstance(payload.get('error'), dict) else None
-            payload = {'status': 'expired' if code == 'PARTITION_DOWNLOAD_EXPIRED' else 'failed',
-                       'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
-        if not isinstance(payload, dict):
-            raise ValueError('download result must be an object')
     except ValueError:
-        payload = {'status': 'failed', 'errorCode': 'MCP_ERROR'}
+        payload = {'error': {'code': 'MCP_ERROR'}}
+    if is_error_envelope(response) or is_error_envelope(payload):
+        if extract_download_mode(extract) == 'bundle':
+            extract['downloadState'] = bundle_failure_state(payload, extract.get('downloadState', {}))
+            sync_reports(index)
+            return
+        error = payload.get('error') if isinstance(payload, dict) else None
+        code = error.get('code') if isinstance(error, dict) else None
+        payload = {'status': 'failed', 'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
+    if not isinstance(payload, dict):
+        raise ValueError('download result must be an object')
     status = payload.get('status')
-    if status is None and 'localDirectory' in payload:
+    if status in {None, 'succeeded', 'empty'} and 'localDirectory' in payload:
         verify_local_download(extract, payload)
         state = {'status': 'succeeded', 'localDirectory': payload['localDirectory'], 'response': payload}
-    elif extract_download_mode(extract) == 'bundle' and status in {'queued', 'running', 'succeeded', 'failed', 'expired'}:
-        # Packaging succeeded does not mean a verified local directory exists yet.
+    elif extract_download_mode(extract) == 'bundle' and status in {'queued', 'running', 'succeeded', 'empty', 'failed', 'partial_failed', 'expired'}:
         state = {key: payload[key] for key in ('requestId', 'retryAfterSeconds', 'errorCode', 'expiresAt') if key in payload}
-        state['status'] = 'ready' if status == 'succeeded' else status
+        if status in {'queued', 'running', 'succeeded', 'empty'} and not state.get('requestId'):
+            raise ValueError('bundle progress must identify the request to resume')
+        state['status'] = 'ready' if status in {'succeeded', 'empty'} else status
     elif status == 'failed':
         state = {'status': 'failed', 'errorCode': payload.get('errorCode', 'MCP_ERROR')}
     else:
