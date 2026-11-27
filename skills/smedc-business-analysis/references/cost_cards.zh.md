@@ -11,14 +11,15 @@
    不一定可读。来源原件另有读取权，原件归档不使有效卡消失。
 2. 用 `query_structured_dataset({"dataset":"cost_cards"})` 按目录找卡、翻页。
    服务自动选择 detail 模式，`mode` 不是请求参数。
-   可按企业、来源、SPU／SKU、菜名、规格、分类、售价等公开标量筛选，不能向服务端发送
-   物品、配方、单位、门店明细筛选或聚合。售价筛选／输出是精确十进制字符串或 null，
+   可按企业、来源、SPU／SKU、菜名、规格、分类、售价等目录字段筛选。目录公布
+   `store_name` 时支持精确门店筛选。物品、配方、单位和原始适用门店列表从 CSV 读取。售价筛选／输出是精确十进制字符串或 null，
    revision 是字符串。名称 contains 是字面子串，不做同义词或模糊身份推断。
-   身份是组织＋企业＋来源＋SPU＋SKU，单个 SKU 或菜名不唯一。同名多规格、同 SKU 不同
-   SPU 保留所有候选；关联销售时遵守 [名称关联优先级](dish_name_association.zh.md)，
+   门店感知目录以组织＋企业＋来源＋SPU＋SKU＋适用门店识别成本卡。空门店包含通用卡及历史未分店卡，
+   旧服务仍按未分店的身份返回。保留同名多规格及不同门店候选。关联销售时遵守 [名称关联优先级](dish_name_association.zh.md)，
    记录使用的销售名称列，不能任取一张卡或把两列同时连接而重复计算销售。
 3. 选择准确的卡 ID 或目录条件，通过 `download_cost_cards` 下载。字段之间 AND、数组
-   内 OR，显式 IDs 必须全部可读有效；没有日期／门店选择器。只消费 launcher 成功返回的
+   内 OR，显式 IDs 必须全部可读有效。门店先在目录筛选，再按 ID 下载。旧 launcher
+   分次下载同一企业、来源、SPU／SKU 下的多张门店卡。只消费 launcher 成功返回的
    本地文件与去链接 manifest，不把 CSV 正文、base64、签名 URL 装进上下文。
    每卡独立文件按卡 ID 命名，同名不覆盖；失败不当成空结果或部分成功。
 4. 读取该次 manifest，按卡保留 `costCardId`、`revision`、`sourceDocumentId`、
