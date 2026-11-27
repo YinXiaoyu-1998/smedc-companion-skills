@@ -43,9 +43,11 @@ class LedgerSkillContractTests(unittest.TestCase):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("download_ledger_pdf_bundle", text)
         self.assertIn("localDirectory", text)
-        self.assertIn("no extra restriction", text)
-        self.assertIn("Return the fresh short link", text)
-        self.assertIn("Do not fetch or extract the ZIP from the link.", text)
+        self.assertIn('delivery: "local"', text)
+        self.assertIn('delivery: "link"', text)
+        self.assertIn('mode: "status", requestId', text)
+        self.assertIn('mode: "resume", requestId, delivery', text)
+        self.assertIn("Do not fetch or extract the ZIP from that link.", text)
 
     def test_upload_completion_waits_for_service_daily_generation(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")

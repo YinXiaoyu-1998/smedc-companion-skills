@@ -1088,6 +1088,16 @@
       throw new Error("Invalid central job history response");
     return response;
   }
+  async function queryImportReceipt(jobRef) {
+    const { kind, id } = jobRef ?? {};
+    if (!["row_import", "partition_import"].includes(kind) || typeof id !== "string" || !id)
+      throw new Error("Typed import job reference required");
+    const response = await mcp("query_jobs", { query: { mode: "import_receipt", jobRef: { kind, id } } });
+    const status = kind === "row_import" ? response?.importBatch?.status : response?.status;
+    if (response?.jobRef?.kind !== kind || response.jobRef.id !== id || typeof status !== "string")
+      throw new Error("Import receipt did not match the job reference");
+    return response;
+  }
   function linkedUploadArgs(session, intent, input) {
     if (intent.identity?.kind !== "upload" || intent.identity.dataset !== input.dataset || !intent.actionId)
       throw new Error("Claimed upload identity required");
@@ -2161,6 +2171,7 @@
     claim,
     record,
     queryJobHistory,
+    queryImportReceipt,
     linkedUploadArgs,
     findUploadJob,
     syncJobHistory,

@@ -51,9 +51,9 @@ Window: previous complete business day. Only the datasets enabled in
   source store before upload. Never rewrite store names from a mapping.
 - Upload only through the core skill's contract; only `published`/`applied`
   receipts permit confirmation and per-file cleanup. Receipt-ledger mappings
-  (naturalKey / importBatchId / actionId) are retained outside the cleanup set.
-- Bind uploads to the claimed central action with `workflowAction` and read
-  the result through `query_jobs` in action mode after a lost response or receipt
+  (naturalKey / jobRef / actionId) are retained outside the cleanup set.
+- Bind uploads to the claimed central action with `workflowAction`. Save the returned `jobRef`
+  and check `query_jobs` in `import_receipt` mode. Use action mode after a lost response or receipt
   conflict. An applied receipt on the verified conflict link can be skipped.
   Preserve rejected upload receipts and record the terminal outcomes centrally.
 - Zero-result is recorded as `observed_zero` with evidence; it is distinct from

@@ -98,7 +98,7 @@ class InspectionSkillContractTests(unittest.TestCase):
         template = self.template
         self.assertIn(f"({self.reference})", self.entrypoint)
         patch = next(command for command in self.commands if command.get("action") == "patch")
-        upload = next(payload for payload in self.payloads if "filePath" in payload)
+        upload = next(command for command in self.commands if command["action"] == "stage_photo")
         day_page = next(payload for payload in self.payloads if "items" in payload)
         sheet = next(item for item in day_page["items"] if item.get("kind") == "sheet")
         self.assertEqual(upload["enterpriseKey"], template["enterpriseKey"])
@@ -119,7 +119,10 @@ class InspectionSkillContractTests(unittest.TestCase):
         score = components[fill["componentId"]]
         self.assertEqual(score["kind"], "score")
         self.assertLessEqual(score["minTenths"], fill["value"], score["maxTenths"])
-        self.assertEqual(attach["op"], "appendPhotos")
+        self.assertEqual(attach["op"], "appendLocalPhotos")
+        self.assertIsInstance(attach["expectedComponentRevision"], int)
+        self.assertTrue(PurePosixPath(attach["photos"][0]["filePath"]).is_absolute())
+        self.assertNotEqual(attach["photos"][0]["requestId"], upload["requestId"])
         self.assertEqual(components[attach["componentId"]]["kind"], "photo")
 
 

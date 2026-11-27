@@ -23,12 +23,11 @@ This archive workflow also requires service archive delivery enabled.
 
 If the core Skill is missing, stop before ledger/photo access, identify
 <https://github.com/YinXiaoyu-1998/smedc-mcp-skill>, and install only with employee authorization.
-Never install another companion automatically. Discover the tools needed for the requested
-delivery mode. Local delivery uses `download_ledger_pdf_bundle` on the verified launcher 0.20.0+
-with matching service support. For a clickable download, use `get_ledger_pdf_download_url` and
-give the link to the employee to open. If archive delivery is disabled, report the blocker.
-Original uploads and photo operations may proceed through their approved tools when independently
-requested.
+Never install another companion automatically. Before using the cutover workflow, verify the
+approved launcher and matching service expose the required branches. Use
+`download_ledger_pdf_bundle` for local files or an employee ZIP link. If archive delivery is
+disabled, report the blocker. Original uploads and photo operations may proceed through their
+approved tools when independently requested.
 Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and error semantics.
 
 ## Boundaries
@@ -45,7 +44,7 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
 - Do not overwrite or edit existing receipts. `RECEIPT_ID_CONFLICT` stays a conflict; explain it
   without changing receipt IDs, reshaping input, deleting old data, or treating it as an update.
 - Raw `delivery_ledger` detail, aggregates, source coverage and original CSV/XLSX signing are
-  disabled for all roles. Use `get_import_status` to confirm your upload and
+  disabled for all roles. Use the `query_jobs` `import_receipt` branch to confirm your upload and
   `describe_ledger_pdf_coverage` for authorized PDF readiness; do not query raw ledger coverage
   or try old aggregate selectors. Other datasets are unaffected.
 - Ordinary supplier-catalog updates do not trigger historical PDF refresh. Internal operator
@@ -63,8 +62,8 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
    stable `idempotencyKey`, and only an explicit user-specified `confidentialityLevel` (otherwise
    omit it). Prefer path upload. Do not send date bounds or snapshotDate, normalize receipt data,
    or convert photos into a table.
-2. HTTP **202** is accepted, not applied. Keep `importBatchId` and poll `get_import_status` until
-   `importBatch.status=applied`. Never treat queued/pending/rejected/failed as success. An applied
+2. Keep the returned `jobRef` and call `query_jobs({query: {mode: "import_receipt", jobRef}})`
+   until `importBatch.status=applied`. Treat acceptance and other pending states as processing. An applied
    import returns `affectedLedgerPartitions` (also in its applied `importBatch`); collect those
    server facts only after actual application. Replays may return the same facts; deduplicate them.
 3. For user-requested photo changes, upload each JPG/JPEG/PNG with
@@ -90,19 +89,18 @@ Read the core Skill's `references/ledger-pdf-tools.md` for strict inputs and err
    automatic updates. Do not claim an old PDF contains new receipts/photos or repeatedly prepare
    ZIPs to force rendering. Recheck coverage when the user returns; do not keep an agent
    polling overnight or set up reminders unless the user asks.
-6. Once the requested scope is ready, call `prepare_ledger_pdf_download` with `storeNames`, the exact
-   date selection, and a stable operation-specific `idempotencyKey`. It packages existing ready PDFs
-   only and never renders/repairs PDFs. Poll `get_ledger_pdf_request_status` while queued/running,
-   read all partition pages via `nextCursor`, and inspect the terminal result before claiming success.
-7. For local files, call `download_ledger_pdf_bundle` with `requestId`. The launcher downloads,
-   verifies and extracts the ZIP, and returns `localDirectory`, `fileCount` and relative paths.
-   Deliver the extracted PDFs; employees can open, forward, quote, or further process them, with
-   no extra restriction. For large batches or size/timeout errors, suggest narrowing the scope.
-8. If the employee wants a link or local delivery is unavailable, call
-   `get_ledger_pdf_download_url` with `requestId`. Return the fresh short link, its expiry, and
-   the covered scope for the employee to open. Do not fetch or extract the ZIP from the link.
-   The link lasts up to **15 minutes**; the ZIP is retained **24 hours**. Request a fresh link
-   if only the signature expired; if the ZIP expired, prepare again with a new key.
+6. Call `download_ledger_pdf_bundle` with `mode: "range"`, the exact `storeNames` and date
+   selection, and a stable `idempotencyKey`. Choose `delivery: "local"` for local files or
+   `delivery: "link"` for an employee ZIP link. The range call packages existing ready PDFs.
+7. For `queued` or `running`, retain `requestId` and follow `retryAfterSeconds`. For a progress
+   check, send `{mode: "status", requestId}`. To continue delivery, send
+   `{mode: "resume", requestId, delivery}`. Inspect the authorized partition outcomes before
+   claiming success.
+8. Deliver the verified files identified by `localDirectory`, `fileCount` and relative paths, or
+   give the employee the returned `downloadUrl`, expiry and scope. The employee opens the link.
+   Do not fetch or extract the ZIP from that link. The link lasts up to **15 minutes** and the ZIP
+   is retained **24 hours**. Resume with `delivery: "link"` for a fresh signature. If the ZIP
+   expired, start a new range request with a new key.
 
 Automatic PDF updates are the normal workflow after uploads and photo changes.
 Internal operator CLI backfill/recovery belongs to service operations, not this employee Skill.
@@ -113,15 +111,13 @@ Dates must be real `YYYY-MM-DD` calendar dates (years 1000–9999). Choose exact
 `dates` or inclusive `startDate`/`endDate`; ranges must be ordered. Each call accepts at most
 **50 stores**, **366 dates**, and **5,000 actual partitions** enforced by the server. Use bounded
 chunks when necessary, preserving each store's actual date set; do not broaden scope to fill a
-limit. Only coverage may omit stores. Cursors are opaque continuations used with the same scope or
-request. Inputs are flat strict objects; do not send organization IDs, force/renderer flags,
+limit. Only coverage may omit stores. Coverage cursors are opaque continuations used with the same scope. Inputs are flat strict objects; do not send organization IDs, force/renderer flags,
 local paths, binary data, or base64 to PDF tools. Reuse a key only for the same operation/scope;
 changed scope or new preparation after terminal failure needs a new key.
 
-- `partial_failed`: inspect every returned partition page and report exact visible successful and
-  failed scopes. Do not label the whole request complete; recheck coverage before preparing again
-  with a new key. Any partial deliverable must be explicitly described.
-- `failed`: report the safe error and affected visible scope; never substitute an old/local PDF.
+- `partial_failed`: report the exact visible successful and failed scopes from the returned
+  partitions. Recheck coverage before starting a new range request with a new key.
+- `failed` or `expired`: report the safe error and affected visible scope.
 - `superseded` partition: report that the request was replaced; recheck current coverage before
   preparing another ZIP. Never count it as success, guess another request ID, or trigger generation.
 - `empty` partition: no ledger PDF exists for that day; do not generate an empty document.

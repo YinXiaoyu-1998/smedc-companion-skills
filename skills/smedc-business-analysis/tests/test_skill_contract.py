@@ -34,7 +34,7 @@ class SkillContractTests(unittest.TestCase):
             "describe_structured_dataset_coverage",
             "download_structured_partitions",
             "query_structured_dataset",
-            "get_partition_import_status",
+            "query_jobs",
         ]
         for tool_name in required_tools:
             with self.subTest(tool=tool_name):

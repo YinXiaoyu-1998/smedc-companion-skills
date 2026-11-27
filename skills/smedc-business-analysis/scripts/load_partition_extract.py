@@ -324,7 +324,7 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         if not isinstance(extract_spec, dict) or extract_spec.get("tool") != "download_structured_partitions":
             raise ExtractError("manifest contains a malformed partition extract")
         state = extract_spec.get("downloadState", {}).get("status")
-        if ("sharedDownload" in manifest and state != "succeeded") or state in {"failed", "expired", "queued", "running", "ready"}:
+        if ("sharedDownload" in manifest and state != "succeeded") or state in {"failed", "partial_failed", "expired", "queued", "running", "ready"}:
             raise ExtractError(f"extract {extract_spec['id']} is not a successful local download")
         if "storeNameContains" in extract_spec["input"] and (not set(extract_spec["input"]["storeNameContains"]).issubset(set(store_names)) if store_names else set(extract_spec["input"]["storeNameContains"]) != set(store_name_contains)):
             raise ExtractError("extract storeNameContains differs from report scope")
@@ -332,7 +332,7 @@ def materialize(manifest: dict[str, Any], registry_response: dict[str, Any], res
         saved_response = extract_spec.get("downloadState", {}).get("response") if state == "succeeded" else None
         raw_response = saved_response if saved_response is not None else load_json(response_path, "saved partition download response")
         response = require_object(unwrap_success_envelope(raw_response), "partition download response")
-        if is_error_envelope(raw_response) or is_error_envelope(response) or response.get("status") in {"failed", "expired", "queued", "running"}:
+        if is_error_envelope(raw_response) or is_error_envelope(response) or response.get("status") in {"failed", "partial_failed", "expired", "queued", "running"}:
             raise ExtractError("partition download failed or is not complete")
         directory, files = validate_download(extract_spec, response)
         if directory in seen_directories:
