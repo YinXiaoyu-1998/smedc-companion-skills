@@ -246,6 +246,34 @@ class DownloadPlanTests(unittest.TestCase):
         self.assertEqual(upgraded['steps'][0]['input']['idempotencyKey'], key)
         self.assertEqual(upgraded['steps'][2]['input']['mode'], 'resume')
 
+    def test_resumes_the_same_bundle_after_transport_error(self):
+        shared = planner.merge_download_plans([plan(mode='bundle')])
+        item = shared['extracts'][0]
+        key = item['steps'][0]['input']['idempotencyKey']
+
+        def record_error(code, request_id=None):
+            payload = {'error': {'code': code}}
+            if request_id:
+                payload['requestId'] = request_id
+            planner.record_download_result(shared, item['id'], {
+                'isError': True, 'content': [{'type': 'text', 'text': json.dumps(payload)}]
+            })
+
+        record_error('SERVICE_UNAVAILABLE')
+        self.assertEqual(item['downloadState']['status'], 'planned')
+        self.assertEqual(item['steps'][0]['input']['idempotencyKey'], key)
+        record_error('SERVICE_UNAVAILABLE', 'req_accepted')
+        self.assertEqual(item['downloadState'], {
+            'status': 'running', 'requestId': 'req_accepted', 'errorCode': 'SERVICE_UNAVAILABLE'
+        })
+        record_error('SERVICE_UNAVAILABLE')
+        self.assertEqual(item['downloadState']['requestId'], 'req_accepted')
+        with self.assertRaisesRegex(ValueError, 'does not match'):
+            record_error('SERVICE_UNAVAILABLE', 'different_request')
+        record_error('PARTITION_DOWNLOAD_FORBIDDEN')
+        self.assertEqual(item['downloadState']['status'], 'failed')
+        self.assertEqual(item['downloadState']['requestId'], 'req_accepted')
+
     def test_distinguishes_status_only_empty_from_delivered_empty(self):
         shared = planner.merge_download_plans([plan(mode='bundle')])
         extract = shared['extracts'][0]

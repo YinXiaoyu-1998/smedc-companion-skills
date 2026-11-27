@@ -308,19 +308,51 @@ def verify_local_download(extract: dict[str, Any], response: dict[str, Any]) -> 
             raise ValueError('reused partition row count mismatch')
 
 
+def bundle_failure_state(payload: Any, prior: dict[str, Any]) -> dict[str, Any]:
+    error = payload.get('error') if isinstance(payload, dict) else None
+    code = error.get('code') if isinstance(error, dict) else None
+    returned_id = payload.get('requestId') if isinstance(payload, dict) else None
+    if returned_id is not None and (
+        not isinstance(returned_id, str) or not 1 <= len(returned_id) <= 128
+        or returned_id in {'.', '..'} or any(ord(char) < 32 or ord(char) == 127 for char in returned_id)
+    ):
+        raise ValueError('download error contains an invalid request ID')
+    prior_id = prior.get('requestId')
+    if returned_id and prior_id and returned_id != prior_id:
+        raise ValueError('download error does not match the recorded request')
+    request_id = returned_id or prior_id
+    state = {'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
+    if request_id:
+        state['requestId'] = request_id
+    if code in {'SERVICE_UNAVAILABLE', 'SMEDC_API_ERROR', 'MCP_REQUEST_TIMEOUT', 'MCP_TRANSFER_TIMEOUT'}:
+        previous_status = prior.get('status')
+        state['status'] = (
+            previous_status if previous_status in {'queued', 'running', 'ready'}
+            else 'running' if request_id else 'planned'
+        )
+        state.update({key: prior[key] for key in ('retryAfterSeconds', 'expiresAt') if key in prior})
+    else:
+        state['status'] = 'expired' if code == 'PARTITION_DOWNLOAD_EXPIRED' else 'failed'
+    return state
+
+
 def record_download_result(index: dict[str, Any], extract_id: str, response: dict[str, Any]) -> None:
     from assemble_query_bundle import is_error_envelope, unwrap_success_envelope
     extract = next(item for item in index['extracts'] if item['id'] == extract_id)
     try:
         payload = unwrap_success_envelope(response)
-        if is_error_envelope(response) or is_error_envelope(payload):
-            code = payload.get('error', {}).get('code') if isinstance(payload, dict) and isinstance(payload.get('error'), dict) else None
-            payload = {'status': 'expired' if code == 'PARTITION_DOWNLOAD_EXPIRED' else 'failed',
-                       'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
-        if not isinstance(payload, dict):
-            raise ValueError('download result must be an object')
     except ValueError:
-        payload = {'status': 'failed', 'errorCode': 'MCP_ERROR'}
+        payload = {'error': {'code': 'MCP_ERROR'}}
+    if is_error_envelope(response) or is_error_envelope(payload):
+        if extract_download_mode(extract) == 'bundle':
+            extract['downloadState'] = bundle_failure_state(payload, extract.get('downloadState', {}))
+            sync_reports(index)
+            return
+        error = payload.get('error') if isinstance(payload, dict) else None
+        code = error.get('code') if isinstance(error, dict) else None
+        payload = {'status': 'failed', 'errorCode': code if isinstance(code, str) else 'MCP_ERROR'}
+    if not isinstance(payload, dict):
+        raise ValueError('download result must be an object')
     status = payload.get('status')
     if status in {None, 'succeeded', 'empty'} and 'localDirectory' in payload:
         verify_local_download(extract, payload)
